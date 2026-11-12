@@ -4,6 +4,7 @@
 //                         [--steps steps.json] [--headed] [--dir .verify]
 // A steps file is a JSON array of steps, run in order:
 //   {"wait": 500}                          pause (ms)
+//   {"waitFor": "js expression", "timeout": 15000}   wait until the expression is truthy in the page
 //   {"down": "KeyW"} / {"up": "KeyW"}       hold / release a key (KeyboardEvent.code names)
 //   {"press": "KeyE"}                      tap a key
 //   {"hold": "KeyD", "ms": 400}             hold a key for a duration
@@ -13,6 +14,7 @@
 //   {"eval": "window.__snapline.debug()"}  run script in the page; the result is printed
 //   {"shot": "name"}                        save a screenshot as <dir>/<name>.png
 //   {"shot": "name", "clip": [x, y, w, h]}  save only that region (CSS pixels); use --dsf 3 for close-ups
+//   {"shot": "name", "around": "js expr -> [x, y]", "size": [w, h]}   clip centred on a point computed in the page
 // Exit code is 1 if the page threw an uncaught error or logged console.error.
 import { chromium } from 'playwright-core';
 import { mkdirSync, readFileSync } from 'node:fs';
@@ -71,6 +73,14 @@ if (stepsPath && stepsPath !== true) {
   const steps = JSON.parse(readFileSync(String(stepsPath), 'utf8'));
   for (const s of steps) {
     if (s.wait !== undefined) await page.waitForTimeout(s.wait);
+    else if (s.waitFor) {
+      // poll a page expression every frame until it is truthy
+      const ok = await page
+        .waitForFunction(s.waitFor, undefined, { timeout: s.timeout ?? 15000, polling: 'raf' })
+        .then(() => true)
+        .catch(() => false);
+      if (!ok) console.log(`[waitFor timed out] ${s.waitFor}`);
+    }
     else if (s.down) await page.keyboard.down(s.down);
     else if (s.up) await page.keyboard.up(s.up);
     else if (s.press) await page.keyboard.press(s.press);
@@ -87,7 +97,16 @@ if (stepsPath && stepsPath !== true) {
     else if (s.mdown) await page.mouse.down({ button: s.mdown });
     else if (s.mup) await page.mouse.up({ button: s.mup });
     else if (s.eval) console.log(`[eval] ${JSON.stringify(await page.evaluate(s.eval))}`);
-    else if (s.shot) await shot(s.shot, s.clip);
+    else if (s.shot) {
+      let clip = s.clip;
+      if (s.around) {
+        // centre the clip on a point computed in the page, e.g. an entity's screen position
+        const c = await page.evaluate(s.around);
+        const [cw, ch] = s.size ?? [360, 280];
+        if (Array.isArray(c)) clip = [Math.max(0, Math.min(w - cw, c[0] - cw / 2)), Math.max(0, Math.min(h - ch, c[1] - ch / 2)), cw, ch];
+      }
+      await shot(s.shot, clip);
+    }
   }
 } else {
   await shot(out);

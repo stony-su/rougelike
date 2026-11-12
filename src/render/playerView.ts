@@ -3,9 +3,10 @@ import { Graphics, GraphicsContext } from 'pixi.js';
 import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { damp, lerp } from '../core/math';
 import { DASH, PLAYER } from '../sim/tuning';
+import type { PlayerState } from '../sim/types';
 import type { SimEvent, World } from '../sim/types';
 import type { Sortable } from './depth';
-import { CHALK, HERO } from './palette';
+import { CHALK, DANGER_HOT, HERO } from './palette';
 import { animInput } from './rig/def';
 import { CHAINMAN, chainmanAnimator } from './rig/chainman';
 import { RigView } from './rig/view';
@@ -32,9 +33,15 @@ export class PlayerView {
   private ghostTimer = 0;
   private ghostsLeft = 0;
   private squash = 0;
+  /** A short gesture played over idle or run: planting a stake, hauling one in. */
+  private gesture: { state: 'plant' | 'whip'; t: number; dur: number } | null = null;
+  private lastState: PlayerState = 'idle';
   /** Interpolated world position this frame. */
   x = 0;
   y = 0;
+  /** The tip of the rod in camera-space pixels: the Plumb Shot's cord starts here. */
+  handX = 0;
+  handY = 0;
 
   constructor(private readonly stage: Stage) {
     this.sort = stage.depth.add(this.rig.root, 0, 0);
@@ -73,6 +80,15 @@ export class PlayerView {
     }
   }
 
+  /** Play a short gesture over idle or run. */
+  playGesture(state: 'plant' | 'whip', dur: number): void {
+    this.gesture = { state, t: 0, dur };
+  }
+
+  get state(): PlayerState {
+    return this.lastState;
+  }
+
   handle(ev: SimEvent): void {
     if (ev.type === 'dash') {
       this.ghostsLeft = GHOSTS;
@@ -80,6 +96,8 @@ export class PlayerView {
       this.squash = 1;
     } else if (ev.type === 'dashEnd') {
       this.squash = -0.6;
+    } else if (ev.type === 'playerHurt') {
+      this.squash = -0.8;
     }
   }
 
@@ -101,6 +119,9 @@ export class PlayerView {
     if (p.state === 'dash') {
       fx = p.dashDirX;
       fy = p.dashDirY;
+    } else if (p.state === 'swing' || p.state === 'shot') {
+      fx = Math.cos(p.actAngle);
+      fy = Math.sin(p.actAngle);
     }
     const scrX = (fx - fy) * ISO_COS;
     const scrY = (fx + fy) * ISO_SIN;
@@ -111,20 +132,67 @@ export class PlayerView {
 
     // Animation input
     const a = this.anim;
-    a.state = p.state;
-    a.t = p.stateTime;
+    const speed = Math.hypot(p.vx, p.vy);
+    const mvScrX = (p.vx - p.vy) * ISO_COS;
     a.time = time;
     a.stride = p.stride;
-    const speed = Math.hypot(p.vx, p.vy);
     a.speed = speed / PLAYER.speed;
-    const mvScrX = (p.vx - p.vy) * ISO_COS;
     a.forward = mvScrX * this.facing >= -0.2 ? 1 : -1;
     a.aim = Math.atan2(scrY, scrX * this.facing);
     a.away = this.away;
-    a.phase = p.state === 'dash' ? Math.min(1, p.stateTime / DASH.time) : 0;
+    a.variant = 0;
+    if (this.gesture) {
+      this.gesture.t += dt;
+      if (this.gesture.t >= this.gesture.dur || p.state === 'swing' || p.state === 'shot' || p.state === 'dash' || p.state === 'dead') this.gesture = null;
+    }
+    const flinching = p.hurtT < 0.22 && (p.state === 'idle' || p.state === 'run');
+    if (p.state === 'dead') {
+      a.state = 'dead';
+      a.t = p.stateTime;
+      a.phase = Math.min(1, p.stateTime / 0.7);
+    } else if (flinching) {
+      a.state = 'hurt';
+      a.t = p.hurtT;
+      a.phase = Math.min(1, p.hurtT / 0.22);
+    } else if (p.state === 'swing' || p.state === 'shot') {
+      a.state = p.state;
+      a.t = p.stateTime;
+      a.phase = p.actDur > 0 ? Math.min(1, p.stateTime / p.actDur) : 0;
+      a.variant = p.combo;
+    } else if (p.state === 'dash') {
+      a.state = 'dash';
+      a.t = p.stateTime;
+      a.phase = Math.min(1, p.stateTime / DASH.time);
+    } else if (this.gesture) {
+      a.state = this.gesture.state;
+      a.t = this.gesture.t;
+      a.phase = Math.min(1, this.gesture.t / this.gesture.dur);
+    } else {
+      a.state = p.state;
+      a.t = p.stateTime;
+      a.phase = 0;
+    }
+    this.lastState = p.state;
     this.rig.beginPose();
     const rate = chainmanAnimator(this.rig, a);
     this.rig.applyPose(dt, rate);
+
+    // Hurt: a danger-coloured flash, then blink while invulnerable.
+    const hurtFlash = Math.max(0, 1 - p.hurtT / 0.12);
+    this.rig.setFlash(hurtFlash, DANGER_HOT);
+    const blinking = p.state !== 'dead' && p.hurtT < PLAYER.hurtIframes && p.hurtT > 0.12;
+    this.rig.root.alpha = blinking && Math.floor(time * 22) % 2 === 0 ? 0.45 : 1;
+
+    // The tip of the rod, where the cord of the Plumb Shot starts.
+    const rod = this.rig.node('rod');
+    if (rod && this.rig.root.parent) {
+      const lp = this.rig.root.parent.toLocal(rod.toGlobal({ x: 0, y: -62 }));
+      this.handX = lp.x;
+      this.handY = lp.y;
+    } else {
+      this.handX = sx;
+      this.handY = sy - 60;
+    }
 
     // Squash and stretch around the dash: stretch on launch, squash on landing.
     this.squash = damp(this.squash, 0, 12, dt);

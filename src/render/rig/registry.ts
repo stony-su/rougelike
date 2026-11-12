@@ -3,6 +3,8 @@
 // show them.
 import { CHAINMAN, chainmanAnimator } from './chainman';
 import type { Animator, RigDef } from './def';
+import { SMUDGE_RIG, smudgeAnimator } from './smudge';
+import { ENEMY_STATES, PLAYER_STATES } from './states';
 
 export interface RigEntry {
   def: RigDef;
@@ -13,10 +15,6 @@ export interface RigEntry {
   variants: Record<string, number[]>;
 }
 
-/** What the brief asks of the player and of every enemy. */
-export const PLAYER_STATES = ['idle', 'run', 'dash', 'swing', 'shot', 'plant', 'whip', 'hurt', 'dead'] as const;
-export const ENEMY_STATES = ['spawn', 'idle', 'move', 'windup', 'attack', 'recover', 'hurt', 'stun', 'dead'] as const;
-
 export const RIGS: Record<string, RigEntry> = {
   chainman: {
     def: CHAINMAN,
@@ -24,4 +22,16 @@ export const RIGS: Record<string, RigEntry> = {
     required: PLAYER_STATES,
     variants: { swing: [0, 1, 2] },
   },
+  smudge: {
+    def: SMUDGE_RIG,
+    animator: smudgeAnimator,
+    required: ENEMY_STATES,
+    variants: {},
+  },
 };
+
+export function rigEntry(id: string): RigEntry {
+  const r = RIGS[id];
+  if (!r) throw new Error(`Unknown rig: ${id}`);
+  return r;
+}

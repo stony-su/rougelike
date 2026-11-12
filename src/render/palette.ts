@@ -5,7 +5,7 @@
 //   - DANGER belongs to threats: telegraphs, hostile lines, damage taken.
 //   - The environment never draws thin lines in either hue.
 // Anything that needs a colour imports it from here; nothing else hard-codes a hex value.
-import type { ZoneId } from '../content/rooms';
+import type { ZoneId } from '../sim/defs';
 
 export const CHALK = 0xffd75e;
 export const RIPE = 0xfff6d8;

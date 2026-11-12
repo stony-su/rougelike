@@ -1,7 +1,7 @@
 // Rooms: instancing a template into a walkable grid, and collision against it.
 import type { Rng } from '../core/rng';
 import type { Vec2 } from '../core/math';
-import type { RoomTemplate } from '../content/rooms';
+import type { RoomTemplate } from './defs';
 import type { DoorSlot, Pillar, Room } from './types';
 
 export const PILLAR_RADIUS = 0.42;

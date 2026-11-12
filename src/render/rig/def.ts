@@ -148,6 +148,28 @@ export function rrect(x: number, y: number, w: number, h: number, r: number, ste
   return pts;
 }
 
+/**
+ * Round off a closed outline by corner cutting (Chaikin). A handful of control points becomes
+ * a smooth organic shape, built once.
+ */
+export function smooth(pts: readonly number[], iterations = 2): number[] {
+  let cur = pts.slice();
+  for (let it = 0; it < iterations; it++) {
+    const n = cur.length / 2;
+    const next: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const ax = cur[i * 2];
+      const ay = cur[i * 2 + 1];
+      const bx = cur[j * 2];
+      const by = cur[j * 2 + 1];
+      next.push(ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25, ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75);
+    }
+    cur = next;
+  }
+  return cur;
+}
+
 function signedArea(pts: readonly number[]): number {
   let a = 0;
   const n = pts.length / 2;

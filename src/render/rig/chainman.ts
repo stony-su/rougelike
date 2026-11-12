@@ -72,13 +72,13 @@ const parts: PartDef[] = [
     y: -3,
     z: 1,
     shapes: [
-      ...block([-13, 0, 13, 0, 18, 25, 6, 27, 1, 24, -4, 27, -17, 25], {
+      ...block([-13, 0, 13, 0, 17.5, 17, 6, 19.5, 1, 16.5, -4, 19.5, -16.5, 17], {
         fill: 'coat',
         shade: 'coatShade',
         hatch: 'dark',
         shadeFrom: 0.4,
       }),
-      stroke([1, 3, 1, 23], 1.2, 'dark', 0.45),
+      stroke([1, 3, 1, 15.5], 1.2, 'dark', 0.45),
     ],
   },
   {
@@ -273,20 +273,39 @@ function swing(p: PoseWriter, a: AnimInput): void {
 }
 
 function shot(p: PoseWriter, a: AnimInput): void {
-  // Underarm cast of the plumb bob with the far hand; the rod is planted like a staff.
+  // The plumb bob is cast off the tip of the rod like a fishing line:
+  // the rod goes back over the shoulder, snaps forward along the aim, and holds.
   const t = a.phase;
-  const wind = t < 0.35 ? t / 0.35 : 1;
-  const rel = t < 0.35 ? 0 : Math.min(1, (t - 0.35) / 0.25);
-  const settle = t < 0.6 ? 0 : (t - 0.6) / 0.4;
+  const wEnd = 0.4;
+  const rEnd = 0.66;
+  let armAngle: number;
+  let lean: number;
+  if (t < wEnd) {
+    const e = 1 - (1 - t / wEnd) * (1 - t / wEnd);
+    armAngle = a.aim - 2.3 * e;
+    lean = -0.2 * e;
+  } else if (t < rEnd) {
+    const k = (t - wEnd) / (rEnd - wEnd);
+    armAngle = a.aim - 2.3 + 2.55 * k;
+    lean = -0.2 + 0.5 * k;
+  } else {
+    const k = (t - rEnd) / (1 - rEnd);
+    armAngle = a.aim + 0.25 * (1 - k * 0.6);
+    lean = 0.3 * (1 - k * 0.7);
+  }
   const torso = p.part('torso');
-  torso.rot = -0.12 * wind + 0.3 * rel - 0.18 * settle * rel;
-  p.part('armFar').rot = armTo(a.aim) + 1.6 * (1 - rel) * wind - torso.rot + (1 - wind) * 1.3;
-  p.part('armNear').rot = -0.35;
-  p.part('rod').rot = 0.3;
-  p.part('hips').y = 2 * wind - 1.5 * rel;
-  p.part('legNear').rot = -0.25 * rel;
-  p.part('legFar').rot = 0.3 * rel;
-  p.part('head').rot = -0.06 * rel;
+  torso.rot = lean;
+  torso.x = lean * 8;
+  p.part('hips').y = 2 + Math.abs(lean) * 4;
+  p.part('hips').x = lean * 6;
+  p.part('head').rot = -lean * 0.4;
+  p.part('armNear').rot = armTo(armAngle) - torso.rot;
+  p.part('rod').rot = Math.PI;
+  p.part('rod').y = -6;
+  p.part('armFar').rot = 0.6 - lean * 2;
+  p.part('legNear').rot = -0.3 - lean * 0.6;
+  p.part('legFar').rot = 0.35 + lean * 0.6;
+  p.part('skirt').rot = -lean * 0.6;
 }
 
 function plant(p: PoseWriter, a: AnimInput): void {

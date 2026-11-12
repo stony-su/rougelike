@@ -1,19 +1,49 @@
 // The world step: one fixed tick of the whole simulation.
 import { Rng } from '../core/rng';
+import { sweepDead, stepEnemies } from './ai';
+import type { ContentRegistry } from './defs';
 import { bufferInput, createPlayer, stepPlayer } from './player';
+import { stepProjectiles } from './projectiles';
+import { stepTelegraphs } from './telegraphs';
 import { DT } from './tuning';
 import type { InputFrame, Room, World } from './types';
 
-export function createWorld(room: Room, seed: number | string): World {
+export interface WorldOptions {
+  /** 1-based sheet number; scales enemy health and damage. */
+  sheet?: number;
+}
+
+export function createWorld(room: Room, seed: number | string, _content: ContentRegistry, o: WorldOptions = {}): World {
   return {
     tick: 0,
     time: 0,
     rng: new Rng(seed),
     room,
     player: createPlayer(room.start.x, room.start.y),
+    enemies: [],
+    projectiles: [],
+    telegraphs: [],
     events: [],
     hitstop: 0,
+    nextId: 1,
+    sheet: o.sheet ?? 1,
+    stats: { kills: 0, damageDealt: 0, damageTaken: 0, rodDamage: 0, lineDamage: 0 },
   };
+}
+
+/** During a freeze nothing moves, so previous positions must equal current ones or interpolation would drift. */
+function holdPositions(w: World): void {
+  const p = w.player;
+  p.px = p.x;
+  p.py = p.y;
+  for (const e of w.enemies) {
+    e.px = e.x;
+    e.py = e.y;
+  }
+  for (const pr of w.projectiles) {
+    pr.px = pr.x;
+    pr.py = pr.y;
+  }
 }
 
 /** Advance the world by exactly one tick (DT seconds). */
@@ -21,12 +51,14 @@ export function stepWorld(w: World, inp: InputFrame): void {
   w.tick++;
   bufferInput(w.player, inp);
   if (w.hitstop > 0) {
-    // Frozen: positions hold, so interpolation must not drift.
     w.hitstop = Math.max(0, w.hitstop - DT);
-    w.player.px = w.player.x;
-    w.player.py = w.player.y;
+    holdPositions(w);
     return;
   }
   w.time += DT;
   stepPlayer(w, inp, DT);
+  stepEnemies(w, DT);
+  stepProjectiles(w, DT);
+  stepTelegraphs(w, DT);
+  sweepDead(w);
 }

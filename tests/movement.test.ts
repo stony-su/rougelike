@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CONTENT } from '../src/content';
 import { roomTemplate } from '../src/content/rooms';
 import { screenDirToWorld } from '../src/core/iso';
 import { Rng } from '../src/core/rng';
@@ -9,7 +10,7 @@ import type { InputFrame, World } from '../src/sim/types';
 import { createWorld, stepWorld } from '../src/sim/world';
 
 function world(): World {
-  const w = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), 1);
+  const w = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), 1, CONTENT);
   // an open spot with plenty of room in every direction
   w.player.x = w.player.px = 6.5;
   w.player.y = w.player.py = 6.5;

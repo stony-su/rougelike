@@ -14,16 +14,7 @@
 // Rules the validator enforces: at most 16 x 16 tiles, exactly one P, at least one D,
 // every floor tile reachable from P, at least four spawn marks in combat rooms.
 
-export type ZoneId = 'bluefen' | 'unruled';
-export type RoomKind = 'combat' | 'tutorial' | 'shop' | 'rest' | 'event' | 'miniboss' | 'boss';
-
-export interface RoomTemplate {
-  id: string;
-  name: string;
-  zone: ZoneId;
-  kind: RoomKind;
-  map: readonly string[];
-}
+import type { RoomTemplate } from '../sim/defs';
 
 export const ROOM_TEMPLATES: readonly RoomTemplate[] = [
   {

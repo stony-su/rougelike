@@ -40,7 +40,8 @@ export const ROD = {
   comboWindow: 0.45,
   step: [0.35, 0.35, 0.55] as const,
   moveMul: 0.35,
-  knockback: [1.2, 1.2, 3.5] as const,
+  /** Light hits nudge (the next swing must still reach); the third sends them flying. */
+  knockback: [0.5, 0.5, 3.5] as const,
   hitstop: [0.035, 0.035, 0.07] as const,
   /** Bonus against enemies inside the Plot or touching a line. */
   surveyedBonus: 0.25,
