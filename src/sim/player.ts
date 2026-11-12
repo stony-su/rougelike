@@ -165,7 +165,9 @@ function resolveSwing(w: World, p: Player): void {
   if (c === 2) {
     for (const st of w.lines.stakes) {
       if (st.state !== 'planted') continue;
-      if (pointInSector(st.x, st.y, p.x, p.y, p.actAngle, half, ROD.hammerReach, 0.3)) hammerStake(w, st.id);
+      // In the arc, or simply underfoot: the swing's own step forward must not carry the player past the stake.
+      const underfoot = Math.hypot(st.x - p.x, st.y - p.y) <= 1.0;
+      if (underfoot || pointInSector(st.x, st.y, p.x, p.y, p.actAngle, half, ROD.hammerReach, 0.3)) hammerStake(w, st.id);
     }
   }
   // Any swing knocks out hostile stakes it reaches.

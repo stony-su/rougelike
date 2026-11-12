@@ -1,8 +1,8 @@
 // Rule tests for Running the Line. Each rule in DESIGN.md section 2 has a test here.
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
+import { OPEN_ROOM } from './fixtures';
 import { SMUDGE } from '../src/content/enemies';
-import { roomTemplate } from '../src/content/rooms';
 import { Rng } from '../src/core/rng';
 import { spawnEnemy } from '../src/sim/ai';
 import {
@@ -29,7 +29,7 @@ import type { Enemy, InputFrame, SimEvent, World } from '../src/sim/types';
 import { createWorld, stepWorld } from '../src/sim/world';
 
 function world(seed = 5): World {
-  const w = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), seed, CONTENT);
+  const w = createWorld(buildRoom(OPEN_ROOM), seed, CONTENT);
   place(w, 6.5, 6.5);
   return w;
 }

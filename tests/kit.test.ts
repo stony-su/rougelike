@@ -4,8 +4,8 @@
 // added as a name with nothing behind it.
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
+import { OPEN_ROOM } from './fixtures';
 import { SMUDGE } from '../src/content/enemies';
-import { roomTemplate } from '../src/content/rooms';
 import { spawnEnemy } from '../src/sim/ai';
 import { damagePlayer } from '../src/sim/combat';
 import { describe as describeText, describeAllRanks, validateInstruments } from '../src/sim/defs';
@@ -22,7 +22,7 @@ const secs = (s: number): number => Math.round(s / DT);
 const inp = (o: Partial<InputFrame> = {}): InputFrame => ({ ...emptyInput(), aimX: 100, aimY: 6.5, ...o });
 
 function world(): World {
-  const w = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), 7, CONTENT);
+  const w = createWorld(buildRoom(OPEN_ROOM), 7, CONTENT);
   place(w, 12.5, 10.5);
   return w;
 }
@@ -524,7 +524,7 @@ describe('owning and mounting', () => {
     const w = world();
     give(w, 'third_wind', 1);
     give(w, 'signal_lamp', 2);
-    const next = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), 8, CONTENT, { kit: w.kit, chalk: 33 });
+    const next = createWorld(buildRoom(OPEN_ROOM), 8, CONTENT, { kit: w.kit, chalk: 33 });
     expect(next.player.dashMaxCharges).toBe(DASH.charges + 1);
     expect(next.lines.stakes[0].head).toBe('signal_lamp');
     expect(next.lines.stakes[0].headRank).toBe(2);
