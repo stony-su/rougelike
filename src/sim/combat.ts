@@ -37,6 +37,15 @@ export const KNOCK_DECAY = 9;
 /** Deal damage to an enemy. Returns true if it died. */
 export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource): boolean {
   if (e.dead || e.state === 'spawn') return false;
+  if (e.armor < 1) {
+    // Armour holds until a discharge cracks it; the cracking blow lands in full.
+    if (src.kind === 'discharge') {
+      e.armor = 1;
+      w.events.push({ type: 'armorBreak', id: e.id, x: e.x, y: e.y });
+    } else {
+      amount *= e.armor;
+    }
+  }
   const dealt = Math.max(0, Math.min(e.hp, amount));
   e.hp -= amount;
   e.hurtT = 0;
@@ -78,6 +87,7 @@ export function killEnemy(w: World, e: Enemy): void {
   removeTelegraph(w, e.telegraph);
   e.telegraph = 0;
   w.stats.kills++;
+  w.deaths.push({ x: e.x, y: e.y, def: e.def, elite: e.elite });
   hitStop(w, FEEL.hitstopKill);
   w.events.push({ type: 'enemyDeath', id: e.id, kind: e.def.id, x: e.x, y: e.y, dx: e.lastHitX, dy: e.lastHitY, elite: e.elite });
 }

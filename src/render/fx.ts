@@ -272,6 +272,19 @@ export class Fx {
         ps.ring(ev.x, ev.y, CHALK, 0.2, 1.4, 0.3, 0.9);
         ps.flash(ev.x, ev.y, 0.5, CHALK, 120, 0.2);
         break;
+      case 'armorBreak':
+        ps.scraps(ev.x, ev.y, 0.5, RIM, 10, 1.2);
+        ps.ring(ev.x, ev.y, RIPE, 0.2, 1.2, 0.3, 1);
+        this.camera.shake(0.25);
+        break;
+      case 'roomClear':
+        ps.ring(ev.x, ev.y, CHALK, 0.3, 4.5, 0.7, 0.7);
+        ps.ring(ev.x, ev.y, RIPE, 0.2, 2.2, 0.5, 0.8);
+        break;
+      case 'doorsOpen':
+        break;
+      case 'interact':
+        break;
       default: {
         // Adding a simulation event without deciding how it looks is a compile error here.
         const unhandled: never = ev;

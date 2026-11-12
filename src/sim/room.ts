@@ -214,3 +214,76 @@ export function segmentOnFloor(room: Room, ax: number, ay: number, bx: number, b
   }
   return true;
 }
+
+/** Problems in a room template, as human-readable strings. Used by content tests. */
+export function validateRoomTemplate(t: RoomTemplate): string[] {
+  const out: string[] = [];
+  const h = t.map.length;
+  const w = t.map.reduce((m, row) => Math.max(m, row.length), 0);
+  if (w > 16 || h > 16) out.push(`${t.id}: larger than 16 x 16 (${w} x ${h})`);
+  const at = (x: number, y: number): string => (y < 0 || y >= h ? ' ' : t.map[y][x] ?? ' ');
+  const isFloor = (x: number, y: number): boolean => {
+    const c = at(x, y);
+    return c !== ' ' && c !== '#';
+  };
+  const count = (ch: string): Array<[number, number]> => {
+    const found: Array<[number, number]> = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (at(x, y) === ch) found.push([x, y]);
+    return found;
+  };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const c = at(x, y);
+      if (!' #.obsPDr'.includes(c)) out.push(`${t.id}: unknown symbol "${c}" at ${x},${y}`);
+    }
+  }
+  const starts = count('P');
+  const focus = count('r');
+  const doors = count('D');
+  const marks = count('s');
+  const pillars = count('o');
+  if (starts.length !== 1) out.push(`${t.id}: needs exactly one P, has ${starts.length}`);
+  if (focus.length !== 1) out.push(`${t.id}: needs exactly one r, has ${focus.length}`);
+  if (doors.length < 1) out.push(`${t.id}: needs at least one D`);
+  for (const [x, y] of doors) if (x !== 0 && y !== 0) out.push(`${t.id}: door at ${x},${y} is not on a far edge (row 0 or column 0)`);
+  const quiet = t.kind === 'shop' || t.kind === 'rest' || t.kind === 'tutorial';
+  if (!quiet && t.kind !== 'miniboss' && t.kind !== 'boss' && doors.length < 2) out.push(`${t.id}: needs two door slots so a choice of doors can be shown`);
+
+  // every floor tile must be reachable from P (pillars block)
+  if (starts.length === 1) {
+    const seen = new Set<number>();
+    const stack: Array<[number, number]> = [starts[0]];
+    seen.add(starts[0][1] * 32 + starts[0][0]);
+    while (stack.length) {
+      const [x, y] = stack.pop() as [number, number];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || !isFloor(nx, ny) || at(nx, ny) === 'o') continue;
+        const key = ny * 32 + nx;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        stack.push([nx, ny]);
+      }
+    }
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (isFloor(x, y) && at(x, y) !== 'o' && !seen.has(y * 32 + x)) out.push(`${t.id}: floor at ${x},${y} cannot be reached from P`);
+      }
+    }
+  }
+
+  if (!quiet) {
+    if (marks.length < 4) out.push(`${t.id}: a fight needs at least four spawn marks, has ${marks.length}`);
+    for (const [x, y] of marks) {
+      if (starts.length === 1 && Math.hypot(x - starts[0][0], y - starts[0][1]) < 4) out.push(`${t.id}: spawn mark at ${x},${y} is too close to P`);
+      for (const [px, py] of pillars) {
+        if (Math.hypot(x - px, y - py) < 1.6) out.push(`${t.id}: spawn mark at ${x},${y} is tucked against the pillar at ${px},${py}`);
+      }
+    }
+  }
+  if (t.kind === 'miniboss' || t.kind === 'boss') {
+    if (pillars.length > 0) out.push(`${t.id}: boss arenas have no pillars`);
+  }
+  return out;
+}

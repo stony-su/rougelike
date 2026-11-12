@@ -2,6 +2,8 @@
 import { Rng } from '../core/rng';
 import { sweepDead, stepEnemies } from './ai';
 import type { ContentRegistry } from './defs';
+import { createFlow, stepFlow } from './flow';
+import type { RoomFlow } from './flow';
 import { createKit, defaultMods, installKit, kitRoomStart, rebuildKit, stepKit } from './kit';
 import type { KitState } from './kit';
 import { createLines, stepLines } from './lines';
@@ -18,6 +20,8 @@ export interface WorldOptions {
   kit?: KitState;
   chalk?: number;
   base?: World['base'];
+  /** How the room runs. Omitted, the room is quiet: no waves, nothing to clear. */
+  flow?: RoomFlow;
 }
 
 export function createWorld(room: Room, seed: number | string, content: ContentRegistry, o: WorldOptions = {}): World {
@@ -41,6 +45,8 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     mods: defaultMods(),
     zones: [],
     chalk: o.chalk ?? 0,
+    flow: o.flow ?? createFlow({ kind: 'tutorial', elite: false }, o.sheet ?? 1),
+    deaths: [],
     base: o.base ?? { dashCharges: 0, dashRechargeMul: 1, chalkMul: 1 },
     stats: { kills: 0, damageDealt: 0, damageTaken: 0, rodDamage: 0, lineDamage: 0, whips: 0, discharges: 0, trips: 0 },
   };
@@ -82,6 +88,7 @@ export function stepWorld(w: World, inp: InputFrame): void {
   // Lines resolve after everything has moved, so trips see this tick's positions.
   stepLines(w, DT);
   stepKit(w, DT);
+  stepFlow(w, DT, inp.interactPressed);
   stepTelegraphs(w, DT);
   sweepDead(w);
 }

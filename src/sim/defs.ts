@@ -78,6 +78,8 @@ export interface EnemyDef {
   rig: string;
   /** Chalk dropped on death: [min, max]. */
   chalk: readonly [number, number];
+  /** It takes the player's tools away (eats stakes, cuts lines). Two kinds of disruptor never share an early wave. */
+  disruptor?: boolean;
 }
 
 // ---------------------------------------------------------------- instruments (upgrades)
@@ -281,6 +283,7 @@ export function describeAllRanks(def: InstrumentDef): string {
 // ---------------------------------------------------------------- registry
 
 export interface ContentRegistry {
+  rooms: readonly RoomTemplate[];
   enemies: Readonly<Record<string, EnemyDef>>;
   instruments: Readonly<Record<string, InstrumentDef>>;
   splices: readonly SpliceDef[];

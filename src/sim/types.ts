@@ -2,6 +2,7 @@
 import type { Rng } from '../core/rng';
 import type { Vec2 } from '../core/math';
 import type { ContentRegistry, EnemyDef, RoomKind, ZoneId } from './defs';
+import type { RoomFlow } from './flow';
 import type { KitState, Mods, Zone } from './kit';
 import type { LinesState } from './lines';
 
@@ -202,6 +203,8 @@ export interface Enemy {
   onLine: boolean;
   /** No line may trip this enemy before this time (a global limiter across all lines). */
   tripUntil: number;
+  /** Damage multiplier from armour: 1 is none; below 1 until a discharge breaks it. */
+  armor: number;
   /** Underground: cannot be hit or tripped; a whip sweep over it surfaces it. */
   burrowed: boolean;
   /** In the air: ground lines do not trip it. */
@@ -356,7 +359,11 @@ export type SimEvent =
   | { type: 'zone'; id: number; zone: string; pts: number[]; dur: number }
   | { type: 'shield'; on: boolean; x: number; y: number }
   | { type: 'chalk'; amount: number; x: number; y: number }
-  | { type: 'teleport'; x: number; y: number };
+  | { type: 'teleport'; x: number; y: number }
+  | { type: 'armorBreak'; id: number; x: number; y: number }
+  | { type: 'roomClear'; x: number; y: number }
+  | { type: 'doorsOpen'; count: number }
+  | { type: 'interact'; id: number; kind: 'reward' | 'shop' | 'rest' | 'event' | 'door'; index: number };
 
 export type RelocateCause = 'whip' | 'yank' | 'shove' | 'offset' | 'swap';
 
@@ -394,6 +401,10 @@ export interface World {
   zones: Zone[];
   /** Run currency. */
   chalk: number;
+  /** Waves, pickups, the reward and the doors of this room. */
+  flow: RoomFlow;
+  /** Enemies that died this tick, for Chalk drops. Cleared by the flow step. */
+  deaths: Array<{ x: number; y: number; def: EnemyDef; elite: string | null }>;
   /** Bonuses from permanent progression, applied under the kit. */
   base: { dashCharges: number; dashRechargeMul: number; chalkMul: number };
   /** Totals for the end-of-run screens and for tests. */

@@ -77,6 +77,7 @@ export function spawnEnemy(
     inPlot: false,
     onLine: false,
     tripUntil: 0,
+    armor: 1,
     burrowed: false,
     airborne: false,
     status: newStatus(),

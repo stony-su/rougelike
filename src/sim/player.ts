@@ -3,10 +3,10 @@ import { pointInSector } from '../core/geom';
 import { damp } from '../core/math';
 import type { Vec2 } from '../core/math';
 import { KNOCK_DECAY, damageEnemy, hitStop } from './combat';
-import { beginDash, breakHostileNear, dashCrossing, hammerStake, nearestPlanted, pressStake } from './lines';
+import { beginDash, breakHostileNear, dashCrossing, hammerStake, nearestPlanted, pressStake, relocateStake } from './lines';
 import { destroyProjectile, spawnProjectile } from './projectiles';
 import { resolveCircle } from './room';
-import { DASH, PLAYER, PLUMB, ROD } from './tuning';
+import { DASH, LINES, PLAYER, PLUMB, ROD } from './tuning';
 import type { InputFrame, Player, World } from './types';
 
 const tmp: Vec2 = { x: 0, y: 0 };
@@ -150,6 +150,16 @@ function resolveSwing(w: World, p: Player): void {
     const amount = ROD.damage[c] * (surveyed ? 1 + w.mods.rodSurveyed : 1) * (1 + (e.status.markT > 0 ? e.status.markBonus : 0));
     damageEnemy(w, e, amount, { kind: 'rod', dx: kx / kl, dy: ky / kl, knock: ROD.knockback[c], heavy: c === 2, crit: surveyed });
     hits++;
+    // A covetous elite drags your nearest stake toward itself when struck.
+    if (e.elite === 'covetous' && !e.dead) {
+      const st = nearestPlanted(w.lines, e.x, e.y);
+      if (st && !st.anchored && !w.lines.stakes.some((s) => s.state === 'flying')) {
+        const sx = e.x - st.x;
+        const sy = e.y - st.y;
+        const sd = Math.hypot(sx, sy);
+        if (sd > 0.8) relocateStake(w, st.id, st.x + (sx / sd) * Math.min(2, sd - 0.6), st.y + (sy / sd) * Math.min(2, sd - 0.6), 'shove', LINES.shoveTime);
+      }
+    }
   }
   // The third swing hammers any of your stakes in its arc: their lines turn ripe.
   if (c === 2) {
