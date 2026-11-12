@@ -246,6 +246,32 @@ export class Fx {
       case 'hostileCross':
         ps.sparks(ev.x, ev.y, 0.4, 0, 0, DANGER_HOT, 8, 1);
         break;
+      case 'shockwave':
+        ps.ring(ev.x, ev.y, RIPE, ev.radius * 0.2, ev.radius, 0.3, 0.9);
+        ps.dust(ev.x, ev.y, 0, 0, CHALK, 8);
+        this.camera.shake(0.2);
+        break;
+      case 'beam': {
+        const n = 14;
+        for (let i = 0; i <= n; i++) {
+          const k = i / n;
+          ps.flash(ev.ax + (ev.bx - ev.ax) * k, ev.ay + (ev.by - ev.ay) * k, 0.1, RIPE, 60, 0.22);
+        }
+        this.camera.shake(0.25);
+        break;
+      }
+      case 'zone':
+        break;
+      case 'shield':
+        ps.ring(ev.x, ev.y, ev.on ? RIPE : RIM, ev.on ? 1.2 : 0.3, ev.on ? 0.5 : 1.3, 0.3, 0.9);
+        break;
+      case 'chalk':
+        ps.sparks(ev.x, ev.y, 0.6, 0, -1, RIM, 3, 0.5);
+        break;
+      case 'teleport':
+        ps.ring(ev.x, ev.y, CHALK, 0.2, 1.4, 0.3, 0.9);
+        ps.flash(ev.x, ev.y, 0.5, CHALK, 120, 0.2);
+        break;
       default: {
         // Adding a simulation event without deciding how it looks is a compile error here.
         const unhandled: never = ev;

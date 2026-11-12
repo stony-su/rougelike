@@ -1,7 +1,7 @@
 // Projectiles: enemy shots, and the player's plumb bob.
 import { circleTouchesSegment } from '../core/geom';
 import { damageEnemy, damagePlayer } from './combat';
-import { breakHostileNear, relocateStake } from './lines';
+import { breakHostileNear, oldestPlanted, relocateStake } from './lines';
 import { isFloorTile } from './room';
 import { PLUMB } from './tuning';
 import type { Projectile, World } from './types';
@@ -89,7 +89,17 @@ export function stepProjectiles(w: World, dt: number): void {
           end(w, p, true);
         }
       }
-    } else if (p.kind === 'plumb') {
+    } else if (p.kind !== 'plumb') {
+      // A shot turned back on its makers: it strikes the first enemy in its way.
+      for (const e of w.enemies) {
+        if (e.dead || e.state === 'spawn' || e.burrowed) continue;
+        if (!circleTouchesSegment(e.x, e.y, e.radius + p.radius, p.px, p.py, p.x, p.y)) continue;
+        const sp = Math.hypot(p.vx, p.vy) || 1;
+        damageEnemy(w, e, p.damage, { kind: 'other', dx: p.vx / sp, dy: p.vy / sp, knock: 0.4 });
+        end(w, p, true);
+        break;
+      }
+    } else {
       // First enemy along the path is hooked.
       let best = null as null | { e: (typeof w.enemies)[number]; d: number };
       for (const e of w.enemies) {
@@ -110,7 +120,7 @@ export function stepProjectiles(w: World, dt: number): void {
           const dx = pl.x - e.x;
           const dy = pl.y - e.y;
           const dist = Math.hypot(dx, dy);
-          const pull = Math.max(0, Math.min(PLUMB.drag / e.def.mass, dist - (pl.radius + e.radius + 0.35)));
+          const pull = Math.max(0, Math.min((PLUMB.drag + w.mods.plumbDrag) / e.def.mass, dist - (pl.radius + e.radius + 0.35)));
           if (pull > 0.05) {
             e.dragT = PLUMB.dragTime;
             e.dragVX = (dx / dist) * (pull / PLUMB.dragTime);
@@ -126,7 +136,18 @@ export function stepProjectiles(w: World, dt: number): void {
           p.x = st.x;
           p.y = st.y;
           w.events.push({ type: 'plumbHook', x: st.x, y: st.y, target: 0 });
-          relocateStake(w, st.id, pl.x, pl.y, 'yank');
+          if (w.mods.plumbSwap) {
+            // Backsight: change places with the stake. Its lines sweep to where the player stood.
+            const sx = st.x;
+            const sy = st.y;
+            relocateStake(w, st.id, pl.x, pl.y, 'swap');
+            pl.x = pl.px = sx;
+            pl.y = pl.py = sy;
+            pl.vx = pl.vy = 0;
+            w.events.push({ type: 'teleport', x: sx, y: sy });
+          } else {
+            relocateStake(w, st.id, pl.x, pl.y, 'yank');
+          }
           end(w, p, true);
         }
       }
@@ -142,7 +163,14 @@ export function stepProjectiles(w: World, dt: number): void {
       continue;
     }
     if (p.life <= 0 || p.range <= 0) {
-      if (p.kind === 'plumb') w.events.push({ type: 'plumbMiss', x: p.x, y: p.y });
+      if (p.kind === 'plumb') {
+        w.events.push({ type: 'plumbMiss', x: p.x, y: p.y });
+        // Offset: a cast that lands on open ground sends the oldest stake there.
+        if (w.mods.plumbOffset && p.targetStake < 0) {
+          const oldest = oldestPlanted(w.lines);
+          if (oldest && !w.lines.stakes.some((s) => s.state === 'flying')) relocateStake(w, oldest.id, p.x, p.y, 'offset');
+        }
+      }
       end(w, p, false);
     } else if (hitsPillar(w, p)) {
       if (p.kind === 'plumb') w.events.push({ type: 'plumbMiss', x: p.x, y: p.y });

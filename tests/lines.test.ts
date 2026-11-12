@@ -1,5 +1,5 @@
 // Rule tests for Running the Line. Each rule in DESIGN.md section 2 has a test here.
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { SMUDGE } from '../src/content/enemies';
 import { roomTemplate } from '../src/content/rooms';
@@ -20,7 +20,6 @@ import {
   previewSweep,
   relocateStake,
   returnStakes,
-  setLineHooks,
   severLine,
 } from '../src/sim/lines';
 import { buildRoom } from '../src/sim/room';
@@ -28,8 +27,6 @@ import { DASH, DT, LINES, PLAYER, ROD } from '../src/sim/tuning';
 import { emptyInput } from '../src/sim/types';
 import type { Enemy, InputFrame, SimEvent, World } from '../src/sim/types';
 import { createWorld, stepWorld } from '../src/sim/world';
-
-beforeEach(() => setLineHooks({}));
 
 function world(seed = 5): World {
   const w = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), seed, CONTENT);

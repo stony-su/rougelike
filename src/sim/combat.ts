@@ -3,6 +3,15 @@ import { FEEL, LINES, PLAYER } from './tuning';
 import { removeTelegraph } from './telegraphs';
 import type { Enemy, HitKind, World } from './types';
 
+/** Hooks the upgrade kit installs. Behaviour, not state, so they live at module level. */
+export interface CombatHooks {
+  onPlayerHurt?(w: World): void;
+}
+let combatHooks: CombatHooks = {};
+export function setCombatHooks(h: CombatHooks): void {
+  combatHooks = h;
+}
+
 /** Longest freeze any single impact may request. */
 const HITSTOP_CAP = 0.11;
 
@@ -104,6 +113,14 @@ export function damagePlayer(w: World, amount: number, sx: number, sy: number, k
     dx = 1;
     dy = 0;
   }
+  amount *= w.mods.damageTakenMul;
+  if (p.shield > 0) {
+    // A shield soaks what it can; a hit that breaks it still grants the usual mercy frames.
+    const soaked = Math.min(p.shield, amount);
+    p.shield -= soaked;
+    amount -= soaked;
+    if (p.shield <= 0) w.events.push({ type: 'shield', on: false, x: p.x, y: p.y });
+  }
   p.hp = Math.max(0, p.hp - amount);
   p.iframes = PLAYER.hurtIframes;
   p.hurtT = 0;
@@ -112,6 +129,7 @@ export function damagePlayer(w: World, amount: number, sx: number, sy: number, k
   w.stats.damageTaken += amount;
   hitStop(w, FEEL.hitstopHurt);
   w.events.push({ type: 'playerHurt', amount: Math.round(amount), x: p.x, y: p.y, dx, dy });
+  combatHooks.onPlayerHurt?.(w);
   if (p.hp <= 0) {
     p.state = 'dead';
     p.stateTime = 0;

@@ -94,6 +94,14 @@ export const LINES = {
   shoveTime: 0.2,
 };
 
+/** Chains change the base rule of the mechanic. Chosen before a run. */
+export type ChainId = 'standard' | 'long' | 'short';
+export const CHAINS: Record<ChainId, { name: string; linkRange: number; ripeTime: number }> = {
+  standard: { name: 'Standard Chain', linkRange: LINES.linkRange, ripeTime: LINES.ripeTime },
+  long: { name: 'Long Chain', linkRange: 12, ripeTime: 3.5 },
+  short: { name: 'Short Chain', linkRange: 6, ripeTime: 1.5 },
+};
+
 export const FEEL = {
   hitstopDischarge: 0.09,
   hitstopHurt: 0.06,

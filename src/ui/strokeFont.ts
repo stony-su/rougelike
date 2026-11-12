@@ -7,16 +7,19 @@
 //
 // THE GRID
 //   y = 0 is the cap line and y = CAP_HEIGHT the baseline; descenders may reach y = 9.
-//   Capitals are drawn 5 units wide on the 7-unit height: the generous width of hand lettering,
-//   which keeps counters open when a letter is only nine pixels tall.
-//   A glyph's width is its advance: the drawn width plus a side bearing on each side. A stem
-//   carries more bearing than a bowl, and a diagonal almost none, so letters space evenly by
-//   area, the way a draughtsman spaces them by eye.
+//   Capitals are drawn about 5 units wide on the 7-unit height: the generous width of hand
+//   lettering, which keeps counters open when a letter is only nine pixels tall.
+//   A glyph's width is its advance: the drawn width plus a side bearing on each side.
 //
 // CONSTRUCTION
 //   Round letters are built as they are on the board: ellipse arcs, joined by straight lines
 //   that meet them at a tangent. The pen has round caps and joins, so a stroke simply stops
 //   where the letter does and never doubles back along itself.
+//
+// SPACING
+//   A draughtsman spaces letters by eye, so that the areas between them look equal. Side
+//   bearings do most of that (a stem carries more than a bowl, a diagonal almost none) and
+//   `kern` does the rest by sounding the gap between each pair of neighbours.
 
 export const CAP_HEIGHT = 7;
 
@@ -67,7 +70,7 @@ function touch(o: Oval, x: number, y: number, side: Turn): number {
 
 /**
  * The angles at which one straight line touches two ellipses, found by walking the touch point
- * back and forth between them until it settles. This is the spine of the S.
+ * back and forth between them until it settles.
  */
 function bridge(a: Oval, sideA: Turn, b: Oval, sideB: Turn): [number, number] {
   let ta = touch(a, b[0], b[1], sideA);
@@ -103,25 +106,25 @@ function path(...parts: number[][]): number[] {
   return out;
 }
 
-/** A full stop: a loop too small to show its hole, so the pen leaves a round dot a little heavier than a stroke. */
-function dot(x: number, y: number): number[] {
+/** A loop too small to show its hole, so the pen leaves a round dot a little heavier than a stroke. */
+function dot(x: number, y: number, r = 0.22): number[] {
   const pts: number[] = [];
-  for (let i = 0; i <= 8; i++) pts.push(x + Math.cos(i * 45 * DEG) * 0.22, y + Math.sin(i * 45 * DEG) * 0.22);
+  for (let i = 0; i <= 8; i++) pts.push(x + Math.cos(i * 45 * DEG) * r, y + Math.sin(i * 45 * DEG) * r);
   return pts;
 }
 
-// ---------------------------------------------------------------- side bearings
+// ---------------------------------------------------------------- cells
 
-/** Beside a vertical stem. */
+/** Bearing beside a vertical stem. */
 const STEM = 0.5;
-/** Beside a bowl, which only reaches its edge at one point. */
-const BOWL = 0.25;
-/** Beside a diagonal or an open side, which already carries its own air. */
+/** Bearing beside a bowl, which only reaches its edge at one point. */
+const BOWL = 0.3;
+/** Bearing beside a diagonal or an open side, which already carries its own air. */
 const OPEN = 0.1;
 
 const tidy = (v: number): number => Math.round(v * 1000) / 1000 + 0;
 
-/** Set strokes drawn from x = 0 into a cell with the given bearings. */
+/** Set strokes into a cell with the given bearings, wherever along x they were drawn. */
 function glyph(left: number, right: number, ...strokes: number[][]): Glyph {
   let lo = Infinity;
   let hi = -Infinity;
@@ -138,33 +141,39 @@ function glyph(left: number, right: number, ...strokes: number[][]): Glyph {
   };
 }
 
+/** Figures share one advance, so a changing number holds still. Only the 1 is narrow. */
+const FIGURE_ADVANCE = 5.2;
+
+function figure(...strokes: number[][]): Glyph {
+  const side = (FIGURE_ADVANCE - glyph(0, 0, ...strokes).width) / 2;
+  return glyph(side, side, ...strokes);
+}
+
 // ---------------------------------------------------------------- the alphabet
 
 /** The full-height bowl shared by C, G, O and Q. */
-const ROUND: Oval = [2.6, 3.5, 2.6, 3.5];
+const ROUND: Oval = [2.75, 3.5, 2.75, 3.5];
 
-function letterS(): Glyph {
+/** S: two bowls, the upper one smaller, and the straight spine that touches both. */
+function strokeS(): number[] {
   const top: Oval = [2.35, 1.6, 2.1, 1.6];
   const bottom: Oval = [2.35, 5.3, 2.35, 1.7];
   const [a, b] = bridge(top, 1, bottom, 1);
-  return glyph(BOWL, BOWL, path(arc(top, -32, a, -1), arc(bottom, b, 150)));
+  return path(arc(top, -32, a, -1), arc(bottom, b, 150));
 }
 
-function digit2(): Glyph {
+/** 2: a bowl, then a straight neck leaving it at a tangent for the foot. */
+function stroke2(): number[] {
   const bowl: Oval = [2.3, 2.1, 2.2, 2.1];
-  return glyph(BOWL, 0.2, path(arc(bowl, -165, touch(bowl, 0, 7, -1)), [0, 7, 4.6, 7]));
+  return path(arc(bowl, -165, touch(bowl, 0, 7, -1)), [0, 7, 4.6, 7]);
 }
 
-function ampersand(): Glyph {
+/** Ampersand: up from the foot, round the small loop, across to the big bowl and out along the arm. */
+function strokeAmpersand(): number[] {
   const loop: Oval = [2.3, 1.55, 1.45, 1.55];
   const bowl: Oval = [2.2, 5.05, 2.2, 1.95];
   const [a, b] = bridge(loop, -1, bowl, -1);
-  return glyph(BOWL, OPEN, path([5.4, 7], arc(loop, touch(loop, 5.4, 7, 1), a), arc(bowl, b, touch(bowl, 5.2, 3.9, 1), -1), [5.2, 3.9]));
-}
-
-function question(): Glyph {
-  const hook: Oval = [2.1, 1.95, 2.1, 1.95];
-  return glyph(BOWL, BOWL, path(arc(hook, -170, 60), bend(3.15, 3.64, 2.1, 4.2, 2.1, 5)), dot(2.1, 6.78));
+  return path([5.4, 7], arc(loop, touch(loop, 5.4, 7, 1), a), arc(bowl, b, touch(bowl, 5.2, 3.9, 1), -1), [5.2, 3.9]);
 }
 
 const SPACE: Glyph = { width: 3.5, strokes: [] };
@@ -177,47 +186,47 @@ export const GLYPHS: Readonly<Record<string, Glyph>> = {
   A: glyph(OPEN, OPEN, [0, 7, 2.8, 0, 5.6, 7], [0.92, 4.7, 4.68, 4.7]),
   B: glyph(STEM, BOWL, path([0, 3.4], arc([3, 5.2, 2, 1.8], -90, 90), [0, 7, 0, 0], arc([2.75, 1.7, 1.65, 1.7], -90, 90))),
   C: glyph(BOWL, OPEN, arc(ROUND, -40, 40, -1)),
-  D: glyph(STEM, BOWL, path([0, 0], arc([2.2, 3.5, 2.8, 3.5], -90, 90), [0, 7, 0, 0])),
+  D: glyph(STEM, BOWL, path([0, 0], arc([2.3, 3.5, 2.9, 3.5], -90, 90), [0, 7, 0, 0])),
   E: glyph(STEM, OPEN, [4.5, 0, 0, 0, 0, 7, 4.6, 7], [0, 3.5, 3.6, 3.5]),
   F: glyph(STEM, OPEN, [4.4, 0, 0, 0, 0, 7], [0, 3.5, 3.4, 3.5]),
-  G: glyph(BOWL, 0.3, path(arc(ROUND, -40, 5, -1), [2.8, 3.8])),
+  G: glyph(BOWL, 0.35, path(arc(ROUND, -40, 5, -1), [2.9, 3.8])),
   H: glyph(STEM, STEM, [0, 0, 0, 7], [5, 0, 5, 7], [0, 3.5, 5, 3.5]),
   I: glyph(STEM, STEM, [0, 0, 0, 7]),
   J: glyph(OPEN, STEM, path([4.3, 0], arc([2.15, 4.85, 2.15, 2.15], 0, 165))),
   K: glyph(STEM, OPEN, [0, 0, 0, 7], [4.8, 0, 0, 4.6], [1.95, 2.73, 5, 7]),
   L: glyph(STEM, OPEN, [0, 0, 0, 7, 4.4, 7]),
-  M: glyph(STEM, STEM, [0, 7, 0, 0, 3.4, 5.2, 6.8, 0, 6.8, 7]),
+  M: glyph(STEM, STEM, [0, 7, 0, 0, 3.4, 5.4, 6.8, 0, 6.8, 7]),
   N: glyph(STEM, STEM, [0, 7, 0, 0, 5.2, 7, 5.2, 0]),
   O: glyph(BOWL, BOWL, arc(ROUND, 0, 0)),
   P: glyph(STEM, OPEN, path([0, 7, 0, 0], arc([2.75, 1.9, 2.05, 1.9], -90, 90), [0, 3.8])),
-  Q: glyph(BOWL, BOWL, arc(ROUND, 0, 0), [3.3, 5.1, 5.4, 7.6]),
+  Q: glyph(BOWL, BOWL, arc(ROUND, 0, 0), [3.1, 4.9, 5.7, 7.8]),
   R: glyph(STEM, OPEN, path([0, 7, 0, 0], arc([2.7, 1.8, 2.1, 1.8], -90, 90), [0, 3.6]), [2.6, 3.6, 5, 7]),
-  S: letterS(),
+  S: glyph(BOWL, BOWL, strokeS()),
   T: glyph(OPEN, OPEN, [0, 0, 5, 0], [2.5, 0, 2.5, 7]),
   U: glyph(STEM, STEM, path([0, 0], arc([2.5, 4.5, 2.5, 2.5], 180, 0, -1), [5, 0])),
   V: glyph(OPEN, OPEN, [0, 0, 2.7, 7, 5.4, 0]),
-  W: glyph(OPEN, OPEN, [0, 0, 1.95, 7, 3.9, 1.8, 5.85, 7, 7.8, 0]),
+  W: glyph(OPEN, OPEN, [0, 0, 1.95, 7, 3.9, 1.6, 5.85, 7, 7.8, 0]),
   X: glyph(OPEN, OPEN, [0, 0, 5, 7], [5, 0, 0, 7]),
   Y: glyph(OPEN, OPEN, [0, 0, 2.6, 3.5, 5.2, 0], [2.6, 3.5, 2.6, 7]),
-  Z: glyph(0.2, 0.2, [0, 0, 4.8, 0, 0, 7, 4.8, 7]),
+  Z: glyph(OPEN, OPEN, [0, 0, 4.8, 0, 0, 7, 4.8, 7]),
 
-  '0': glyph(BOWL, BOWL, path(arc([2.1, 2.3, 2.1, 2.3], 180, 0), arc([2.1, 4.7, 2.1, 2.3], 0, 180), [0, 2.3])),
-  '1': glyph(OPEN, STEM, [0, 1.7, 1.7, 0, 1.7, 7]),
-  '2': digit2(),
-  '3': glyph(OPEN, BOWL, path(arc([2.2, 1.7, 2, 1.7], -150, 90), [1.4, 3.4]), arc([2.2, 5.2, 2.3, 1.8], -90, 150)),
-  '4': glyph(OPEN, 0.2, [4.8, 4.9, 0, 4.9, 3.5, 0, 3.5, 7]),
-  '5': glyph(0.3, BOWL, path([4.2, 0, 0.6, 0], arc([2.15, 4.7, 2.35, 2.3], -136, 150))),
-  '6': glyph(BOWL, BOWL, path(arc([2.6, 3.6, 2.6, 3.6], -50, 180, -1), arc([2.3, 4.75, 2.3, 2.25], 180, 180, -1))),
-  '7': glyph(0.2, OPEN, [0, 0, 4.6, 0, 1.7, 7]),
-  '8': glyph(BOWL, BOWL, arc([2.3, 1.65, 2, 1.65], 90, 90), arc([2.3, 5.15, 2.3, 1.85], -90, -90)),
-  '9': glyph(BOWL, BOWL, path(arc([2.3, 2.25, 2.3, 2.25], 0, 0, -1), arc([2, 3.4, 2.6, 3.6], 0, 130))),
+  '0': figure(path(arc([2.1, 2.3, 2.1, 2.3], 180, 0), arc([2.1, 4.7, 2.1, 2.3], 0, 180), [0, 2.3])),
+  '1': glyph(0.35, STEM, [0, 1.7, 1.7, 0, 1.7, 7]),
+  '2': figure(stroke2()),
+  '3': figure(path(arc([2.2, 1.7, 2, 1.7], -150, 90), [1.4, 3.4]), arc([2.2, 5.2, 2.3, 1.8], -90, 150)),
+  '4': figure([4.8, 4.9, 0, 4.9, 3.5, 0, 3.5, 7]),
+  '5': figure(path([4.2, 0, 0.6, 0], arc([2.15, 4.7, 2.35, 2.3], -136, 150))),
+  '6': figure(path(arc([2.6, 3.6, 2.6, 3.6], -50, 180, -1), arc([2.3, 4.75, 2.3, 2.25], 180, 180, -1))),
+  '7': figure([0, 0, 4.6, 0, 1.7, 7]),
+  '8': figure(arc([2.3, 1.65, 2, 1.65], 90, 90), arc([2.3, 5.15, 2.3, 1.85], -90, -90)),
+  '9': figure(path(arc([2.3, 2.25, 2.3, 2.25], 0, 0, -1), arc([2, 3.4, 2.6, 3.6], 0, 130))),
 
   '.': glyph(STEM, STEM, dot(0, 6.78)),
   ',': glyph(STEM, STEM, dot(0.55, 6.78), bend(0.75, 6.9, 0.8, 8, 0, 8.8)),
   ':': glyph(STEM, STEM, dot(0, 2.7), dot(0, 6.78)),
   ';': glyph(STEM, STEM, dot(0.55, 2.7), dot(0.55, 6.78), bend(0.75, 6.9, 0.8, 8, 0, 8.8)),
-  '!': glyph(STEM, STEM, [0.22, 0, 0.22, 4.8], dot(0.22, 6.78)),
-  '?': question(),
+  '!': glyph(STEM, STEM, [0, 0, 0, 4.8], dot(0, 6.78)),
+  '?': glyph(BOWL, BOWL, path(arc([2.1, 1.95, 2.1, 1.95], -170, 60), bend(3.15, 3.64, 2.1, 4.2, 2.1, 5)), dot(2.1, 6.78)),
   "'": glyph(STEM, STEM, [0, 0, 0, 2]),
   '"': glyph(STEM, STEM, [0, 0, 0, 2], [1.9, 0, 1.9, 2]),
   '-': glyph(STEM, STEM, [0, 3.7, 2.8, 3.7]),
@@ -229,7 +238,7 @@ export const GLYPHS: Readonly<Record<string, Glyph>> = {
   ')': glyph(OPEN, BOWL, arc([0, 3.5, 4.8, 5.5], -50, 50)),
   '[': glyph(STEM, OPEN, [1.8, -0.6, 0, -0.6, 0, 7.6, 1.8, 7.6]),
   ']': glyph(OPEN, STEM, [0, -0.6, 1.8, -0.6, 1.8, 7.6, 0, 7.6]),
-  '&': ampersand(),
+  '&': glyph(BOWL, OPEN, strokeAmpersand()),
   '#': glyph(OPEN, OPEN, [1.9, 0.2, 1.1, 6.8], [4.1, 0.2, 3.3, 6.8], [0.2, 2.4, 5.2, 2.4], [0, 4.6, 5, 4.6]),
   '=': glyph(STEM, STEM, [0, 2.6, 4.2, 2.6], [0, 4.8, 4.2, 4.8]),
   '*': glyph(STEM, STEM, [1.9, 0.2, 1.9, 4.2], [0.2, 1.2, 3.6, 3.2], [3.6, 1.2, 0.2, 3.2]),
@@ -238,13 +247,13 @@ export const GLYPHS: Readonly<Record<string, Glyph>> = {
   _: glyph(OPEN, OPEN, [0, 8.3, 5, 8.3]),
   '|': glyph(STEM, STEM, [0, -0.8, 0, 8.8]),
 
-  // Multiplication sign, arrows, bullet, long dashes and degree sign.
+  // Multiplication sign, arrows (right, left, up, down), bullet, en dash, em dash, degree sign.
   '×': glyph(STEM, STEM, [0, 2, 3.4, 5.4], [3.4, 2, 0, 5.4]),
   '→': glyph(STEM, STEM, [0, 3.7, 6, 3.7], [4.1, 1.8, 6, 3.7, 4.1, 5.6]),
   '←': glyph(STEM, STEM, [6, 3.7, 0, 3.7], [1.9, 1.8, 0, 3.7, 1.9, 5.6]),
   '↑': glyph(STEM, STEM, [1.9, 7, 1.9, 0.2], [0, 2.1, 1.9, 0.2, 3.8, 2.1]),
   '↓': glyph(STEM, STEM, [1.9, 0, 1.9, 6.8], [0, 4.9, 1.9, 6.8, 3.8, 4.9]),
-  '•': glyph(STEM, STEM, arc([0.5, 3.7, 0.5, 0.5], 0, 0)),
+  '•': glyph(STEM, STEM, dot(0, 3.7, 0.3), arc([0, 3.7, 0.85, 0.85], 0, 0)),
   '–': glyph(STEM, STEM, [0, 3.7, 4.4, 3.7]),
   '—': glyph(STEM, STEM, [0, 3.7, 6.6, 3.7]),
   '°': glyph(STEM, STEM, arc([1.1, 1.1, 1.1, 1.1], 0, 0)),
@@ -262,6 +271,69 @@ function glyphFor(ch: string): Glyph | undefined {
 
 export function hasGlyph(ch: string): boolean {
   return glyphFor(ch) !== undefined;
+}
+
+// ---------------------------------------------------------------- optical spacing
+
+/** Heights at which a glyph's sides are sounded: every half unit from above the cap line to below the descenders. */
+const ROW_TOP = -1;
+const ROW_STEP = 0.5;
+const ROW_COUNT = 21;
+/** A row hears ink this far above and below it: half a pen width, and half a row. */
+const ROW_REACH = 0.75;
+
+interface Sides {
+  /** Per row, how far the nearest ink stands in from the left edge of the cell. Infinity where the row is empty. */
+  left: number[];
+  /** Per row, how far the nearest ink stands in from the right edge of the cell. */
+  right: number[];
+}
+
+function sidesOf(g: Glyph): Sides {
+  const left = new Array<number>(ROW_COUNT).fill(Infinity);
+  const right = new Array<number>(ROW_COUNT).fill(Infinity);
+  for (const s of g.strokes) {
+    for (let i = 0; i + 3 < s.length; i += 2) {
+      const n = Math.max(1, Math.ceil(Math.hypot(s[i + 2] - s[i], s[i + 3] - s[i + 1]) * 4));
+      for (let k = 0; k <= n; k++) {
+        const x = s[i] + ((s[i + 2] - s[i]) * k) / n;
+        const y = s[i + 1] + ((s[i + 3] - s[i + 1]) * k) / n;
+        const first = Math.max(0, Math.ceil((y - ROW_REACH - ROW_TOP) / ROW_STEP));
+        const last = Math.min(ROW_COUNT - 1, Math.floor((y + ROW_REACH - ROW_TOP) / ROW_STEP));
+        for (let r = first; r <= last; r++) {
+          if (x < left[r]) left[r] = x;
+          if (g.width - x < right[r]) right[r] = g.width - x;
+        }
+      }
+    }
+  }
+  return { left, right };
+}
+
+const SIDES = new Map<Glyph, Sides>([...Object.values(GLYPHS), MISSING_GLYPH].map((g) => [g, sidesOf(g)]));
+const FIGURES = new Set<Glyph>([...'0123456789'].map((ch) => GLYPHS[ch]));
+
+/** Neighbours whose bearings leave them closer than this at some height are eased apart (T T, L A). */
+const KERN_TIGHT = 0.6;
+/** Neighbours left further apart than this at every height are drawn together (A V, L T, a full stop after a P). */
+const KERN_LOOSE = 1.3;
+/** However much air a pair has, it is never drawn together by more than this. */
+const KERN_LIMIT = 2;
+
+/**
+ * The correction to the space between two neighbours, in grid units. It measures the narrowest
+ * gap between the right side of one and the left side of the next, over every height at which
+ * both have ink. Figures are left alone so that numbers keep a steady pitch.
+ */
+function kern(a: Glyph, b: Glyph): number {
+  const sa = SIDES.get(a);
+  const sb = SIDES.get(b);
+  if (!sa || !sb || FIGURES.has(a) || FIGURES.has(b)) return 0;
+  let gap = Infinity;
+  for (let r = 0; r < ROW_COUNT; r++) gap = Math.min(gap, sa.right[r] + sb.left[r]);
+  if (gap === Infinity) return 0;
+  if (gap < KERN_TIGHT) return KERN_TIGHT - gap;
+  return gap > KERN_LOOSE ? Math.max(KERN_LOOSE - gap, -KERN_LIMIT) : 0;
 }
 
 // ---------------------------------------------------------------- layout
@@ -295,7 +367,9 @@ const ALIGN_SHIFT = { left: 0, center: 0.5, right: 1 } as const;
 
 interface Line {
   glyphs: Glyph[];
-  /** Advance of the whole line in grid units, with no tracking after its last glyph. */
+  /** Where each glyph's cell starts, in grid units from the start of the line. */
+  x: number[];
+  /** Grid units from the start of the first cell to the end of the last. */
   width: number;
 }
 
@@ -303,44 +377,42 @@ interface Line {
 function breakLines(text: string, tracking: number, limit: number): Line[] {
   const lines: Line[] = [];
   for (const paragraph of text.split(/\r\n|\r|\n/)) {
-    // `run` counts each glyph's advance plus the tracking after it; a line's width is its run less one tracking.
-    let line: Glyph[] = [];
-    let lineRun = 0;
-    let gap: Glyph[] = [];
-    let gapRun = 0;
-    let word: Glyph[] = [];
-    let wordRun = 0;
-    const endWord = (): void => {
-      if (word.length === 0) return;
-      if (line.length > 0 && lineRun + gapRun + wordRun - tracking > limit) {
-        // The spaces at a break belong to neither line.
-        lines.push({ glyphs: line, width: lineRun - tracking });
-        line = word;
-        lineRun = wordRun;
-      } else {
-        line = line.concat(gap, word);
-        lineRun += gapRun + wordRun;
-      }
-      gap = [];
-      gapRun = 0;
-      word = [];
-      wordRun = 0;
-    };
+    // Set the paragraph as one long line first. Nothing kerns across a space, so any run of
+    // words can be cut out of it afterwards without moving a glyph within the run.
+    const glyphs: Glyph[] = [];
+    const pen: number[] = [];
     for (const ch of paragraph) {
       const g = glyphFor(ch) ?? MISSING_GLYPH;
-      if (g === SPACE) {
-        endWord();
-        gap.push(g);
-        gapRun += g.width + tracking;
-      } else {
-        word.push(g);
-        wordRun += g.width + tracking;
-      }
+      const n = glyphs.length;
+      let x = 0;
+      if (n > 0) x = pen[n - 1] + glyphs[n - 1].width + tracking + kern(glyphs[n - 1], g);
+      // A small mark tucked between two overhangs (T.T) must not let the overhangs meet.
+      if (n > 1) x = Math.max(x, pen[n - 2] + glyphs[n - 2].width + tracking + kern(glyphs[n - 2], g));
+      glyphs.push(g);
+      pen.push(x);
     }
-    endWord();
-    line = line.concat(gap);
-    lineRun += gapRun;
-    lines.push({ glyphs: line, width: Math.max(0, lineRun - tracking) });
+    const cut = (from: number, to: number): void => {
+      lines.push({
+        glyphs: glyphs.slice(from, to + 1),
+        x: pen.slice(from, to + 1).map((p) => p - pen[from]),
+        width: to < from ? 0 : pen[to] + glyphs[to].width - pen[from],
+      });
+    };
+    let start = 0;
+    let fitted = -1;
+    for (let i = 0; i < glyphs.length; i++) {
+      if (glyphs[i] === SPACE) continue;
+      let end = i;
+      while (end + 1 < glyphs.length && glyphs[end + 1] !== SPACE) end++;
+      // The spaces at a break belong to neither line. A line always keeps its first word, however long.
+      if (fitted >= start && pen[end] + glyphs[end].width - pen[start] > limit) {
+        cut(start, fitted);
+        start = i;
+      }
+      fitted = end;
+      i = end;
+    }
+    cut(start, glyphs.length - 1);
   }
   return lines;
 }
@@ -351,11 +423,10 @@ function linesOf(text: string, opts: LayoutOptions): Line[] {
 }
 
 function extent(lines: Line[], opts: LayoutOptions): { width: number; height: number; lineCount: number } {
-  const unit = opts.size / CAP_HEIGHT;
   let widest = 0;
   for (const l of lines) if (l.width > widest) widest = l.width;
   return {
-    width: widest * unit,
+    width: (widest * opts.size) / CAP_HEIGHT,
     height: opts.size * (1 + (lines.length - 1) * (opts.lineHeight ?? DEFAULT_LINE_HEIGHT)),
     lineCount: lines.length,
   };
@@ -373,26 +444,25 @@ export function measureText(text: string, opts: LayoutOptions): { width: number;
  */
 export function layoutText(text: string, opts: LayoutOptions): TextLayout {
   const unit = opts.size / CAP_HEIGHT;
-  const tracking = opts.tracking ?? DEFAULT_TRACKING;
   const lines = linesOf(text, opts);
   const block = extent(lines, opts);
   const shift = ALIGN_SHIFT[opts.align ?? 'left'];
   const lead = opts.size * (opts.lineHeight ?? DEFAULT_LINE_HEIGHT);
   const polylines: number[][] = [];
   lines.forEach((line, row) => {
-    let x = (block.width - line.width * unit) * shift;
-    const y = row * lead;
-    for (const g of line.glyphs) {
+    const left = (block.width - line.width * unit) * shift;
+    const top = row * lead;
+    line.glyphs.forEach((g, k) => {
+      const x = left + line.x[k] * unit;
       for (const stroke of g.strokes) {
         const p = new Array<number>(stroke.length);
         for (let i = 0; i < stroke.length; i += 2) {
           p[i] = x + stroke[i] * unit;
-          p[i + 1] = y + stroke[i + 1] * unit;
+          p[i + 1] = top + stroke[i + 1] * unit;
         }
         polylines.push(p);
       }
-      x += (g.width + tracking) * unit;
-    }
+    });
   });
   return { polylines, ...block };
 }

@@ -407,6 +407,43 @@ export function ripenLine(w: World, line: Line): void {
   hooks.onRipen?.(w, line);
 }
 
+/** Every enemy touching a line takes a hit from it now (a ripe line discharges). */
+export function strikeAlongLine(w: World, line: Line): void {
+  if (!line.active) return;
+  const ripe = line.ripe;
+  const nx = -(line.by - line.ay);
+  const ny = line.bx - line.ax;
+  const nl = Math.hypot(nx, ny) || 1;
+  let any = false;
+  for (const e of w.enemies.slice()) {
+    if (e.dead || e.state === 'spawn' || e.burrowed || e.airborne) continue;
+    if (!circleTouchesSegment(e.x, e.y, e.radius, line.ax, line.ay, line.bx, line.by)) continue;
+    const side = (e.x - line.ax) * nx + (e.y - line.ay) * ny >= 0 ? 1 : -1;
+    applyLineHit(w, e, line, ripe, 'sweep', (nx / nl) * side, (ny / nl) * side, 1);
+    any = true;
+  }
+  if (ripe && any) discharge(w, line, 'effect');
+}
+
+/** Hit whatever stands in an earlier sweep's triangles again, at reduced strength, as unripe hits. */
+export function sweepAgain(w: World, sweep: Sweep, scale: number): void {
+  const mx = sweep.toX - sweep.fromX;
+  const my = sweep.toY - sweep.fromY;
+  const ml = Math.hypot(mx, my) || 1;
+  for (const e of w.enemies.slice()) {
+    if (e.dead || e.state === 'spawn' || e.burrowed || e.airborne) continue;
+    for (const t of sweep.tris) {
+      if (!circleTouchesTri(e.x, e.y, e.radius, t.sx, t.sy, sweep.fromX, sweep.fromY, sweep.toX, sweep.toY)) continue;
+      applyLineHit(w, e, w.lines.lines[t.pair], false, 'sweep', mx / ml, my / ml, scale);
+      break;
+    }
+  }
+  w.events.push({
+    type: 'whip', stake: sweep.stake, cause: 'whip', fromX: sweep.fromX, fromY: sweep.fromY, toX: sweep.toX, toY: sweep.toY, dur: 0,
+    tris: sweep.tris.map((t) => [t.sx, t.sy, 0]), live: true, hits: 0,
+  });
+}
+
 /** Spend a ripe line on one enemy, wherever it stands (Dead Reckoning, Slingshot). */
 export function dischargeOn(w: World, line: Line, e: Enemy): void {
   if (!line.ripe) return;

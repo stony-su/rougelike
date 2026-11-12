@@ -49,6 +49,9 @@ export function createPlayer(x: number, y: number): Player {
     actDur: 0,
     actDone: false,
     plumbCooldown: 0,
+    plumbCharges: 1,
+    plumbMax: 1,
+    shield: 0,
     bufAttack: 0,
     bufSpecial: 0,
     bufDash: 0,
@@ -110,7 +113,7 @@ function startSwing(w: World, p: Player, combo: number): void {
   p.state = 'swing';
   p.stateTime = 0;
   p.actAngle = p.aim;
-  p.actDur = ROD.windup[combo] + ROD.active[combo] + ROD.recovery[combo];
+  p.actDur = (ROD.windup[combo] + ROD.active[combo] + ROD.recovery[combo]) / w.mods.swingSpeedMul;
   p.actDone = false;
   p.bufAttack = 0;
   p.comboTimer = 0;
@@ -144,7 +147,7 @@ function resolveSwing(w: World, p: Player): void {
     const kl = Math.hypot(kx, ky) || 1;
     // Surveyed land favours the surveyor: more damage to anything in the Plot or on a line.
     const surveyed = e.inPlot || e.onLine;
-    const amount = ROD.damage[c] * (surveyed ? 1 + ROD.surveyedBonus : 1) * (1 + (e.status.markT > 0 ? e.status.markBonus : 0));
+    const amount = ROD.damage[c] * (surveyed ? 1 + w.mods.rodSurveyed : 1) * (1 + (e.status.markT > 0 ? e.status.markBonus : 0));
     damageEnemy(w, e, amount, { kind: 'rod', dx: kx / kl, dy: ky / kl, knock: ROD.knockback[c], heavy: c === 2, crit: surveyed });
     hits++;
   }
@@ -175,8 +178,10 @@ function resolveSwing(w: World, p: Player): void {
 function stepSwing(w: World, p: Player, inp: InputFrame, dt: number): void {
   const c = p.combo;
   const t = p.stateTime;
-  const hitAt = ROD.windup[c];
-  const activeEnd = hitAt + ROD.active[c];
+  // a faster swing compresses every phase equally
+  const k = 1 / w.mods.swingSpeedMul;
+  const hitAt = ROD.windup[c] * k;
+  const activeEnd = hitAt + ROD.active[c] * k;
 
   if (!p.actDone && t >= hitAt) {
     p.actDone = true;
@@ -192,7 +197,7 @@ function stepSwing(w: World, p: Player, inp: InputFrame, dt: number): void {
   moveWithCollision(w, p, p.vx * dt, p.vy * dt, 1);
 
   // Chain into the next swing partway through recovery. The third swing must finish.
-  if (c < 2 && p.bufAttack > 0 && t >= activeEnd + ROD.recovery[c] * CHAIN_AT) {
+  if (c < 2 && p.bufAttack > 0 && t >= activeEnd + ROD.recovery[c] * k * CHAIN_AT) {
     startSwing(w, p, c + 1);
     return;
   }
@@ -211,7 +216,8 @@ function startShot(w: World, p: Player): void {
   p.actDur = PLUMB.castTime + PLUMB.recovery;
   p.actDone = false;
   p.bufSpecial = 0;
-  p.plumbCooldown = PLUMB.cooldown;
+  p.plumbCharges -= 1;
+  if (p.plumbCooldown <= 0) p.plumbCooldown = PLUMB.cooldown;
   p.comboTimer = 0;
   w.events.push({ type: 'plumbFire', x: p.x, y: p.y, angle: p.actAngle });
 }
@@ -223,6 +229,8 @@ function stepShot(w: World, p: Player, inp: InputFrame, dt: number): void {
     const dy = Math.sin(p.actAngle);
     // Cast at one of your own stakes (cursor close to it) to yank that stake home.
     const target = nearestPlanted(w.lines, p.aimX, p.aimY, PLUMB.stakeCursorRadius);
+    // With Offset, a cast at open ground stops at the cursor and sends the oldest stake there.
+    const toCursor = Math.hypot(p.aimX - p.x, p.aimY - p.y);
     spawnProjectile(w, {
       kind: 'plumb',
       faction: 'player',
@@ -232,7 +240,11 @@ function stepShot(w: World, p: Player, inp: InputFrame, dt: number): void {
       vy: dy * PLUMB.speed,
       radius: PLUMB.radius,
       damage: PLUMB.damage,
-      range: target ? Math.max(PLUMB.range, Math.hypot(target.x - p.x, target.y - p.y) + 0.5) : PLUMB.range,
+      range: target
+        ? Math.max(PLUMB.range, Math.hypot(target.x - p.x, target.y - p.y) + 0.5)
+        : w.mods.plumbOffset
+          ? Math.min(PLUMB.range, Math.max(1, toCursor))
+          : PLUMB.range,
       targetStake: target ? target.id : -1,
     });
   }
@@ -259,10 +271,18 @@ export function stepPlayer(w: World, inp: InputFrame, dt: number): void {
   if (p.bufDash > 0) p.bufDash -= dt;
   if (p.bufStake > 0) p.bufStake -= dt;
   if (p.comboTimer > 0) p.comboTimer -= dt;
-  if (p.plumbCooldown > 0) p.plumbCooldown = Math.max(0, p.plumbCooldown - dt);
+  if (p.plumbCharges < p.plumbMax) {
+    p.plumbCooldown -= dt;
+    if (p.plumbCooldown <= 0) {
+      p.plumbCharges += 1;
+      p.plumbCooldown = p.plumbCharges < p.plumbMax ? PLUMB.cooldown : 0;
+    }
+  } else {
+    p.plumbCooldown = 0;
+  }
   if (p.dashCharges < p.dashMaxCharges) {
     p.dashRecharge += dt;
-    if (p.dashRecharge >= DASH.recharge) {
+    if (p.dashRecharge >= DASH.recharge * w.mods.dashRechargeMul) {
       p.dashRecharge = 0;
       p.dashCharges += 1;
       w.events.push({ type: 'dashCharge', charges: p.dashCharges });
@@ -344,7 +364,7 @@ export function stepPlayer(w: World, inp: InputFrame, dt: number): void {
     return;
   }
   if (p.bufSpecial > 0) {
-    if (p.plumbCooldown <= 0) {
+    if (p.plumbCharges > 0) {
       startShot(w, p);
       return;
     }
@@ -354,8 +374,9 @@ export function stepPlayer(w: World, inp: InputFrame, dt: number): void {
 
   // walking
   const moving = inp.moveX !== 0 || inp.moveY !== 0;
-  const tx = inp.moveX * PLAYER.speed;
-  const ty = inp.moveY * PLAYER.speed;
+  const speed = PLAYER.speed * w.mods.moveSpeedMul;
+  const tx = inp.moveX * speed;
+  const ty = inp.moveY * speed;
   const rate = moving ? PLAYER.accel : PLAYER.decel;
   p.vx = damp(p.vx, tx, rate, dt);
   p.vy = damp(p.vy, ty, rate, dt);

@@ -1,7 +1,8 @@
 // Simulation state. Plain data only: no rendering, no DOM. Everything here can run headless.
 import type { Rng } from '../core/rng';
 import type { Vec2 } from '../core/math';
-import type { EnemyDef, RoomKind, ZoneId } from './defs';
+import type { ContentRegistry, EnemyDef, RoomKind, ZoneId } from './defs';
+import type { KitState, Mods, Zone } from './kit';
 import type { LinesState } from './lines';
 
 // ---------------------------------------------------------------- input
@@ -123,8 +124,12 @@ export interface Player {
   actDur: number;
   /** True once the current swing's hit has been resolved. */
   actDone: boolean;
-  /** Seconds until the Plumb Shot is ready again. */
+  /** Seconds until the next Plumb Shot charge returns. */
   plumbCooldown: number;
+  plumbCharges: number;
+  plumbMax: number;
+  /** Damage a shield will absorb before health is touched. */
+  shield: number;
   /** Buffered presses: seconds left in which the press still counts. */
   bufAttack: number;
   bufSpecial: number;
@@ -345,7 +350,13 @@ export type SimEvent =
   | { type: 'enemySurface'; id: number; x: number; y: number }
   | { type: 'hostilePlant'; group: number; x: number; y: number }
   | { type: 'hostileBreak'; group: number; x: number; y: number }
-  | { type: 'hostileCross'; group: number; x: number; y: number };
+  | { type: 'hostileCross'; group: number; x: number; y: number }
+  | { type: 'shockwave'; x: number; y: number; radius: number }
+  | { type: 'beam'; ax: number; ay: number; bx: number; by: number }
+  | { type: 'zone'; id: number; zone: string; pts: number[]; dur: number }
+  | { type: 'shield'; on: boolean; x: number; y: number }
+  | { type: 'chalk'; amount: number; x: number; y: number }
+  | { type: 'teleport'; x: number; y: number };
 
 export type RelocateCause = 'whip' | 'yank' | 'shove' | 'offset' | 'swap';
 
@@ -373,6 +384,18 @@ export interface World {
   sheet: number;
   /** Stakes, lines, the Plot and hostile geometry. */
   lines: LinesState;
+  /** The content this world runs on. */
+  content: ContentRegistry;
+  /** The player's upgrades, carried from room to room. */
+  kit: KitState;
+  /** Numbers and switches resolved from the kit. */
+  mods: Mods;
+  /** Lingering areas on the ground. */
+  zones: Zone[];
+  /** Run currency. */
+  chalk: number;
+  /** Bonuses from permanent progression, applied under the kit. */
+  base: { dashCharges: number; dashRechargeMul: number; chalkMul: number };
   /** Totals for the end-of-run screens and for tests. */
   stats: {
     kills: number;
