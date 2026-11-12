@@ -8,10 +8,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.sim.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "node scripts/verify-browser.mjs"
+    "shot": "node scripts/shot.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.23.0"
