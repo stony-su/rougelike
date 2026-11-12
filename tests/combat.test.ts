@@ -129,7 +129,7 @@ describe('Ranging Rod', () => {
     const w = world();
     w.projectiles.push({
       id: w.nextId++, kind: 'quill', faction: 'enemy', owner: 0,
-      x: 7.6, y: 6.5, px: 7.6, py: 6.5, vx: 0, vy: 0, radius: 0.14, damage: 8, life: 5, range: 50, light: true, dead: false,
+      x: 7.6, y: 6.5, px: 7.6, py: 6.5, vx: 0, vy: 0, radius: 0.14, damage: 8, life: 5, range: 50, light: true, targetStake: -1, dead: false,
     });
     const ev = steps(w, 12, inp({ attackPressed: true }));
     expect(ev.some((x) => x.type === 'deflect')).toBe(true);

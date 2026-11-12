@@ -34,7 +34,7 @@ if (galleryRig !== null) {
   const game = new Game(app, {
     debug: params.has('debug'),
     seed: params.get('seed') ?? String(Math.floor(Math.random() * 1e9)),
-    autopilot: params.has('autopilot'),
+    autopilot: params.get('autopilot') ?? '',
     stress: Number(params.get('stress') ?? 0) || 0,
   });
   hooks.game = game;

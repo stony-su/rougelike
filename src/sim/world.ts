@@ -2,6 +2,7 @@
 import { Rng } from '../core/rng';
 import { sweepDead, stepEnemies } from './ai';
 import type { ContentRegistry } from './defs';
+import { createLines, stepLines } from './lines';
 import { bufferInput, createPlayer, stepPlayer } from './player';
 import { stepProjectiles } from './projectiles';
 import { stepTelegraphs } from './telegraphs';
@@ -27,7 +28,8 @@ export function createWorld(room: Room, seed: number | string, _content: Content
     hitstop: 0,
     nextId: 1,
     sheet: o.sheet ?? 1,
-    stats: { kills: 0, damageDealt: 0, damageTaken: 0, rodDamage: 0, lineDamage: 0 },
+    lines: createLines(),
+    stats: { kills: 0, damageDealt: 0, damageTaken: 0, rodDamage: 0, lineDamage: 0, whips: 0, discharges: 0, trips: 0 },
   };
 }
 
@@ -59,6 +61,8 @@ export function stepWorld(w: World, inp: InputFrame): void {
   stepPlayer(w, inp, DT);
   stepEnemies(w, DT);
   stepProjectiles(w, DT);
+  // Lines resolve after everything has moved, so trips see this tick's positions.
+  stepLines(w, DT);
   stepTelegraphs(w, DT);
   sweepDead(w);
 }

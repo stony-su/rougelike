@@ -3,6 +3,7 @@ import { pointInSector } from '../core/geom';
 import { damp } from '../core/math';
 import type { Vec2 } from '../core/math';
 import { KNOCK_DECAY, damageEnemy, hitStop } from './combat';
+import { beginDash, breakHostileNear, dashCrossing, hammerStake, nearestPlanted, pressStake } from './lines';
 import { destroyProjectile, spawnProjectile } from './projectiles';
 import { resolveCircle } from './room';
 import { DASH, PLAYER, PLUMB, ROD } from './tuning';
@@ -25,6 +26,8 @@ export function createPlayer(x: number, y: number): Player {
     ky: 0,
     radius: PLAYER.radius,
     aim: -Math.PI / 2,
+    aimX: x,
+    aimY: y - 1,
     moveDirX: 0,
     moveDirY: -1,
     hp: PLAYER.maxHp,
@@ -96,6 +99,7 @@ function startDash(w: World, p: Player, inp: InputFrame): void {
   p.ky = 0;
   p.state = 'dash';
   p.stateTime = 0;
+  beginDash(w);
   w.events.push({ type: 'dash', x: p.x, y: p.y, dx: p.dashDirX, dy: p.dashDirY });
 }
 
@@ -138,8 +142,25 @@ function resolveSwing(w: World, p: Player): void {
       ky = dy;
     }
     const kl = Math.hypot(kx, ky) || 1;
-    damageEnemy(w, e, ROD.damage[c], { kind: 'rod', dx: kx / kl, dy: ky / kl, knock: ROD.knockback[c], heavy: c === 2 });
+    // Surveyed land favours the surveyor: more damage to anything in the Plot or on a line.
+    const surveyed = e.inPlot || e.onLine;
+    const amount = ROD.damage[c] * (surveyed ? 1 + ROD.surveyedBonus : 1) * (1 + (e.status.markT > 0 ? e.status.markBonus : 0));
+    damageEnemy(w, e, amount, { kind: 'rod', dx: kx / kl, dy: ky / kl, knock: ROD.knockback[c], heavy: c === 2, crit: surveyed });
     hits++;
+  }
+  // The third swing hammers any of your stakes in its arc: their lines turn ripe.
+  if (c === 2) {
+    for (const st of w.lines.stakes) {
+      if (st.state !== 'planted') continue;
+      if (pointInSector(st.x, st.y, p.x, p.y, p.actAngle, half, ROD.hammerReach, 0.3)) hammerStake(w, st.id);
+    }
+  }
+  // Any swing knocks out hostile stakes it reaches.
+  for (const g of w.lines.hostile) {
+    if (g.kind !== 'claim') continue;
+    for (const hs of g.stakes.slice()) {
+      if (pointInSector(hs.x, hs.y, p.x, p.y, p.actAngle, half, reach, 0.25)) breakHostileNear(w, hs.x, hs.y, 0.05);
+    }
   }
   for (const pr of w.projectiles) {
     if (pr.dead || pr.faction !== 'enemy' || !pr.light) continue;
@@ -200,6 +221,8 @@ function stepShot(w: World, p: Player, inp: InputFrame, dt: number): void {
     p.actDone = true;
     const dx = Math.cos(p.actAngle);
     const dy = Math.sin(p.actAngle);
+    // Cast at one of your own stakes (cursor close to it) to yank that stake home.
+    const target = nearestPlanted(w.lines, p.aimX, p.aimY, PLUMB.stakeCursorRadius);
     spawnProjectile(w, {
       kind: 'plumb',
       faction: 'player',
@@ -209,7 +232,8 @@ function stepShot(w: World, p: Player, inp: InputFrame, dt: number): void {
       vy: dy * PLUMB.speed,
       radius: PLUMB.radius,
       damage: PLUMB.damage,
-      range: PLUMB.range,
+      range: target ? Math.max(PLUMB.range, Math.hypot(target.x - p.x, target.y - p.y) + 0.5) : PLUMB.range,
+      targetStake: target ? target.id : -1,
     });
   }
   p.vx = damp(p.vx, inp.moveX * PLAYER.speed * 0.45, 30, dt);
@@ -248,9 +272,23 @@ export function stepPlayer(w: World, inp: InputFrame, dt: number): void {
   }
 
   // aim
+  p.aimX = inp.aimX;
+  p.aimY = inp.aimY;
   const ax = inp.aimX - p.x;
   const ay = inp.aimY - p.y;
   if (ax * ax + ay * ay > 0.01) p.aim = Math.atan2(ay, ax);
+
+  // The stake key works in every state: mid-swing, mid-dash, mid-anything.
+  if (p.bufStake > 0) {
+    const r = pressStake(w);
+    if (r === 'wait') {
+      // A stake is in flight or the whip lock is running: hold this one press until it can act.
+      p.bufStake = Math.max(p.bufStake, dt * 2);
+    } else {
+      p.bufStake = 0;
+      if (r === 'refused') w.events.push({ type: 'refused', what: 'stake' });
+    }
+  }
   if (inp.moveX !== 0 || inp.moveY !== 0) {
     p.moveDirX = inp.moveX;
     p.moveDirY = inp.moveY;
@@ -269,7 +307,10 @@ export function stepPlayer(w: World, inp: InputFrame, dt: number): void {
   if (p.state === 'dash') {
     const speed = DASH.distance / DASH.time;
     const step = Math.min(dt, p.dashTimeLeft);
+    const fromX = p.x;
+    const fromY = p.y;
     moveWithCollision(w, p, p.dashDirX * speed * step, p.dashDirY * speed * step, 3);
+    dashCrossing(w, fromX, fromY, p.x, p.y);
     p.dashTimeLeft -= dt;
     p.vx = p.dashDirX * speed;
     p.vy = p.dashDirY * speed;

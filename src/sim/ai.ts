@@ -11,6 +11,7 @@ import { KNOCK_DECAY, damagePlayer } from './combat';
 import type { ActionSpec, EnemyDef, MoveSpec } from './defs';
 import { spawnProjectile } from './projectiles';
 import { resolveCircle } from './room';
+import { newStatus, slowOf, stepStatus } from './status';
 import { addTelegraph, findTelegraph, telegraphCovers } from './telegraphs';
 import { SCALING } from './tuning';
 import type { Enemy, World } from './types';
@@ -73,6 +74,12 @@ export function spawnEnemy(
     dragVX: 0,
     dragVY: 0,
     mem: [0, 0, 0, 0],
+    inPlot: false,
+    onLine: false,
+    tripUntil: 0,
+    burrowed: false,
+    airborne: false,
+    status: newStatus(),
     dead: false,
   };
   if (o.instant) setState(e, 'idle');
@@ -244,7 +251,7 @@ function locomote(w: World, e: Enemy, dt: number): void {
   const dist = Math.hypot(dx, dy) || 1e-6;
   dx /= dist;
   dy /= dist;
-  const speed = e.def.speed * e.speedMul;
+  const speed = e.def.speed * e.speedMul * (1 - slowOf(e));
   let tx = 0;
   let ty = 0;
   if (p.state !== 'dead') {
@@ -291,8 +298,10 @@ function locomote(w: World, e: Enemy, dt: number): void {
 }
 
 function integrate(w: World, e: Enemy, dt: number): void {
-  let mx = e.vx + e.kx;
-  let my = e.vy + e.ky;
+  // Rooted or frozen: its own legs do nothing, but blows still move it.
+  const held = e.status.rootT > 0 || e.status.frozenT > 0;
+  let mx = (held ? 0 : e.vx) + e.kx;
+  let my = (held ? 0 : e.vy) + e.ky;
   if (e.dragT > 0) {
     e.dragT -= dt;
     mx += e.dragVX;
@@ -366,6 +375,10 @@ export function stepEnemies(w: World, dt: number): void {
     e.hurtT += dt;
     if (e.stunImmune > 0) e.stunImmune -= dt;
     for (let i = 0; i < e.cooldowns.length; i++) if (e.cooldowns[i] > 0) e.cooldowns[i] -= dt;
+    if (e.state !== 'spawn') {
+      stepStatus(w, e, dt);
+      if (e.dead) continue;
+    }
 
     const m = e.move >= 0 ? e.def.moves[e.move] : undefined;
     switch (e.state) {

@@ -2,6 +2,7 @@
 import type { Rng } from '../core/rng';
 import type { Vec2 } from '../core/math';
 import type { EnemyDef, RoomKind, ZoneId } from './defs';
+import type { LinesState } from './lines';
 
 // ---------------------------------------------------------------- input
 
@@ -88,6 +89,9 @@ export interface Player {
   radius: number;
   /** World-space angle from the player to the cursor. */
   aim: number;
+  /** The cursor's point on the ground plane. */
+  aimX: number;
+  aimY: number;
   /** Last non-zero movement direction (unit, world space). */
   moveDirX: number;
   moveDirY: number;
@@ -188,7 +192,42 @@ export interface Enemy {
   dragVY: number;
   /** Per-kind scratch numbers owned by the action primitives. */
   mem: number[];
+  /** Set each tick by the line step: standing inside the player's Plot / touching one of their lines. */
+  inPlot: boolean;
+  onLine: boolean;
+  /** No line may trip this enemy before this time (a global limiter across all lines). */
+  tripUntil: number;
+  /** Underground: cannot be hit or tripped; a whip sweep over it surfaces it. */
+  burrowed: boolean;
+  /** In the air: ground lines do not trip it. */
+  airborne: boolean;
+  status: EnemyStatus;
   dead: boolean;
+}
+
+/** Timed conditions on an enemy. Plain numbers so the whole world stays serialisable. */
+export interface EnemyStatus {
+  /** Burn: damage per second, and seconds left. */
+  burnDps: number;
+  burnT: number;
+  /** Burn damage accumulated but not yet dealt (dealt in half-second ticks). */
+  burnAcc: number;
+  /** Chill: movement slow 0..1, and seconds left. */
+  chillSlow: number;
+  chillT: number;
+  /** Frozen solid (a stun that shows as ice). Seconds left. */
+  frozenT: number;
+  /** Rooted: cannot move, can still act. Seconds left. */
+  rootT: number;
+  /** Marked: takes this much more Rod and Plumb damage. Seconds left. */
+  markBonus: number;
+  markT: number;
+  /** Extra slow from ground effects this tick (dust), 0..1. Reset every tick. */
+  zoneSlow: number;
+  /** Extra line damage taken this tick from ground effects, as a fraction. Reset every tick. */
+  zoneLineBonus: number;
+  /** Seconds before another root may be applied. */
+  rootImmune: number;
 }
 
 // ---------------------------------------------------------------- projectiles and telegraphs
@@ -214,6 +253,8 @@ export interface Projectile {
   range: number;
   /** Light projectiles are destroyed by a Rod swing. */
   light: boolean;
+  /** For the plumb bob: the id of the player's own stake it was cast at, or -1. */
+  targetStake: number;
   dead: boolean;
 }
 
@@ -273,7 +314,40 @@ export type SimEvent =
   | { type: 'projectileSpawn'; id: number; kind: string; x: number; y: number }
   | { type: 'projectileEnd'; id: number; kind: string; x: number; y: number; hit: boolean }
   | { type: 'waveStart'; wave: number }
-  | { type: 'refused'; what: string };
+  | { type: 'refused'; what: string }
+  | { type: 'stakePlant'; stake: number; x: number; y: number }
+  | {
+      type: 'whip';
+      stake: number;
+      cause: RelocateCause;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+      /** Seconds the flight takes. */
+      dur: number;
+      /** Swept triangles, each as [farX, farY, ripe ? 1 : 0]. */
+      tris: number[][];
+      /** False when the sweep was too small to count. */
+      live: boolean;
+      hits: number;
+    }
+  | { type: 'stakeLand'; stake: number; x: number; y: number; cause: RelocateCause }
+  | { type: 'stakeLost'; stake: number; x: number; y: number; seconds: number }
+  | { type: 'stakeReturn'; stake: number }
+  | { type: 'lineRipe'; a: number; b: number; ax: number; ay: number; bx: number; by: number }
+  | { type: 'lineDischarge'; a: number; b: number; ax: number; ay: number; bx: number; by: number; cause: 'trip' | 'sweep' | 'effect' }
+  | { type: 'lineSever'; a: number; b: number; x: number; y: number; seconds: number }
+  | { type: 'lineMend'; a: number; b: number }
+  | { type: 'hammer'; stake: number; x: number; y: number }
+  | { type: 'dashRefund'; x: number; y: number }
+  | { type: 'plotChange'; formed: boolean }
+  | { type: 'enemySurface'; id: number; x: number; y: number }
+  | { type: 'hostilePlant'; group: number; x: number; y: number }
+  | { type: 'hostileBreak'; group: number; x: number; y: number }
+  | { type: 'hostileCross'; group: number; x: number; y: number };
+
+export type RelocateCause = 'whip' | 'yank' | 'shove' | 'offset' | 'swap';
 
 export type SimEventType = SimEvent['type'];
 
@@ -297,6 +371,8 @@ export interface World {
   nextId: number;
   /** How deep into the run this room is (1-based sheet number); scales enemy health and damage. */
   sheet: number;
+  /** Stakes, lines, the Plot and hostile geometry. */
+  lines: LinesState;
   /** Totals for the end-of-run screens and for tests. */
   stats: {
     kills: number;
@@ -304,5 +380,8 @@ export interface World {
     damageTaken: number;
     rodDamage: number;
     lineDamage: number;
+    whips: number;
+    discharges: number;
+    trips: number;
   };
 }

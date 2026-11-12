@@ -68,10 +68,15 @@ export const LINES = {
   linkRange: 9,
   damage: 12,
   ripeTime: 2.5,
+  /** No combination of upgrades may ripen a line faster than this. */
+  ripeFloor: 1.0,
   ripeDamage: 30,
   stun: 0.5,
   stunImmunity: 1.5,
+  /** The same line cannot trip the same enemy again for this long. */
   tripLockout: 1.0,
+  /** No line at all can trip the same enemy again for this long. */
+  tripGlobal: 0.3,
   whipTime: 0.15,
   whipLock: 0.3,
   minSweepArea: 1.5,
@@ -80,8 +85,13 @@ export const LINES = {
   minSpacing: 0.75,
   lostTime: 5,
   severTime: 3,
+  /** A stake cannot be hammered ripe again for this long. */
+  hammerCooldown: 4,
   hostileDamage: 10,
   hostileLockout: 0.8,
+  /** Hostile stakes allowed in a room at once (bosses excepted). */
+  hostileCap: 6,
+  shoveTime: 0.2,
 };
 
 export const FEEL = {

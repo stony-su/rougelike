@@ -1,6 +1,7 @@
 // Projectiles: enemy shots, and the player's plumb bob.
 import { circleTouchesSegment } from '../core/geom';
 import { damageEnemy, damagePlayer } from './combat';
+import { breakHostileNear, relocateStake } from './lines';
 import { isFloorTile } from './room';
 import { PLUMB } from './tuning';
 import type { Projectile, World } from './types';
@@ -19,6 +20,7 @@ export function spawnProjectile(
     damage: number;
     range: number;
     light?: boolean;
+    targetStake?: number;
   },
 ): Projectile {
   const speed = Math.hypot(o.vx, o.vy) || 1;
@@ -38,6 +40,7 @@ export function spawnProjectile(
     life: o.range / speed + 0.05,
     range: o.range,
     light: o.light ?? false,
+    targetStake: o.targetStake ?? -1,
     dead: false,
   };
   w.projectiles.push(p);
@@ -114,6 +117,22 @@ export function stepProjectiles(w: World, dt: number): void {
             e.dragVY = (dy / dist) * (pull / PLUMB.dragTime);
           }
         }
+        end(w, p, true);
+      }
+      // Otherwise it may catch what it was cast at: one of the player's own stakes, yanked home.
+      if (!p.dead && p.targetStake >= 0) {
+        const st = w.lines.stakes[p.targetStake];
+        if (st && st.state === 'planted' && circleTouchesSegment(st.x, st.y, PLUMB.stakeCatchRadius, p.px, p.py, p.x, p.y)) {
+          p.x = st.x;
+          p.y = st.y;
+          w.events.push({ type: 'plumbHook', x: st.x, y: st.y, target: 0 });
+          relocateStake(w, st.id, pl.x, pl.y, 'yank');
+          end(w, p, true);
+        }
+      }
+      // It uproots hostile stakes it touches.
+      if (!p.dead && breakHostileNear(w, p.x, p.y, 0.45) > 0) {
+        w.events.push({ type: 'plumbHook', x: p.x, y: p.y, target: 0 });
         end(w, p, true);
       }
     }

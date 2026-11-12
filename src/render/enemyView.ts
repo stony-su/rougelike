@@ -5,7 +5,7 @@ import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { lerp } from '../core/math';
 import type { Enemy, SimEvent, World } from '../sim/types';
 import type { Sortable } from './depth';
-import { DANGER, RIM, WHITE } from './palette';
+import { CHALK, DANGER, RIM, WHITE } from './palette';
 import type { ZoneTheme } from './palette';
 import { animInput } from './rig/def';
 import type { AnimInput } from './rig/def';
@@ -80,7 +80,7 @@ class EnemyView {
     this.setFacing(e.facing);
   }
 
-  update(e: Enemy, alpha: number, dt: number, time: number): void {
+  update(e: Enemy, alpha: number, dt: number, time: number, targeted: boolean): void {
     const x = lerp(e.px, e.x, alpha);
     const y = lerp(e.py, e.y, alpha);
     this.stride += Math.hypot(x - this.lastX, y - this.lastY);
@@ -103,6 +103,8 @@ class EnemyView {
     // The body itself warns: the eye turns danger-red through the wind-up and the attack.
     const threatening = e.state === 'windup' || e.state === 'attack';
     this.rig.setRole('eye', threatening ? DANGER : WHITE);
+    // Chalk on its outline: it stands in the Plot, on a line, or in the path of the next whip.
+    this.rig.setRole('rim', targeted || e.inPlot || e.onLine ? CHALK : RIM);
     this.rig.setFlash(Math.max(0, 1 - e.hurtT / FLASH_TIME));
 
     if (e.state === 'spawn') {
@@ -208,7 +210,7 @@ export class EnemyViews {
     this.corpses.push(v);
   }
 
-  update(w: World, alpha: number, dt: number, time: number): void {
+  update(w: World, alpha: number, dt: number, time: number, targets: ReadonlySet<number>): void {
     this.frame++;
     for (const e of w.enemies) {
       if (e.dead) continue;
@@ -218,7 +220,7 @@ export class EnemyViews {
         this.live.set(e.id, v);
       }
       v.seen = this.frame;
-      v.update(e, alpha, dt, time);
+      v.update(e, alpha, dt, time, targets.has(e.id));
     }
     // Anything the simulation dropped without a death event (room change) just goes.
     for (const [id, v] of this.live) {

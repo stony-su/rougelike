@@ -172,6 +172,85 @@ export class Fx {
         break;
       case 'refused':
         break;
+      case 'stakePlant':
+        ps.dust(ev.x, ev.y, 0, 0, CHALK, 5);
+        ps.ring(ev.x, ev.y, CHALK, 0.1, 0.75, 0.25, 0.8);
+        this.camera.shake(0.06);
+        break;
+      case 'whip':
+        if (ev.live) {
+          this.camera.shake(0.14);
+          this.camera.kick(0.012);
+        }
+        break;
+      case 'stakeLand':
+        ps.dust(ev.x, ev.y, 0, 0, CHALK, 6);
+        ps.ring(ev.x, ev.y, CHALK, 0.15, 0.9, 0.22, 0.9);
+        ps.sparks(ev.x, ev.y, 0.2, 0, 0, CHALK, 5, 0.6);
+        break;
+      case 'stakeLost':
+        ps.ring(ev.x, ev.y, DANGER, 0.2, 1.3, 0.4, 0.9);
+        ps.scraps(ev.x, ev.y, 0.4, HERO.rodPale, 6, 0.9);
+        this.camera.shake(0.25);
+        break;
+      case 'stakeReturn':
+        break;
+      case 'lineRipe': {
+        // a snap of light runs the length of the line
+        for (let i = 0; i <= 4; i++) {
+          const k = i / 4;
+          ps.flash(ev.ax + (ev.bx - ev.ax) * k, ev.ay + (ev.by - ev.ay) * k, 0.05, RIPE, 46, 0.22);
+        }
+        break;
+      }
+      case 'lineDischarge': {
+        for (let i = 0; i <= 5; i++) {
+          const k = i / 5;
+          const x = ev.ax + (ev.bx - ev.ax) * k;
+          const y = ev.ay + (ev.by - ev.ay) * k;
+          ps.flash(x, y, 0.05, RIPE, 70, 0.2);
+          ps.sparks(x, y, 0.1, 0, 0, RIPE, 2, 0.7);
+        }
+        this.camera.shake(0.2);
+        break;
+      }
+      case 'lineSever':
+        ps.sparks(ev.x, ev.y, 0.1, 0, 0, DANGER_HOT, 8, 0.8);
+        ps.ring(ev.x, ev.y, DANGER, 0.1, 0.8, 0.25, 0.8);
+        break;
+      case 'lineMend':
+        break;
+      case 'hammer':
+        ps.ring(ev.x, ev.y, RIPE, 0.15, 1.4, 0.3, 1);
+        ps.sparks(ev.x, ev.y, 0.5, 0, 0, RIPE, 12, 1);
+        ps.flash(ev.x, ev.y, 0.4, RIPE, 120, 0.2);
+        this.camera.shake(0.22);
+        break;
+      case 'dashRefund':
+        ps.ring(ev.x, ev.y, CHALK, 0.2, 1.1, 0.25, 0.9);
+        break;
+      case 'plotChange':
+        break;
+      case 'enemySurface':
+        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 10);
+        ps.ring(ev.x, ev.y, RIPE, 0.2, 1.2, 0.3, 0.8);
+        break;
+      case 'hostilePlant':
+        ps.ring(ev.x, ev.y, DANGER, 0.9, 0.2, 0.3, 0.9);
+        ps.dust(ev.x, ev.y, 0, 0, DANGER, 4);
+        break;
+      case 'hostileBreak':
+        ps.scraps(ev.x, ev.y, 0.4, DANGER, 5, 0.8);
+        ps.sparks(ev.x, ev.y, 0.3, 0, 0, DANGER_HOT, 6, 0.7);
+        break;
+      case 'hostileCross':
+        ps.sparks(ev.x, ev.y, 0.4, 0, 0, DANGER_HOT, 8, 1);
+        break;
+      default: {
+        // Adding a simulation event without deciding how it looks is a compile error here.
+        const unhandled: never = ev;
+        void unhandled;
+      }
     }
   }
 

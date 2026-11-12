@@ -9,6 +9,7 @@ import { Camera } from '../render/camera';
 import { DamageNumbers } from '../render/damageNumbers';
 import { EnemyViews } from '../render/enemyView';
 import { Fx } from '../render/fx';
+import { LinesView } from '../render/linesView';
 import { ZONES, css } from '../render/palette';
 import type { ZoneTheme } from '../render/palette';
 import { Particles } from '../render/particles';
@@ -19,8 +20,9 @@ import { Stage } from '../render/stage';
 import { TelegraphViews } from '../render/telegraphView';
 import { Textures } from '../render/textures';
 import { spawnEnemy } from '../sim/ai';
-import { rodBot } from '../sim/bots';
+import { lineBot, rodBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
+import { previewSweep } from '../sim/lines';
 import { buildRoom, randomFloorPoint } from '../sim/room';
 import { createYard, stepYard } from '../sim/sandbox';
 import type { Yard } from '../sim/sandbox';
@@ -34,8 +36,8 @@ import { FixedLoop } from './loop';
 export interface GameOptions {
   debug: boolean;
   seed: string;
-  /** Let a bot play (debug and automated checks). */
-  autopilot: boolean;
+  /** Let a bot play (debug and automated checks): 'rod', 'line', 'camp', 'mash', or '' for a human. */
+  autopilot: string;
   /** Stress scene: keep this many enemies alive and make the player unkillable. 0 = off. */
   stress: number;
 }
@@ -53,6 +55,7 @@ export class Game {
   private readonly enemyViews: EnemyViews;
   private readonly telegraphViews: TelegraphViews;
   private readonly projectileViews: ProjectileViews;
+  private readonly linesView: LinesView;
   private readonly particles: Particles;
   private readonly numbers: DamageNumbers;
   private readonly fx: Fx;
@@ -86,12 +89,13 @@ export class Game {
     app.renderer.background.color = this.theme.voidColor;
     this.world = createWorld(room, opts.seed, CONTENT);
     this.yard = createYard();
-    this.bot = opts.autopilot ? rodBot() : null;
+    this.bot = Game.makeBot(opts.autopilot);
 
     this.roomView = new RoomView(room, this.theme, this.stage, app.renderer);
     this.particles = new Particles(this.stage, this.textures);
     this.numbers = new DamageNumbers(this.stage);
     this.telegraphViews = new TelegraphViews(this.stage);
+    this.linesView = new LinesView(this.stage, this.textures, app.renderer);
     this.enemyViews = new EnemyViews(this.stage, this.theme);
     this.projectileViews = new ProjectileViews(this.stage, this.textures);
     this.playerView = new PlayerView(this.stage);
@@ -129,6 +133,7 @@ export class Game {
     this.enemyViews.clear();
     this.projectileViews.clear();
     this.telegraphViews.clear();
+    this.linesView.destroy();
     this.roomView.destroy();
     this.ambient.destroy();
     this.particles.destroy();
@@ -147,6 +152,7 @@ export class Game {
     this.enemyViews.clear();
     this.projectileViews.clear();
     this.telegraphViews.clear();
+    this.linesView.clear();
     this.particles.clear();
     this.numbers.clear();
     this.fx.clear();
@@ -154,8 +160,23 @@ export class Game {
     this.loop.reset();
   }
 
-  setAutopilot(on: boolean): void {
-    this.bot = on ? rodBot() : null;
+  setAutopilot(name: string): void {
+    this.bot = Game.makeBot(name);
+  }
+
+  private static makeBot(name: string): Bot | null {
+    switch (name) {
+      case 'rod':
+        return rodBot();
+      case 'line':
+        return lineBot({ reaction: 0.2, style: 'active', patient: true });
+      case 'camp':
+        return lineBot({ reaction: 0.2, style: 'camp', patient: true });
+      case 'mash':
+        return lineBot({ reaction: 0.2, style: 'mash', patient: false });
+      default:
+        return null;
+    }
   }
 
   /** A plain snapshot for automated checks. */
@@ -248,7 +269,10 @@ export class Game {
       this.playerView.handle(ev);
       this.enemyViews.handle(ev);
       this.projectileViews.handle(ev);
+      this.linesView.handle(ev, w);
       this.fx.handle(ev);
+      if (ev.type === 'stakePlant') this.playerView.playGesture('plant', 0.2);
+      else if (ev.type === 'whip' && ev.cause !== 'shove') this.playerView.playGesture('whip', 0.3);
     }
     w.events.length = 0;
 
@@ -261,7 +285,9 @@ export class Game {
     const p = w.player;
     const alpha = w.hitstop > 0 ? 1 : this.loop.alpha;
     this.playerView.update(w, alpha, dt, this.time);
-    this.enemyViews.update(w, alpha, dt, this.time);
+    // The preview is the simulation's own answer to "what would E hit right now?"
+    this.linesView.update(w, alpha, dt, p.state === 'dead' ? null : previewSweep(w));
+    this.enemyViews.update(w, alpha, dt, this.time, this.linesView.previewTargets);
     this.projectileViews.handX = this.playerView.handX;
     this.projectileViews.handY = this.playerView.handY;
     this.projectileViews.update(w, alpha, dt);
