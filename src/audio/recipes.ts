@@ -15,6 +15,11 @@
 //   NOISE burst (white noise through a filter whose frequency slides). Both share one envelope:
 //   a linear attack, then an exponential decay that ends the layer.
 //
+// THE KEY
+//   Everything pitched is in A, so the chimes of play sit inside whichever bed is running. Each
+//   play is retuned a little so repeats do not sound stamped out, but a layer marked `tuned` (a
+//   bell, a note of a figure) barely moves: the stamp varies, the bell over it stays in key.
+//
 // Units: seconds, hertz, and levels where 1 is full scale.
 import { clamp, clamp01, lerp } from '../core/math';
 
@@ -97,6 +102,8 @@ export interface ToneLayer extends Envelope {
   from: number;
   to: number;
   vibrato?: Vibrato;
+  /** A note of the key: it holds its pitch while the layers around it are retuned from play to play. */
+  tuned?: boolean;
 }
 
 export interface NoiseLayer extends Envelope {
@@ -133,6 +140,13 @@ export const MAX_SECONDS = 2;
 export const MAX_LAYERS = 12;
 /** Repeats must not sound stamped out, so each play is retuned by up to this much either way. */
 export const PITCH_JITTER = 0.03;
+/**
+ * A tuned layer moves this share as far: enough that two bells struck together shimmer instead
+ * of cancelling, too little to sour them against the bed.
+ */
+export const TUNED_SHARE = 0.125;
+/** A layer has ended once it has fallen this far below its peak: 60 dB. */
+export const SILENCE = 0.001;
 
 const MAX_JITTER = 0.1;
 const MIN_ATTACK = 0.001;
@@ -142,6 +156,8 @@ const MIN_Q = 0.3;
 const MAX_Q = 20;
 const MAX_VIBRATO_RATE = 60;
 const MAX_VIBRATO_CENTS = 400;
+/** A note of a bed may ring longer than any sound of play: it is quiet, and there is one at a time. */
+const MAX_RING = 4;
 /** Bed notes and beats are never closer together than this, so a scheduler can never be asked for an endless burst. */
 const MIN_WAIT = 0.05;
 
@@ -159,8 +175,19 @@ const tone = (
   to: number,
   decay: number,
   gain: number,
-  more: { attack?: number; delay?: number; vibrato?: Vibrato } = {},
-): ToneLayer => ({ kind: 'tone', wave, from, to, decay, gain, attack: more.attack ?? STRUCK, delay: more.delay ?? 0, vibrato: more.vibrato });
+  more: { attack?: number; delay?: number; vibrato?: Vibrato; tuned?: boolean } = {},
+): ToneLayer => ({
+  kind: 'tone',
+  wave,
+  from,
+  to,
+  decay,
+  gain,
+  attack: more.attack ?? STRUCK,
+  delay: more.delay ?? 0,
+  vibrato: more.vibrato,
+  tuned: more.tuned,
+});
 
 const noise = (
   filter: NoiseFilter,
@@ -206,8 +233,11 @@ const E7 = note(31);
  * inharmonic flash for the bells that should read as bright.
  */
 function bell(hz: number, decay: number, gain: number, delay = 0, glint = 0): Layer[] {
-  const layers = [tone('sine', hz, hz, decay, gain, { attack: 0.003, delay }), tone('sine', hz * 3, hz * 3, decay * 0.45, gain * 0.22, { delay })];
-  if (glint > 0) layers.push(tone('sine', hz * 4.16, hz * 4.16, decay * 0.16, gain * glint, { delay }));
+  const layers = [
+    tone('sine', hz, hz, decay, gain, { attack: 0.003, delay, tuned: true }),
+    tone('sine', hz * 3, hz * 3, decay * 0.45, gain * 0.22, { delay, tuned: true }),
+  ];
+  if (glint > 0) layers.push(tone('sine', hz * 4.16, hz * 4.16, decay * 0.16, gain * glint, { delay, tuned: true }));
   return layers;
 }
 
@@ -220,8 +250,8 @@ const stamp = (gain: number): Layer[] => [
 
 /** One pitched knock on wood. */
 const woodNote = (hz: number, decay: number, gain: number, delay: number): Layer[] => [
-  tone('triangle', hz, hz, decay, gain, { delay }),
-  tone('sine', hz * 4, hz * 4, 0.035, gain * 0.25, { delay }),
+  tone('triangle', hz, hz, decay, gain, { delay, tuned: true }),
+  tone('sine', hz * 4, hz * 4, 0.035, gain * 0.25, { delay, tuned: true }),
 ];
 
 // ---------------------------------------------------------------- the sounds
@@ -247,8 +277,8 @@ export const RECIPES: Record<SoundId, Recipe> = {
       tone('triangle', 311, 294, 0.16, 0.16, { delay: 0.134 }), // and humming for a moment after
     ],
   },
-  // Heard every couple of seconds, so it is soft, short and barely detuned from play to play.
-  ripen: { space: 0.3, jitter: 0.012, layers: bell(E6, 0.75, 0.3, 0, 0.08) },
+  // Heard every couple of seconds, so it is soft and short: one bell on the fifth of the key.
+  ripen: { space: 0.3, layers: bell(E6, 0.75, 0.3, 0, 0.08) },
   discharge: {
     space: 0.3,
     layers: [
@@ -460,11 +490,9 @@ export const RECIPES: Record<SoundId, Recipe> = {
       noise('bandpass', 850, 650, 0.035, 0.3, { q: 2, delay: 0.1 }),
     ],
   },
-  // The figures are tuned, so they are never detuned.
-  draft: { space: 0.35, jitter: 0, layers: [...stamp(0.75), ...bell(A6, 0.85, 0.28, 0.06, 0.12), ...bell(E7, 0.45, 0.1, 0.06)] },
+  draft: { space: 0.35, layers: [...stamp(0.75), ...bell(A6, 0.85, 0.28, 0.06, 0.12), ...bell(E7, 0.45, 0.1, 0.06)] },
   doorOpen: {
     space: 0.2,
-    jitter: 0,
     layers: [
       tone('triangle', 250, 150, 0.07, 0.6), // the knock
       noise('lowpass', 1600, 600, 0.035, 0.4),
@@ -473,31 +501,35 @@ export const RECIPES: Record<SoundId, Recipe> = {
       ...woodNote(E5, 0.3, 0.34, 0.34),
     ],
   },
-  roomClear: { space: 0.35, jitter: 0, layers: [...bell(D6, 0.5, 0.26), ...bell(E6, 0.5, 0.26, 0.11), ...bell(A6, 0.8, 0.3, 0.22)] },
+  roomClear: { space: 0.35, layers: [...bell(D6, 0.5, 0.26), ...bell(E6, 0.5, 0.26, 0.11), ...bell(A6, 0.8, 0.3, 0.22)] },
   victory: {
     space: 0.4,
-    jitter: 0,
     layers: [
       ...bell(A5, 0.5, 0.26), // up the major triad
       ...bell(CS6, 0.5, 0.26, 0.14),
       ...bell(E6, 0.55, 0.26, 0.28),
       ...bell(A6, 1.03, 0.3, 0.46, 0.1), // and home, with the octave and the root under it
       ...bell(A5, 1.03, 0.2, 0.46),
-      tone('triangle', A3, A3, 0.9, 0.16, { attack: 0.01, delay: 0.46 }),
+      tone('triangle', A3, A3, 0.9, 0.16, { attack: 0.01, delay: 0.46, tuned: true }),
     ],
   },
   defeat: {
     space: 0.25,
-    jitter: 0,
     layers: [
       ...bell(E5, 0.45, 0.3), // down the minor triad
       ...bell(C5, 0.45, 0.3, 0.2),
       ...bell(A4, 0.5, 0.3, 0.4),
-      tone('triangle', A3, 185, 0.56, 0.36, { attack: 0.01, delay: 0.62 }), // and a last note that sags
-      tone('sine', A2, 92.5, 0.56, 0.3, { attack: 0.01, delay: 0.62 }),
+      tone('triangle', A3, 185, 0.56, 0.36, { attack: 0.01, delay: 0.62, tuned: true }), // and a last note that sags
+      tone('sine', A2, 92.5, 0.56, 0.3, { attack: 0.01, delay: 0.62, tuned: true }),
     ],
   },
 };
+
+/**
+ * How far one layer is retuned when the play as a whole drifts by `drift` (a fraction, either
+ * way). A tuned layer takes only a share of it.
+ */
+export const retune = (layer: Layer, drift: number): number => 1 + drift * (layer.kind === 'tone' && layer.tuned ? TUNED_SHARE : 1);
 
 /** Seconds from the trigger until the last layer has fallen silent. */
 export function recipeDuration(recipe: Recipe): number {
@@ -717,11 +749,10 @@ export function nextNote(notes: BedNotes, cursor: BedCursor, intensity: number, 
     wait = lerp(lerp(notes.rest[0], notes.rest[1], r), lerp(notes.restBusy[0], notes.restBusy[1], r), unit(intensity));
   }
   const top = notes.scale.length - 1;
-  let degree = cursor.degree + STRIDES[Math.floor(rand() * STRIDES.length)];
-  // bounce off the ends of the scale
-  if (degree < 0) degree = -degree;
-  if (degree > top) degree = 2 * top - degree;
-  cursor.degree = clamp(degree, 0, top);
+  const stride = STRIDES[Math.floor(rand() * STRIDES.length)];
+  // a step that would leave the scale is taken the other way instead
+  const onward = cursor.degree + stride;
+  cursor.degree = clamp(onward < 0 || onward > top ? cursor.degree - stride : onward, 0, top);
   return { wait: Math.max(wait, MIN_WAIT), pitch: notes.scale[cursor.degree], gain: 1 - rand() * notes.soften };
 }
 
@@ -743,14 +774,24 @@ export function pulseBeat(pulse: BedPulse, intensity: number): Beat {
 
 const within = (v: number, lo: number, hi: number): boolean => Number.isFinite(v) && v >= lo && v <= hi;
 
-/** `lowest` and `highest` are the pitch multipliers the layers may be played at. */
-function checkLayers(where: string, layers: readonly Layer[], lowest: number, highest: number, problems: string[]): void {
+/** How a list of layers will be played, which is what its numbers have to survive. */
+interface Played {
+  /** Pitch multipliers the layers may be transposed by: lowest and highest. */
+  lowest: number;
+  highest: number;
+  /** Random drift either way on top of that, as a fraction. */
+  drift: number;
+  /** The longest one layer may take to die away, seconds. */
+  ring: number;
+}
+
+function checkLayers(where: string, layers: readonly Layer[], played: Played, problems: string[]): void {
   if (layers.length < 1 || layers.length > MAX_LAYERS) problems.push(`${where}: needs 1..${MAX_LAYERS} layers, has ${layers.length}`);
   layers.forEach((l, i) => {
     const at = `${where}: layer ${i}`;
     if (!within(l.delay, 0, MAX_SECONDS)) problems.push(`${at} has a delay outside 0..${MAX_SECONDS} s`);
     if (!within(l.attack, MIN_ATTACK, MAX_ATTACK)) problems.push(`${at} has an attack outside ${MIN_ATTACK}..${MAX_ATTACK} s`);
-    if (!within(l.decay, MIN_DECAY, MAX_SECONDS)) problems.push(`${at} has a decay outside ${MIN_DECAY}..${MAX_SECONDS} s`);
+    if (!within(l.decay, MIN_DECAY, played.ring)) problems.push(`${at} has a decay outside ${MIN_DECAY}..${played.ring} s`);
     if (!within(l.gain, 0, 1) || l.gain === 0) problems.push(`${at} has a gain outside 0..1`);
     // how far vibrato carries the pitch past its written path
     let bend = 1;
@@ -764,8 +805,8 @@ function checkLayers(where: string, layers: readonly Layer[], lowest: number, hi
       if (!FILTERS.includes(l.filter)) problems.push(`${at} is neither a tone nor a band-pass or low-pass noise burst`);
       if (!within(l.q, MIN_Q, MAX_Q)) problems.push(`${at} has a q outside ${MIN_Q}..${MAX_Q}`);
     }
-    const low = (Math.min(l.from, l.to) * lowest) / bend;
-    const high = Math.max(l.from, l.to) * highest * bend;
+    const low = (Math.min(l.from, l.to) * played.lowest * retune(l, -played.drift)) / bend;
+    const high = Math.max(l.from, l.to) * played.highest * retune(l, played.drift) * bend;
     if (!within(low, MIN_HZ, MAX_HZ) || !within(high, MIN_HZ, MAX_HZ)) problems.push(`${at} leaves ${MIN_HZ}..${MAX_HZ} Hz`);
   });
 }
@@ -776,8 +817,8 @@ export function validateRecipe(id: string, recipe: Recipe): string[] {
   const jitter = recipe.jitter ?? PITCH_JITTER;
   if (!within(jitter, 0, MAX_JITTER)) problems.push(`${id}: pitch jitter outside 0..${MAX_JITTER}`);
   if (recipe.space !== undefined && !within(recipe.space, 0, 1)) problems.push(`${id}: space outside 0..1`);
-  const spread = within(jitter, 0, MAX_JITTER) ? jitter : 0;
-  checkLayers(id, recipe.layers, 1 - spread, 1 + spread, problems);
+  const drift = within(jitter, 0, MAX_JITTER) ? jitter : 0;
+  checkLayers(id, recipe.layers, { lowest: 1, highest: 1, drift, ring: MAX_SECONDS }, problems);
   const seconds = recipeDuration(recipe);
   if (!within(seconds, MIN_DECAY, MAX_SECONDS)) problems.push(`${id}: runs ${seconds} s, outside the ${MAX_SECONDS} s limit`);
   return problems;
@@ -796,9 +837,10 @@ export function validateBed(id: string, bed: BedDef): string[] {
   });
 
   const { notes, pulse } = bed;
-  if (notes.scale.length > 0 && notes.scale.every((m) => Number.isFinite(m) && m > 0)) {
-    checkLayers(`${id} notes`, notes.layers, Math.min(...notes.scale), Math.max(...notes.scale), problems);
-  } else problems.push(`${id}: the scale must be a list of positive pitch multipliers`);
+  // with fewer than three notes the melody could not always step somewhere new
+  if (notes.scale.length >= 3 && notes.scale.every((m) => Number.isFinite(m) && m > 0)) {
+    checkLayers(`${id} notes`, notes.layers, { lowest: Math.min(...notes.scale), highest: Math.max(...notes.scale), drift: 0, ring: MAX_RING }, problems);
+  } else problems.push(`${id}: the scale must be three or more positive pitch multipliers`);
   if (!risingPair(notes.phrase, 1) || !notes.phrase.every(Number.isInteger)) problems.push(`${id}: a phrase must be 1 or more whole notes, fewest then most`);
   if (!risingPair(notes.step, MIN_WAIT)) problems.push(`${id}: steps must be at least ${MIN_WAIT} s, shortest then longest`);
   // a busy rest may be shorter than a calm one, but each pair still rises
@@ -806,7 +848,7 @@ export function validateBed(id: string, bed: BedDef): string[] {
   if (!within(notes.soften, 0, 0.9)) problems.push(`${id}: soften outside 0..0.9`);
   if (!within(notes.space, 0, 1)) problems.push(`${id}: space outside 0..1`);
 
-  checkLayers(`${id} pulse`, pulse.layers, 1, 1, problems);
+  checkLayers(`${id} pulse`, pulse.layers, { lowest: 1, highest: 1, drift: 0, ring: MAX_SECONDS }, problems);
   if (!pulse.period.every((p) => within(p, MIN_WAIT, 60))) problems.push(`${id}: pulse periods must be at least ${MIN_WAIT} s`);
   if (!pulse.level.every((l) => within(l, 0, 1))) problems.push(`${id}: pulse levels outside 0..1`);
   return problems;

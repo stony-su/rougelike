@@ -17,6 +17,36 @@ export const INK = 0x1b2033;
 export const RIM = 0xe8e4d8;
 export const WHITE = 0xffffff;
 
+/** Interface colours: ledger paper, its rulings, and the ink on it. */
+export const UI = {
+  paperDark: 0xd6cdb6,
+  /** Pale blue ledger rulings. */
+  rule: 0x7fa3c4,
+  /** The ledger's margin line. Sepia, not red: red belongs to danger. */
+  margin: 0xb08a64,
+  scrim: 0x050d18,
+  inkSoft: 0x4a5670,
+  /** Marks something good on a paper form (affordable, complete). */
+  good: 0x2f7a5a,
+};
+
+/**
+ * Each Head has a tint, shown on its stake's cap, its lines and its card. All of them are the
+ * player's colours, so none is pink-red.
+ */
+export const HEAD_TINT: Record<string, number> = {
+  lamp: 0xffb35c,
+  frost: 0x9fe3ff,
+  bell: 0xe8c56a,
+  lode: 0xb59cff,
+  helio: 0xfff1a8,
+  vernier: 0x8ff0c8,
+  barb: 0xc9a27a,
+  mark: 0xa8b8ff,
+  spring: 0xb6f07a,
+  anchor: 0xc8ccd6,
+};
+
 export const HERO = {
   coat: 0xd9cdb4,
   coatShade: 0x9c8f78,

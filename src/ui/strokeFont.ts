@@ -181,16 +181,16 @@ const SPACE: Glyph = { width: 3.5, strokes: [] };
 export const GLYPHS: Readonly<Record<string, Glyph>> = {
   ' ': SPACE,
   // A space that does not break a line, for keeping a number with its unit.
-  ' ': { width: SPACE.width, strokes: [] },
+  '\u00a0': { width: SPACE.width, strokes: [] },
 
   A: glyph(OPEN, OPEN, [0, 7, 2.8, 0, 5.6, 7], [0.92, 4.7, 4.68, 4.7]),
   B: glyph(STEM, BOWL, path([0, 3.4], arc([3, 5.2, 2, 1.8], -90, 90), [0, 7, 0, 0], arc([2.75, 1.7, 1.65, 1.7], -90, 90))),
   C: glyph(BOWL, OPEN, arc(ROUND, -40, 40, -1)),
   D: glyph(STEM, BOWL, path([0, 0], arc([2.3, 3.5, 2.9, 3.5], -90, 90), [0, 7, 0, 0])),
-  E: glyph(STEM, OPEN, [4.5, 0, 0, 0, 0, 7, 4.6, 7], [0, 3.5, 3.6, 3.5]),
-  F: glyph(STEM, OPEN, [4.4, 0, 0, 0, 0, 7], [0, 3.5, 3.4, 3.5]),
+  E: glyph(STEM, OPEN, [4.5, 0, 0, 0, 0, 7, 4.6, 7], [0, 3.4, 3.6, 3.4]),
+  F: glyph(STEM, OPEN, [4.4, 0, 0, 0, 0, 7], [0, 3.4, 3.4, 3.4]),
   G: glyph(BOWL, 0.35, path(arc(ROUND, -40, 5, -1), [2.9, 3.8])),
-  H: glyph(STEM, STEM, [0, 0, 0, 7], [5, 0, 5, 7], [0, 3.5, 5, 3.5]),
+  H: glyph(STEM, STEM, [0, 0, 0, 7], [5, 0, 5, 7], [0, 3.4, 5, 3.4]),
   I: glyph(STEM, STEM, [0, 0, 0, 7]),
   J: glyph(OPEN, STEM, path([4.3, 0], arc([2.15, 4.85, 2.15, 2.15], 0, 165))),
   K: glyph(STEM, OPEN, [0, 0, 0, 7], [4.8, 0, 0, 4.6], [1.95, 2.73, 5, 7]),
@@ -206,9 +206,9 @@ export const GLYPHS: Readonly<Record<string, Glyph>> = {
   U: glyph(STEM, STEM, path([0, 0], arc([2.5, 4.5, 2.5, 2.5], 180, 0, -1), [5, 0])),
   V: glyph(OPEN, OPEN, [0, 0, 2.7, 7, 5.4, 0]),
   W: glyph(OPEN, OPEN, [0, 0, 1.95, 7, 3.9, 1.6, 5.85, 7, 7.8, 0]),
-  X: glyph(OPEN, OPEN, [0, 0, 5, 7], [5, 0, 0, 7]),
+  X: glyph(OPEN, OPEN, [0.3, 0, 5, 7], [4.7, 0, 0, 7]),
   Y: glyph(OPEN, OPEN, [0, 0, 2.6, 3.5, 5.2, 0], [2.6, 3.5, 2.6, 7]),
-  Z: glyph(OPEN, OPEN, [0, 0, 4.8, 0, 0, 7, 4.8, 7]),
+  Z: glyph(OPEN, OPEN, [0.3, 0, 4.8, 0, 0, 7, 5, 7]),
 
   '0': figure(path(arc([2.1, 2.3, 2.1, 2.3], 180, 0), arc([2.1, 4.7, 2.1, 2.3], 0, 180), [0, 2.3])),
   '1': glyph(0.35, STEM, [0, 1.7, 1.7, 0, 1.7, 7]),
@@ -219,7 +219,7 @@ export const GLYPHS: Readonly<Record<string, Glyph>> = {
   '6': figure(path(arc([2.6, 3.6, 2.6, 3.6], -50, 180, -1), arc([2.3, 4.75, 2.3, 2.25], 180, 180, -1))),
   '7': figure([0, 0, 4.6, 0, 1.7, 7]),
   '8': figure(arc([2.3, 1.65, 2, 1.65], 90, 90), arc([2.3, 5.15, 2.3, 1.85], -90, -90)),
-  '9': figure(path(arc([2.3, 2.25, 2.3, 2.25], 0, 0, -1), arc([2, 3.4, 2.6, 3.6], 0, 130))),
+  '9': figure(path(arc([2, 3.4, 2.6, 3.6], 130, 0, -1), arc([2.3, 2.25, 2.3, 2.25], 0, 0, -1))),
 
   '.': glyph(STEM, STEM, dot(0, 6.78)),
   ',': glyph(STEM, STEM, dot(0.55, 6.78), bend(0.75, 6.9, 0.8, 8, 0, 8.8)),
@@ -247,20 +247,20 @@ export const GLYPHS: Readonly<Record<string, Glyph>> = {
   _: glyph(OPEN, OPEN, [0, 8.3, 5, 8.3]),
   '|': glyph(STEM, STEM, [0, -0.8, 0, 8.8]),
 
-  // Multiplication sign, arrows (right, left, up, down), bullet, en dash, em dash, degree sign.
-  '×': glyph(STEM, STEM, [0, 2, 3.4, 5.4], [3.4, 2, 0, 5.4]),
-  '→': glyph(STEM, STEM, [0, 3.7, 6, 3.7], [4.1, 1.8, 6, 3.7, 4.1, 5.6]),
-  '←': glyph(STEM, STEM, [6, 3.7, 0, 3.7], [1.9, 1.8, 0, 3.7, 1.9, 5.6]),
-  '↑': glyph(STEM, STEM, [1.9, 7, 1.9, 0.2], [0, 2.1, 1.9, 0.2, 3.8, 2.1]),
-  '↓': glyph(STEM, STEM, [1.9, 0, 1.9, 6.8], [0, 4.9, 1.9, 6.8, 3.8, 4.9]),
-  '•': glyph(STEM, STEM, dot(0, 3.7, 0.3), arc([0, 3.7, 0.85, 0.85], 0, 0)),
-  '–': glyph(STEM, STEM, [0, 3.7, 4.4, 3.7]),
-  '—': glyph(STEM, STEM, [0, 3.7, 6.6, 3.7]),
-  '°': glyph(STEM, STEM, arc([1.1, 1.1, 1.1, 1.1], 0, 0)),
+  // Symbols beyond ASCII, spelled as escapes so that no editor can quietly change them.
+  '\u00d7': glyph(STEM, STEM, [0, 2, 3.4, 5.4], [3.4, 2, 0, 5.4]), // multiplication sign
+  '\u2192': glyph(STEM, STEM, [0, 3.7, 6, 3.7], [4.1, 1.8, 6, 3.7, 4.1, 5.6]), // right arrow
+  '\u2190': glyph(STEM, STEM, [6, 3.7, 0, 3.7], [1.9, 1.8, 0, 3.7, 1.9, 5.6]), // left arrow
+  '\u2191': glyph(STEM, STEM, [1.9, 7, 1.9, 0.2], [0, 2.1, 1.9, 0.2, 3.8, 2.1]), // up arrow
+  '\u2193': glyph(STEM, STEM, [1.9, 0, 1.9, 6.8], [0, 4.9, 1.9, 6.8, 3.8, 4.9]), // down arrow
+  '\u2022': glyph(STEM, STEM, dot(0, 3.7, 0.3), arc([0, 3.7, 0.85, 0.85], 0, 0)), // bullet
+  '\u2013': glyph(STEM, STEM, [0, 3.7, 4.4, 3.7]), // en dash
+  '\u2014': glyph(STEM, STEM, [0, 3.7, 6.6, 3.7]), // em dash
+  '\u00b0': glyph(STEM, STEM, arc([1.1, 1.1, 1.1, 1.1], 0, 0)), // degree sign
 };
 
 /** Drawn for any character the alphabet lacks, so a missing glyph is visible rather than silent. */
-export const MISSING_GLYPH: Glyph = glyph(STEM, STEM, [0, 1.6, 3.2, 1.6, 3.2, 7, 0, 7, 0, 1.6]);
+const MISSING_GLYPH: Glyph = glyph(STEM, STEM, [0, 1.6, 3.2, 1.6, 3.2, 7, 0, 7, 0, 1.6]);
 
 /** The glyph for one character. Lowercase is lettered as capitals. */
 function glyphFor(ch: string): Glyph | undefined {

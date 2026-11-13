@@ -332,10 +332,9 @@ export function rollDraft(run: RunState, w: World, guaranteeRare = false, count 
 /** Take a draft offer. For a swap, `stake` says which stake's Head is replaced. Returns Chalk refunded. */
 export function takeOffer(run: RunState, w: World, offer: DraftOffer, stake = 0): number {
   let refund = 0;
-  if (offer.how === 'swap') {
+  // An offer made when a stake was bare may be taken after the stakes have filled: it becomes a swap.
+  if (offer.how === 'swap' || grantInstrument(w, offer.id) === 'needsSwap') {
     if (swapHead(w, stake, offer.id)) refund = 15;
-  } else {
-    grantInstrument(w, offer.id);
   }
   w.chalk += refund;
   run.chalk = w.chalk;
@@ -384,6 +383,10 @@ export function buy(run: RunState, w: World, items: ShopItem[], index: number, s
     takeOffer(run, w, it.offer, stake);
     run.chalk = w.chalk;
     it.sold = true;
+    // what is left on the counter is described as it stands now (a new Head may have become a swap)
+    for (const other of items) {
+      if (other.kind === 'instrument' && !other.sold && other.offer) other.offer = toOffer(run, w, w.content.instruments[other.offer.id]);
+    }
     return true;
   }
   w.chalk -= it.price;

@@ -1,6 +1,7 @@
 import { Application } from 'pixi.js';
 import { Gallery } from './game/gallery';
 import { Game } from './game/game';
+import { Lab } from './game/lab';
 
 const params = new URLSearchParams(window.location.search);
 
@@ -21,6 +22,7 @@ mount.appendChild(app.canvas);
 
 const hooks: Record<string, unknown> = {};
 const galleryRig = params.get('gallery');
+const labScreen = params.get('lab');
 if (galleryRig !== null) {
   // Development tool: every animation state of a rig as a filmstrip.
   const gallery = new Gallery(app, {
@@ -30,6 +32,17 @@ if (galleryRig !== null) {
     live: params.has('live'),
   });
   hooks.gallery = gallery;
+} else if (labScreen !== null) {
+  // Development tool: one modal screen on its own.
+  const lab = new Lab(app, {
+    screen: labScreen || 'draft',
+    kit: (params.get('kit') ?? '').split(',').filter(Boolean),
+    chalk: Number(params.get('chalk') ?? 120) || 0,
+    hp: Number(params.get('hp') ?? 100) || 100,
+    seed: params.get('seed') ?? 'lab',
+  });
+  hooks.lab = lab;
+  hooks.state = () => lab.state();
 } else {
   const game = new Game(app, {
     debug: params.has('debug'),
@@ -42,8 +55,8 @@ if (galleryRig !== null) {
   hooks.toScreen = (x: number, y: number) => game.worldToScreen(x, y);
 }
 
-if (params.has('debug') || galleryRig !== null) {
-  // Test and tooling hooks. Only present with ?debug or ?gallery in the URL.
+if (params.has('debug') || galleryRig !== null || labScreen !== null) {
+  // Test and tooling hooks. Only present with ?debug, ?gallery or ?lab in the URL.
   (window as unknown as { __snapline: unknown }).__snapline = hooks;
 }
 
