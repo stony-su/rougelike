@@ -204,6 +204,8 @@ export class RoomView {
     }
     stage.decals.addChild(this.decal);
     for (const p of room.pillars) {
+      // a fixture's footprint is drawn by the fixture's own view
+      if (p.fixture) continue;
       const g = new Graphics(pillarContext(theme, p.r));
       g.position.set(projX(p.x, p.y), projY(p.x, p.y));
       this.props.push(stage.depth.add(g, depthKey(p.x, p.y)));

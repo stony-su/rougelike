@@ -43,6 +43,8 @@ export interface Pillar {
   x: number;
   y: number;
   r: number;
+  /** The footprint of something that is not a stone (the tent, the trig pillar): solid, but drawn by its own view. */
+  fixture?: boolean;
 }
 
 export interface DoorSlot {

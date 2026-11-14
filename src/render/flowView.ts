@@ -168,7 +168,8 @@ export class FlowView {
         v.ring.alpha = 0.5 + 0.3 * Math.sin(time * 3);
       }
       if (v.chip) {
-        cam.worldToScreen(it.x, it.y, v.kind === 'door' ? 1.95 : 0, out);
+        // the name of what lies beyond sits above the pennant
+        cam.worldToScreen(it.x, it.y, v.kind === 'door' ? 2.75 : 0, out);
         v.chip.position.set(Math.round(out.x), Math.round(out.y));
         v.chip.alpha = Math.min(1, age / 0.4);
       }

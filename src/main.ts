@@ -49,6 +49,10 @@ if (galleryRig !== null) {
     seed: params.get('seed') ?? String(Math.floor(Math.random() * 1e9)),
     autopilot: params.get('autopilot') ?? '',
     stress: Number(params.get('stress') ?? 0) || 0,
+    sheet: Number(params.get('sheet') ?? 0) || 0,
+    room: params.get('room') ?? '',
+    kit: (params.get('kit') ?? '').split(',').filter(Boolean),
+    chalk: Number(params.get('chalk') ?? 0) || 0,
   });
   hooks.game = game;
   hooks.state = () => game.debugState();

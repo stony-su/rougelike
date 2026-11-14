@@ -4,6 +4,7 @@
 // rules a player meets.
 import type { Bot } from './bots';
 import type { ContentRegistry } from './defs';
+import { openDoors } from './flow';
 import type { Interactable } from './flow';
 import { acceptClaim, buy, chooseDoor, doorOptions, enterRoom, leaveRoom, restChoices, rollDraft, rollShop, takeOffer, takeRest } from './run';
 import type { DraftOffer, RunState } from './run';
@@ -65,35 +66,67 @@ function walkTo(w: World, f: InputFrame, x: number, y: number): void {
   f.dashPressed = false;
 }
 
+/** What the autoplayer remembers within one room. */
+export interface RoomMemo {
+  /** The shop, pillar or claim has been dealt with. */
+  usedRoom: boolean;
+  doorChoice: number;
+}
+
+export const newMemo = (): RoomMemo => ({ usedRoom: false, doorChoice: -1 });
+
+/**
+ * Out of combat, replace the bot's input with a walk to whatever needs doing next: the reward,
+ * then the room's fixture, then a door. Also used by the in-browser autopilot.
+ */
+export function steer(run: RunState, w: World, f: InputFrame, memo: RoomMemo, policy: ChoicePolicy): void {
+  const flow = w.flow;
+  f.interactPressed = false;
+  if (flow.phase === 'fight' || w.player.state === 'dead') return;
+  let target: Interactable | undefined = flow.interactables.find((i) => i.active && i.kind === 'reward');
+  if (!target && !memo.usedRoom) target = flow.interactables.find((i) => i.active && (i.kind === 'shop' || i.kind === 'rest' || i.kind === 'event'));
+  if (!target) {
+    const doors = flow.interactables.filter((i) => i.active && i.kind === 'door');
+    if (doors.length) {
+      if (memo.doorChoice < 0) memo.doorChoice = Math.min(doors.length - 1, policy.door(flow.doors, run));
+      target = doors.find((d) => d.index === memo.doorChoice) ?? doors[0];
+    }
+  }
+  if (!target) return;
+  walkTo(w, f, target.x, target.y);
+  if (!target.auto && Math.hypot(target.x - w.player.x, target.y - w.player.y) < target.radius * 0.8) f.interactPressed = true;
+}
+
+/** Take the room's reward the way the policy chooses, then open the doors. */
+export function resolveReward(run: RunState, w: World, policy: ChoicePolicy): void {
+  const flow = w.flow;
+  const offers = rollDraft(run, w, flow.elite || flow.kind === 'event' || flow.kind === 'miniboss');
+  if (offers.length) {
+    const pick = offers[Math.max(0, Math.min(offers.length - 1, policy.draft(offers, run, w)))];
+    takeOffer(run, w, pick, 0);
+  }
+  finishReward(run, w);
+}
+
+/** The reward has been taken: it leaves the room and the doors open. */
+export function finishReward(run: RunState, w: World): void {
+  w.flow.interactables = w.flow.interactables.filter((i) => i.kind !== 'reward');
+  run.hp = w.player.hp;
+  run.chalk = w.chalk;
+  if (w.flow.doors.length === 0) openDoors(w, doorOptions(run));
+}
+
 /**
  * Play the run's current room to its end: fight, take the reward, use the room, and walk
  * through a door. Returns when the next room should be entered, or the player is dead.
  */
 export function playRoom(run: RunState, w: World, bot: Bot, policy: ChoicePolicy, maxTicks = 60 * 240): RoomResult {
   let ticks = 0;
-  let usedRoom = false;
-  let doorChoice = -1;
+  const memo = newMemo();
   for (; ticks < maxTicks; ticks++) {
     const f = bot.think(w);
     const flow = w.flow;
-    f.interactPressed = false;
-
-    if (flow.phase !== 'fight' && w.player.state !== 'dead') {
-      // Out of combat the bot stops fighting and walks to what needs doing.
-      let target: Interactable | undefined = flow.interactables.find((i) => i.active && i.kind === 'reward');
-      if (!target && !usedRoom) target = flow.interactables.find((i) => i.active && (i.kind === 'shop' || i.kind === 'rest' || i.kind === 'event'));
-      if (!target) {
-        const doors = flow.interactables.filter((i) => i.active && i.kind === 'door');
-        if (doors.length) {
-          if (doorChoice < 0) doorChoice = Math.min(doors.length - 1, policy.door(flow.doors, run));
-          target = doors.find((d) => d.index === doorChoice) ?? doors[0];
-        }
-      }
-      if (target) {
-        walkTo(w, f, target.x, target.y);
-        if (!target.auto && Math.hypot(target.x - w.player.x, target.y - w.player.y) < target.radius * 0.8) f.interactPressed = true;
-      }
-    }
+    steer(run, w, f, memo, policy);
 
     stepWorld(w, f);
 
@@ -101,27 +134,9 @@ export function playRoom(run: RunState, w: World, bot: Bot, policy: ChoicePolicy
       if (ev.type !== 'interact') continue;
       const it = flow.interactables.find((i) => i.id === ev.id);
       if (ev.kind === 'reward') {
-        if (it) it.active = false;
-        const offers = rollDraft(run, w, flow.elite || flow.kind === 'event' || flow.kind === 'miniboss');
-        if (offers.length) {
-          const pick = offers[Math.max(0, Math.min(offers.length - 1, policy.draft(offers, run, w)))];
-          takeOffer(run, w, pick, 0);
-        }
-        flow.interactables = flow.interactables.filter((i) => i.kind !== 'reward');
-        // doors open once the reward is taken
-        if (flow.doors.length === 0) {
-          run.hp = w.player.hp;
-          run.chalk = w.chalk;
-          const opts = doorOptions(run);
-          flow.doors = opts;
-          flow.phase = 'open';
-          opts.forEach((_s, i) => {
-            const d = w.room.doors[i % w.room.doors.length];
-            flow.interactables.push({ id: w.nextId++, kind: 'door', x: d.x, y: d.y, radius: 0.75, index: i, active: true, auto: true });
-          });
-        }
+        resolveReward(run, w, policy);
       } else if (ev.kind === 'shop') {
-        usedRoom = true;
+        memo.usedRoom = true;
         const items = rollShop(run, w);
         // buy the ration when hurt, then whatever instrument is affordable, dearest first
         if (w.player.hp < w.player.maxHp * 0.6) buy(run, w, items, items.findIndex((x) => x.kind === 'ration'));
@@ -129,14 +144,14 @@ export function playRoom(run: RunState, w: World, bot: Bot, policy: ChoicePolicy
         for (const e of order) buy(run, w, items, e.i, 0);
         if (it) it.active = false;
       } else if (ev.kind === 'rest') {
-        usedRoom = true;
+        memo.usedRoom = true;
         const choices = restChoices(run, w);
         const hurt = w.player.hp < w.player.maxHp * 0.7;
         const c = hurt ? choices[0] : choices[1] ?? choices[0];
         takeRest(run, w, c);
         if (it) it.active = false;
       } else if (ev.kind === 'event') {
-        usedRoom = true;
+        memo.usedRoom = true;
         const id = policy.claim(run);
         if (id) acceptClaim(run, w, id);
         if (it) it.active = false;

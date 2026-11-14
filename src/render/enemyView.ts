@@ -2,10 +2,10 @@
 // When the simulation removes an enemy the view lives on briefly as a corpse to play its death.
 import { Graphics, GraphicsContext } from 'pixi.js';
 import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
-import { lerp } from '../core/math';
+import { lerp, mixColor } from '../core/math';
 import type { Enemy, SimEvent, World } from '../sim/types';
 import type { Sortable } from './depth';
-import { CHALK, DANGER, RIM, WHITE } from './palette';
+import { CHALK, DANGER, HEAD_TINT, INK, RIM, WHITE } from './palette';
 import type { ZoneTheme } from './palette';
 import { animInput } from './rig/def';
 import type { AnimInput } from './rig/def';
@@ -28,6 +28,21 @@ function halo(): GraphicsContext {
   return haloCtx;
 }
 
+let badgeCtx: GraphicsContext | null = null;
+let markCtx: GraphicsContext | null = null;
+
+/** The pennant an elite flies over its head. */
+function badge(): GraphicsContext {
+  if (!badgeCtx) badgeCtx = new GraphicsContext().poly([-7, -6, 7, -6, 7, 3, 0, 8, -7, 3]).fill(0xffffff).poly([-7, -6, 7, -6, 7, 3, 0, 8, -7, 3]).stroke({ width: 1.5, color: 0x000000, alpha: 0.6, join: 'round' });
+  return badgeCtx;
+}
+
+/** The sign over a marked enemy: a surveyor's witness mark. */
+function witness(): GraphicsContext {
+  if (!markCtx) markCtx = new GraphicsContext().poly([0, -7, 7, 0, 0, 7, -7, 0]).stroke({ width: 2.2, color: 0xffffff, join: 'round' }).circle(0, 0, 1.6).fill(0xffffff);
+  return markCtx;
+}
+
 function spawnMark(): GraphicsContext {
   if (!spawnCtx) {
     spawnCtx = new GraphicsContext();
@@ -46,6 +61,9 @@ class EnemyView {
   readonly sort: Sortable;
   private readonly halo: Graphics;
   private readonly mark: Graphics;
+  /** An elite's pennant and a marked enemy's witness mark float over the head; made only when needed. */
+  private badge: Graphics | null = null;
+  private witness: Graphics | null = null;
   private readonly anim: AnimInput = animInput();
   private facing = 1;
   private away = false;
@@ -107,6 +125,22 @@ class EnemyView {
     this.rig.setRole('rim', targeted || e.inPlot || e.onLine ? CHALK : RIM);
     this.rig.setFlash(Math.max(0, 1 - e.hurtT / FLASH_TIME));
 
+    // Conditions wash the whole body: ice over chill over burn; unbroken armour reads as heavier ink.
+    const st = e.status;
+    let wash = WHITE;
+    if (st.frozenT > 0) wash = HEAD_TINT.frost;
+    else if (st.chillT > 0) wash = mixColor(WHITE, HEAD_TINT.frost, 0.55);
+    else if (st.burnT > 0) wash = mixColor(WHITE, HEAD_TINT.lamp, 0.45 + 0.2 * Math.sin(time * 22 + e.seed * 9));
+    else if (e.armor < 1) wash = mixColor(WHITE, INK, 0.45);
+    this.rig.setWash(wash);
+
+    // The mark under its feet: pale by default, danger-red for an elite, the barb's colour while rooted.
+    const elite = e.elite !== null;
+    const rooted = st.rootT > 0;
+    this.halo.tint = rooted ? HEAD_TINT.barb : elite ? DANGER : RIM;
+    const haloAlpha = rooted ? 0.5 : elite ? 0.3 + 0.08 * Math.sin(time * 5 + e.seed * 6) : 0.16;
+    this.halo.scale.set(this.entry.def.footprint * (elite ? 1.7 : 1.25));
+
     if (e.state === 'spawn') {
       const k = a.phase;
       this.rig.root.alpha = Math.min(1, k * 1.6);
@@ -114,11 +148,30 @@ class EnemyView {
       this.mark.alpha = (1 - k) * 0.9;
       this.mark.scale.set(this.entry.def.footprint * (1.9 - 0.9 * k));
       this.mark.rotation = k * 1.2;
-      this.halo.alpha = 0.16 * k;
+      this.halo.alpha = haloAlpha * k;
     } else {
       this.rig.root.alpha = 1;
       this.mark.visible = false;
-      this.halo.alpha = 0.16;
+      this.halo.alpha = haloAlpha;
+    }
+
+    // Signs over the head.
+    const top = this.rig.root.y - this.entry.def.height - 14 + Math.sin(time * 3 + e.seed * 6) * 2;
+    if (elite && !this.badge) {
+      this.badge = new Graphics(badge());
+      this.badge.tint = DANGER;
+      this.stage.fxCrisp.addChild(this.badge);
+    }
+    if (this.badge) this.badge.position.set(this.rig.root.x, top);
+    if (st.markT > 0 && !this.witness) {
+      this.witness = new Graphics(witness());
+      this.witness.tint = HEAD_TINT.mark;
+      this.stage.fxCrisp.addChild(this.witness);
+    }
+    if (this.witness) {
+      this.witness.visible = st.markT > 0;
+      this.witness.position.set(this.rig.root.x + (this.badge ? 18 : 0), top);
+      this.witness.rotation = time * 1.5;
     }
   }
 
@@ -128,7 +181,9 @@ class EnemyView {
     this.place(ev.x, ev.y);
     this.mark.visible = false;
     this.rig.setRole('eye', WHITE);
+    this.rig.setWash(WHITE);
     this.rig.setFlash(1);
+    this.dropSigns();
   }
 
   /** Returns false when the corpse is finished and can be destroyed. */
@@ -143,7 +198,7 @@ class EnemyView {
     this.rig.setFlash(Math.max(0, 1 - this.deadFor / 0.12));
     const fade = this.deadFor <= DEATH_TIME ? 1 : Math.max(0, 1 - (this.deadFor - DEATH_TIME) / DEATH_FADE);
     this.rig.root.alpha = fade;
-    this.halo.alpha = 0.16 * fade;
+    this.halo.alpha = Math.min(this.halo.alpha, 0.3 * fade);
     return this.deadFor < DEATH_TIME + DEATH_FADE;
   }
 
@@ -152,6 +207,14 @@ class EnemyView {
     this.rig.destroy();
     this.halo.destroy();
     this.mark.destroy();
+    this.dropSigns();
+  }
+
+  private dropSigns(): void {
+    this.badge?.destroy();
+    this.badge = null;
+    this.witness?.destroy();
+    this.witness = null;
   }
 
   private pose(dt: number): void {

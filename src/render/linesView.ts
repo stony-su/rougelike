@@ -13,7 +13,7 @@ import { MAX_STAKES, hostileSegments, oldestPlanted, plantedInOrder } from '../s
 import type { Stake, Sweep } from '../sim/lines';
 import type { SimEvent, World } from '../sim/types';
 import type { Sortable } from './depth';
-import { CHALK, DANGER, DANGER_HOT, HERO, INK, RIPE } from './palette';
+import { CHALK, DANGER, DANGER_HOT, HEAD_TINT, HERO, INK, RIPE } from './palette';
 import type { Stage } from './stage';
 import type { Textures } from './textures';
 
@@ -37,6 +37,8 @@ function fitTriangle(g: Container, ax: number, ay: number, bx: number, by: numbe
 
 interface StakeArt {
   peg: GraphicsContext;
+  cap: GraphicsContext;
+  capRim: GraphicsContext;
   pennant: GraphicsContext;
   pips: GraphicsContext[];
   ring: GraphicsContext;
@@ -51,6 +53,9 @@ function stakeArt(): StakeArt {
     // a turned wooden peg with a pointed foot and a banded collar
     .poly([-2.6, -34, 2.6, -34, 2.2, -4, 0, 3, -2.2, -4])
     .fill(0xffffff);
+  // a mounted Head: a turned cap on top of the peg, in the Head's own colour
+  const cap = new GraphicsContext().circle(0, -37.5, 4.6).fill(0xffffff);
+  const capRim = new GraphicsContext().circle(0, -37.5, 4.6).stroke({ width: 1.4, color: 0xffffff });
   const pennant = new GraphicsContext().poly([2.4, -34, 19, -29.5, 2.4, -23]).fill(0xffffff);
   const pips: GraphicsContext[] = [];
   for (let n = 1; n <= MAX_STAKES; n++) {
@@ -62,7 +67,7 @@ function stakeArt(): StakeArt {
   const ring = new GraphicsContext().circle(0, 0, 0.3 * T).stroke({ width: 2.5, color: 0xffffff });
   const hostilePeg = new GraphicsContext().poly([-2.4, -30, 2.4, -30, 2, -4, 0, 3, -2, -4]).fill(0xffffff);
   const hostilePennant = new GraphicsContext().poly([2.4, -30, 16, -30, 11, -25.5, 16, -21, 2.4, -21]).fill(0xffffff);
-  art = { peg, pennant, pips, ring, hostilePeg, hostilePennant };
+  art = { peg, cap, capRim, pennant, pips, ring, hostilePeg, hostilePennant };
   return art;
 }
 
@@ -71,6 +76,8 @@ function stakeArt(): StakeArt {
 interface StakeView {
   c: Container;
   peg: Graphics;
+  cap: Graphics;
+  capRim: Graphics;
   pennant: Graphics;
   pips: Graphics;
   ring: Graphics;
@@ -114,6 +121,8 @@ export class LinesView {
   private time = 0;
   /** Ids of enemies the pending whip would hit; the enemy views read this for their rim highlight. */
   readonly previewTargets = new Set<number>();
+  /** Per stake id: the colour of its Head this frame, or undefined. */
+  private readonly headTints: Array<number | undefined> = [];
 
   constructor(
     private readonly stage: Stage,
@@ -129,7 +138,11 @@ export class LinesView {
       pennant.tint = CHALK;
       const pips = new Graphics(a.pips[i]);
       pips.tint = INK;
-      c.addChild(peg, pennant, pips);
+      const cap = new Graphics(a.cap);
+      const capRim = new Graphics(a.capRim);
+      capRim.tint = INK;
+      cap.visible = capRim.visible = false;
+      c.addChild(peg, pennant, pips, cap, capRim);
       c.visible = false;
       const ring = new Graphics(a.ring);
       ring.tint = CHALK;
@@ -137,7 +150,7 @@ export class LinesView {
       stage.decals.addChild(ring);
       // stakes sort just behind whoever stands on the same spot
       const sort = stage.depth.add(c, 0, -0.05);
-      this.stakes.push({ c, peg, pennant, pips, ring, sort, pop: 0, shownPips: i });
+      this.stakes.push({ c, peg, cap, capRim, pennant, pips, ring, sort, pop: 0, shownPips: i });
     }
 
     for (let i = 0; i < MAX_STAKES * MAX_STAKES; i++) {
@@ -188,6 +201,13 @@ export class LinesView {
     dash.destroy();
   }
 
+  /** The colour of the Head on a stake, if it carries one. */
+  private headTint(w: World, s: Stake): number | undefined {
+    if (!s.head) return undefined;
+    const key = w.content.instruments[s.head]?.tint;
+    return key ? HEAD_TINT[key] : undefined;
+  }
+
   handle(ev: SimEvent, w: World): void {
     if (ev.type === 'lineRipe' || ev.type === 'lineDischarge') {
       const i = (ev.a < ev.b ? ev.a : ev.b) * MAX_STAKES + (ev.a < ev.b ? ev.b : ev.a);
@@ -219,6 +239,10 @@ export class LinesView {
     for (let i = 0; i < this.stakes.length; i++) {
       const v = this.stakes[i];
       const s: Stake | undefined = L.stakes[i];
+      const headTint = s ? this.headTint(w, s) : undefined;
+      this.headTints[i] = headTint;
+      v.cap.visible = v.capRim.visible = headTint !== undefined;
+      if (headTint !== undefined) v.cap.tint = headTint;
       if (!s || s.state === 'held' || s.state === 'lost') {
         v.c.visible = false;
         v.ring.visible = false;
@@ -311,6 +335,12 @@ export class LinesView {
         sp.width = len * v.shown;
         sp.tint = color;
       }
+      // The core stays chalk, because thickness and whiteness are how ripeness is read. The glow
+      // around it takes the colour of the Heads at its ends, and all of it on a Spliced line.
+      const ta = this.headTints[l.a];
+      const tb = this.headTints[l.b];
+      const worn = ta !== undefined && tb !== undefined ? mixColor(ta, tb, 0.5) : ta ?? tb;
+      if (worn !== undefined && l.active) v.glow.tint = mixColor(color, worn, l.splice ? 0.9 : l.ripe ? 0.3 : 0.6);
       v.core.height = width;
       v.core.alpha = a;
       v.glow.visible = glowW > 0;

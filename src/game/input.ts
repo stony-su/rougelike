@@ -85,6 +85,16 @@ export class Input {
     this.pressed.clear();
   }
 
+  /** Forget presses not yet consumed, keeping what is held (a menu opened or closed). */
+  clearPresses(): void {
+    this.pressed.clear();
+  }
+
+  /** Press a key from code, as if it had been tapped (the autopilot answers menus this way). */
+  inject(code: string): void {
+    this.pressed.add(code);
+  }
+
   isDown(action: Action): boolean {
     for (const code of BINDINGS[action]) if (this.down.has(code)) return true;
     return false;

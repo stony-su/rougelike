@@ -16,11 +16,14 @@ import type { ContentRegistry } from '../sim/defs';
 import { grantInstrument } from '../sim/kit';
 import { createRun, enterRoom, rollDraft, takeOffer } from '../sim/run';
 import type { RunState } from '../sim/run';
+import { rollShop } from '../sim/run';
+import type { ShopItem } from '../sim/run';
 import type { World } from '../sim/types';
 import { DraftScreen } from '../ui/draftScreen';
 import { Label } from '../ui/label';
 import type { Screen } from '../ui/screen';
 import { setUiSoundSink } from '../ui/sfx';
+import { ShopScreen } from '../ui/shopScreen';
 import { Tweens } from '../ui/tween';
 import { Input } from './input';
 
@@ -32,6 +35,9 @@ export interface LabContext {
   /** Call when the screen is finished; `what` says how it ended. The lab then destroys the screen. */
   done(what: string): void;
 }
+
+/** The Tally Tent's stock, rolled on the first visit and kept, so that sold things stay sold on the next. */
+let shopStock: ShopItem[] | null = null;
 
 /** Every screen the lab can show. To add one: import it, and add an entry that builds it from the context. */
 export const LAB: Record<string, (c: LabContext) => Screen> = {
@@ -46,6 +52,7 @@ export const LAB: Record<string, (c: LabContext) => Screen> = {
       },
       onReroll: () => rollDraft(c.run, c.world, false),
     }),
+  shop: (c) => new ShopScreen(c.content, c.run, c.world, (shopStock ??= rollShop(c.run, c.world)), c.tweens, { onClose: () => c.done('left the tent') }),
 };
 
 export interface LabOptions {

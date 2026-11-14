@@ -164,6 +164,8 @@ export function enterRoom(run: RunState, content: ContentRegistry): World {
   w.player.hp = Math.min(run.hp, run.maxHp);
   if (kind === 'shop' || kind === 'rest' || kind === 'event') {
     w.flow.interactables.push({ id: w.nextId++, kind, x: room.rewardSpot.x, y: room.rewardSpot.y, radius: 1.5, index: 0, active: true, auto: false });
+    // the fixture is a thing in the room: it cannot be walked through
+    room.pillars.push({ x: room.rewardSpot.x, y: room.rewardSpot.y, r: kind === 'shop' ? 0.6 : 0.35, fixture: true });
     openDoors(w, doorOptions(run));
   } else if (kind === 'tutorial') {
     w.flow.phase = 'open';
@@ -246,6 +248,29 @@ export function chooseDoor(run: RunState, choice: number): void {
   }
   const i = run.bag.findIndex((s) => s.kind === picked.kind && s.elite === picked.elite);
   run.slot = run.bag.splice(i >= 0 ? i : 0, 1)[0];
+}
+
+/**
+ * Put a run at a given sheet, as if the sheets before it had been walked: the right zone, and a
+ * bag with that many rooms already taken out of it. For tests and development starts.
+ */
+export function jumpTo(run: RunState, sheet: number, kind?: RoomKind, elite = false): void {
+  run.sheet = Math.max(1, Math.min(SHEETS, Math.floor(sheet)));
+  run.zone = run.sheet > MINIBOSS_SHEET ? 'unruled' : 'bluefen';
+  const split = nonCombatSplit(run.seed);
+  run.bag = zoneBag(run, run.zone, run.zone === 'bluefen' ? [split[0]] : ['rest', split[1]]);
+  const want: RoomKind = kind ?? (run.sheet === MINIBOSS_SHEET ? 'miniboss' : run.sheet === SHEETS ? 'boss' : 'combat');
+  // the room being entered leaves the bag, then one room for each sheet already behind us in this zone
+  const mine = run.bag.findIndex((r) => r.kind === want && r.elite === elite);
+  if (mine >= 0) run.bag.splice(mine, 1);
+  const behind = (run.zone === 'bluefen' ? run.sheet : run.sheet - MINIBOSS_SHEET) - 1;
+  for (let i = 0; i < behind && run.bag.length > 0; i++) {
+    const plain = run.bag.findIndex((r) => r.kind === 'combat' && !r.elite);
+    run.bag.splice(plain >= 0 ? plain : 0, 1);
+  }
+  run.slot = { kind: want, elite };
+  run.lastKind = 'combat';
+  run.totals.sheetsCleared = run.sheet - 1;
 }
 
 /** Benchmarks earned so far this run: 1 per sheet cleared, 5 for the mini-boss, 10 for the final boss. */
