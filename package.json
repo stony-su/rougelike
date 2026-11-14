@@ -1,8 +1,8 @@
 {
-  "name": "snapline",
+  "name": "resound",
   "private": true,
   "version": "0.1.0",
-  "description": "SNAPLINE - an isometric action roguelike about fighting with the lines between three surveyor's stakes.",
+  "description": "RESOUND - a co-op isometric action roguelike about sending things back.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "check": "npm run typecheck && vitest run && vite build",
     "test:watch": "vitest",
-    "shot": "node scripts/shot.mjs"
+    "shot": "node scripts/shot.mjs",
+    "selftest": "node scripts/selftest.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.23.0"
