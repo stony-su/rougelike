@@ -3,9 +3,9 @@
 // by the animation gallery.
 //
 // THE PART RECIPE (one look for every character)
-//   Light comes from above. A part is: a flat fill, a darker shade wash over its lower portion,
-//   a few hatch strokes inside that shade, and a pale rim along its top-facing edges.
-//   Because the light is vertical, mirroring a rig left/right never flips the lighting.
+//   Light comes from above. A part is: a flat fill, a darker shade over its lower portion, and a
+//   pale rim along its top-facing edges. Because the light is vertical, mirroring a rig
+//   left/right never flips the lighting.
 //
 // Units: pixels at camera zoom 1 (64 px per tile), y down, origin at the rig's feet.
 
@@ -67,9 +67,14 @@ export interface PartPose {
   /** Multiplies scale. */
   sx: number;
   sy: number;
+  /**
+   * Added to the part's draw order among its siblings, for this frame. A sword arm can pass
+   * behind the body on the back-swing and in front of it on the cut.
+   */
+  z: number;
 }
 
-export const restPose = (): PartPose => ({ x: 0, y: 0, rot: 0, sx: 1, sy: 1 });
+export const restPose = (): PartPose => ({ x: 0, y: 0, rot: 0, sx: 1, sy: 1, z: 0 });
 
 /** What an animator reads. All angles are in the rig's own mirrored space: 0 = facing direction, negative = up. */
 export interface AnimInput {
@@ -201,52 +206,6 @@ export function clipBelow(pts: readonly number[], cutY: number): number[] {
   return out;
 }
 
-/** Parallel strokes at `angle`, `gap` apart, clipped to a simple polygon. Returns segments. */
-export function hatchPoly(pts: readonly number[], gap: number, angle: number): number[] {
-  const n = pts.length / 2;
-  if (n < 3) return [];
-  const dx = Math.cos(angle);
-  const dy = Math.sin(angle);
-  // normal to the stroke direction
-  const nx = -dy;
-  const ny = dx;
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (let i = 0; i < n; i++) {
-    const d = pts[i * 2] * nx + pts[i * 2 + 1] * ny;
-    if (d < lo) lo = d;
-    if (d > hi) hi = d;
-  }
-  const segs: number[] = [];
-  const hits: number[] = [];
-  for (let d = lo + gap * 0.6; d < hi; d += gap) {
-    hits.length = 0;
-    // line: all points P with P.n = d; intersect with every edge, collect the parameter along the stroke direction
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n;
-      const ax = pts[i * 2];
-      const ay = pts[i * 2 + 1];
-      const bx = pts[j * 2];
-      const by = pts[j * 2 + 1];
-      const da = ax * nx + ay * ny - d;
-      const db = bx * nx + by * ny - d;
-      if ((da < 0 && db < 0) || (da >= 0 && db >= 0)) continue;
-      const t = da / (da - db);
-      const px = ax + (bx - ax) * t;
-      const py = ay + (by - ay) * t;
-      hits.push(px * dx + py * dy);
-    }
-    hits.sort((p, q) => p - q);
-    for (let k = 0; k + 1 < hits.length; k += 2) {
-      const s0 = hits[k] + 0.8;
-      const s1 = hits[k + 1] - 0.8;
-      if (s1 - s0 < 1.5) continue;
-      segs.push(nx * d + dx * s0, ny * d + dy * s0, nx * d + dx * s1, ny * d + dy * s1);
-    }
-  }
-  return segs;
-}
-
 /** Segments along the polygon's top-facing edges. */
 export function topEdges(pts: readonly number[], minUp = 0.3): number[] {
   const n = pts.length / 2;
@@ -275,17 +234,13 @@ export interface BlockOptions {
   shade?: string;
   /** Role of the top rim; omit for no rim. */
   rim?: string;
-  /** Role of the hatch strokes; omit for no hatching. */
-  hatch?: string;
   /** Where the shade starts, as a fraction of the part's height from its top. */
   shadeFrom?: number;
-  hatchGap?: number;
-  hatchAngle?: number;
   rimWidth?: number;
   view?: RigViewSide;
 }
 
-/** Expand one outline into the recipe's leaves: fill, shade wash, hatching, rim. */
+/** Expand one outline into the recipe's leaves: fill, shade, rim. */
 export function block(pts: number[], o: BlockOptions): ShapeDef[] {
   const shapes: ShapeDef[] = [{ kind: 'poly', pts, role: o.fill, view: o.view }];
   let minY = Infinity;
@@ -297,13 +252,7 @@ export function block(pts: number[], o: BlockOptions): ShapeDef[] {
   if (o.shade) {
     const cut = minY + (maxY - minY) * (o.shadeFrom ?? 0.55);
     const lower = clipBelow(pts, cut);
-    if (lower.length >= 6) {
-      shapes.push({ kind: 'poly', pts: lower, role: o.shade, view: o.view });
-      if (o.hatch) {
-        const segs = hatchPoly(lower, o.hatchGap ?? 4.5, o.hatchAngle ?? -0.9);
-        if (segs.length) shapes.push({ kind: 'lines', segs, width: 1, role: o.hatch, alpha: 0.55, view: o.view });
-      }
-    }
+    if (lower.length >= 6) shapes.push({ kind: 'poly', pts: lower, role: o.shade, view: o.view });
   }
   if (o.rim) {
     const segs = topEdges(pts);

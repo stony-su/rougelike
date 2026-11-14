@@ -11,7 +11,7 @@ export function addTelegraph(
   x: number,
   y: number,
   dur: number,
-  o: { angle?: number; radius?: number; length?: number; width?: number; halfArc?: number; trackUntil?: number },
+  o: { angle?: number; radius?: number; length?: number; width?: number; halfArc?: number; trackUntil?: number; count?: number; spread?: number },
 ): Telegraph {
   const t: Telegraph = {
     id: w.nextId++,
@@ -24,6 +24,8 @@ export function addTelegraph(
     length: o.length ?? 0,
     width: o.width ?? 0,
     halfArc: o.halfArc ?? 0,
+    count: o.count ?? 1,
+    spread: o.spread ?? 0,
     t: 0,
     dur,
     trackUntil: o.trackUntil ?? 0,
@@ -44,6 +46,11 @@ export function removeTelegraph(w: World, id: number): void {
   if (t) t.dead = true;
 }
 
+/** The direction of the i-th lane of a fan. The same arithmetic aims the shots, so the lanes drawn are the lanes flown. */
+export function laneAngle(t: { angle: number; count: number; spread: number }, i: number): number {
+  return t.count <= 1 ? t.angle : t.angle + (i / (t.count - 1) - 0.5) * t.spread;
+}
+
 /** True when a circle of radius r at (x, y) is inside the warned area. */
 export function telegraphCovers(t: Telegraph, x: number, y: number, r: number): boolean {
   switch (t.shape) {
@@ -54,13 +61,17 @@ export function telegraphCovers(t: Telegraph, x: number, y: number, r: number): 
       return dx * dx + dy * dy <= rr * rr;
     }
     case 'lane': {
-      const c = dcos(t.angle);
-      const s = dsin(t.angle);
       const dx = x - t.x;
       const dy = y - t.y;
-      const along = dx * c + dy * s;
-      const across = -dx * s + dy * c;
-      return along >= -r && along <= t.length + r && Math.abs(across) <= t.width / 2 + r;
+      for (let i = 0; i < t.count; i++) {
+        const a = laneAngle(t, i);
+        const c = dcos(a);
+        const s = dsin(a);
+        const along = dx * c + dy * s;
+        const across = -dx * s + dy * c;
+        if (along >= -r && along <= t.length + r && Math.abs(across) <= t.width / 2 + r) return true;
+      }
+      return false;
     }
     case 'cone':
       return pointInSector(x, y, t.x, t.y, t.angle, t.halfArc, t.radius, r);

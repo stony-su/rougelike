@@ -53,7 +53,11 @@ if (params.has('selftest')) {
       debug: params.has('debug'),
       seed: params.get('seed') ?? String(Math.floor(Math.random() * 1e9)),
       autopilot: params.get('autopilot') ?? '',
-      bots: Number(params.get('bots') ?? 0) || 0,
+      // ?class=bow plays one class alone; ?team=sword,bow,fist adds bot companions in the other seats
+      classes: (params.get('team') ?? params.get('class') ?? 'sword')
+        .split(',')
+        .map((c) => c.trim())
+        .filter((c): c is 'sword' | 'bow' | 'fist' => c === 'sword' || c === 'bow' || c === 'fist'),
       stress: Number(params.get('stress') ?? 0) || 0,
     });
     hooks.game = game;

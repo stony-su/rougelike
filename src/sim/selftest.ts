@@ -1,9 +1,9 @@
-// A fixed game played by bots, reduced to a handful of hashes. Every engine that runs the
+// A fixed game played by one bot of each class, reduced to a handful of hashes. Every engine that runs the
 // simulation must produce exactly these numbers: the tests check them in Node, and the page
 // opened with ?selftest checks them in the browser. A mismatch means two laptops running that
 // engine could not stay in step.
 import { dcos, dexp, dsin, datan2 } from '../core/dmath';
-import { swordBot } from './bots';
+import { EXPERT, NOVICE, classBot } from './bots';
 import type { ContentRegistry } from './defs';
 import { copyInput } from './input';
 import { createSession, stepSession, worldOf } from './session';
@@ -21,8 +21,8 @@ export function selftestHashes(content: ContentRegistry): number[] {
       seed: 'selftest',
       players: [
         { name: 'A', classId: 'sword' },
-        { name: 'B', classId: 'sword' },
-        { name: 'C', classId: 'sword' },
+        { name: 'B', classId: 'bow' },
+        { name: 'C', classId: 'fist' },
       ],
       buildId: 'selftest',
       inputDelay: 0,
@@ -30,7 +30,7 @@ export function selftestHashes(content: ContentRegistry): number[] {
     },
     content,
   );
-  const bots = [swordBot(), swordBot({ reaction: 0.3, dashes: true }), swordBot({ reaction: 0.35, dashes: false })];
+  const bots = [classBot('sword', EXPERT), classBot('bow', { ...EXPERT, reaction: 0.3 }), classBot('fist', NOVICE)];
   const out: number[] = [];
   for (let tick = 1; tick <= SELFTEST_TICKS; tick++) {
     const bundle: Bundle = { tick, inputs: [], cmds: [] };

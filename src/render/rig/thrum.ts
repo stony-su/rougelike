@@ -6,8 +6,8 @@ import type { AnimInput, Animator, PartDef, PoseWriter, RigDef } from './def';
 import { ENEMY_STATES } from './states';
 
 const palette: Record<string, number> = {
-  ink: ZONES.bluefen.inkWash,
-  inkDark: ZONES.bluefen.inkDark,
+  ink: ZONES.outer.inkWash,
+  inkDark: ZONES.outer.inkDark,
   rim: RIM,
   eye: WHITE,
   pupil: INK,
@@ -39,7 +39,7 @@ const parts: PartDef[] = [
     y: 8,
     z: 1,
     shapes: [
-      ...block(body, { fill: 'ink', shade: 'inkDark', hatch: 'rim', rim: 'rim', shadeFrom: 0.66, hatchGap: 5, rimWidth: 2.2 }),
+      ...block(body, { fill: 'ink', shade: 'inkDark', rim: 'rim', shadeFrom: 0.66, rimWidth: 2.2 }),
       // one bright mark for an eye: white, with a pupil that leads the way it faces
       flat(ell(6, -25, 6.2, 7, 14), 'eye', 1, 'front'),
       flat(ell(8.4, -24.5, 2.6, 3.4, 10), 'pupil', 1, 'front'),
@@ -197,6 +197,19 @@ function hurt(p: PoseWriter, a: AnimInput): void {
   p.part('hips').y = -3 * k;
 }
 
+function launched(p: PoseWriter, a: AnimInput): void {
+  // Sent flying: balled up, legs and tip whipping about as it tumbles.
+  const w = Math.sin(a.t * 26 + a.seed * 6.283);
+  squash(p, -0.1 + w * 0.05);
+  p.part('tip').rot = -0.9 + w * 0.5;
+  p.part('footNear').rot = 1.0 + w * 0.4;
+  p.part('footFar').rot = -0.9 - w * 0.4;
+  p.part('footNear').y = -3;
+  p.part('footFar').y = -3;
+  p.part('dripFar').rot = w * 1.1;
+  p.part('dripNear').rot = -w * 1.1;
+}
+
 function stun(p: PoseWriter, a: AnimInput): void {
   // Dazed: slumped, swaying, the tip flopped forward.
   const s = sin(a.t * 8);
@@ -254,6 +267,9 @@ export const thrumAnimator: Animator = (p, a) => {
     case 'stun':
       stun(p, a);
       return 30;
+    case 'launched':
+      launched(p, a);
+      return 50;
     case 'dead':
       dead(p, a);
       return 60;

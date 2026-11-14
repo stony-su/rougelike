@@ -4,7 +4,7 @@
 // (variant 1) cocks the top stone back and throws it.
 // Pixi-free: a RigDef plus a pure animator.
 import { INK, RIM, WHITE, ZONES } from '../palette';
-import { block, clipBelow, flat, hatchPoly, stroke, topEdges } from './def';
+import { block, clipBelow, flat, stroke, topEdges } from './def';
 import type { AnimInput, Animator, PartDef, PartPose, PoseWriter, RigDef, ShapeDef } from './def';
 import { ENEMY_STATES } from './states';
 
@@ -12,8 +12,8 @@ const sin = Math.sin;
 const cos = Math.cos;
 
 const palette: Record<string, number> = {
-  ink: ZONES.bluefen.inkWash,
-  inkDark: ZONES.bluefen.inkDark,
+  ink: ZONES.outer.inkWash,
+  inkDark: ZONES.outer.inkDark,
   rim: RIM,
   eye: WHITE,
   pupil: INK,
@@ -77,14 +77,12 @@ function ridge(outline: readonly number[], side: Cut, shade: Cut): number[] {
 }
 
 /**
- * One hewn stone. The shared recipe (fill, shade wash, hatching in the shade, pale top rim) with
- * the wash cut on a slant, plus a dimmer side plane and the ridge where it meets the lit face.
+ * One hewn stone. The shared recipe (fill, shade, pale top rim) with the shade cut on a slant,
+ * plus a dimmer side plane and the ridge where it meets the lit face.
  */
-function stone(outline: number[], shade: Cut, side: Cut, rimWidth: number, hatchGap: number): ShapeDef[] {
+function stone(outline: number[], shade: Cut, side: Cut, rimWidth: number): ShapeDef[] {
   const low = under(outline, shade);
   const shapes: ShapeDef[] = [flat(outline, 'ink'), flat(under(outline, side), 'inkDark', 0.3), flat(low, 'inkDark')];
-  const hatch = hatchPoly(low, hatchGap, -0.9);
-  if (hatch.length) shapes.push({ kind: 'lines', segs: hatch, width: 1, role: 'rim', alpha: 0.55 });
   const edge = ridge(outline, side, shade);
   if (edge.length) shapes.push(stroke(edge, 1.2, 'rim', 0.4));
   shapes.push({ kind: 'lines', segs: topEdges(outline), width: rimWidth, role: 'rim' });
@@ -177,7 +175,7 @@ const parts: PartDef[] = [
     x: TOP_X,
     y: TOP_Y,
     z: 0,
-    shapes: [...stone(topStone, { x: 0, y: -6, slant: -0.1 }, { x: 11.5, y: -15, slant: -1.488 }, 2, 4.5)],
+    shapes: [...stone(topStone, { x: 0, y: -6, slant: -0.1 }, { x: 11.5, y: -15, slant: -1.488 }, 2)],
   },
   {
     name: 'mid',
@@ -186,7 +184,7 @@ const parts: PartDef[] = [
     y: MID_Y,
     z: 1,
     shapes: [
-      ...stone(midStone, { x: 0, y: -8, slant: 0.08 }, { x: -17.5, y: -22, slant: 1.47 }, 2.2, 4.5),
+      ...stone(midStone, { x: 0, y: -8, slant: 0.08 }, { x: -17.5, y: -22, slant: 1.47 }, 2.2),
       // the crack the eye looks out of, with a little of its light leaking along it
       stroke([EYE_X - 9, EYE_Y, -2, -21, 0, -25, -6, -30], 1.8, 'inkDark', 1, 'front'),
       stroke([EYE_X + 9, EYE_Y, 24.5, -13, 23, -10], 1.6, 'inkDark', 1, 'front'),
@@ -216,7 +214,7 @@ const parts: PartDef[] = [
     y: 0,
     z: 2,
     shapes: [
-      ...stone(baseStone, { x: 0, y: -13, slant: -0.1 }, { x: 16, y: -30, slant: -1.825 }, 2.2, 5),
+      ...stone(baseStone, { x: 0, y: -13, slant: -0.1 }, { x: 16, y: -30, slant: -1.825 }, 2.2),
       // a surveyor's bench mark cut into the face: a bar over a broad arrow
       stroke([-23, -30.5, -9, -30.5], 1.5, 'inkDark', 0.9),
       { kind: 'lines', segs: [-16, -30, -21.5, -20.5, -16, -30, -16, -19.5, -16, -30, -10.5, -20.5], width: 1.3, role: 'inkDark', alpha: 0.9 },
@@ -618,6 +616,10 @@ export const cairnAnimator: Animator = (p, a) => {
     case 'stun':
       stun(p, a);
       return 30;
+    case 'launched':
+      // a stack of stones does not flail: it goes over in one piece, loose and rattling
+      stun(p, a);
+      return 45;
     case 'dead':
       dead(p, a);
       return 60;

@@ -6,16 +6,20 @@
 // Locomotion styles, telegraph shapes and action kinds are the shared primitives every enemy is
 // assembled from. Nothing in this file names a particular enemy. Each enemy is after one player
 // at a time (its target), chosen by distance with a little stickiness.
-import { datan2, dcos, dexp, dhypot, dsin } from '../core/dmath';
+import { datan2, dcos, dhypot, dsin } from '../core/dmath';
 import { ddamp, ddampAngle } from '../core/exact';
 import type { Vec2 } from '../core/exact';
-import { damagePlayer, standing } from './combat';
+import { climbOut, newBodyScratch, pushBody, stepBody } from './bodies';
+import type { BodyScratch } from './bodies';
+import { throwBomb } from './bombs';
+import { castCircle, pushOut } from './cast';
+import { HURT_GUARDED, damagePlayer, standing, stunEnemy } from './combat';
 import type { ActionSpec, EnemyDef, MoveSpec } from './defs';
+import { navFor, navStep } from './nav';
 import { spawnProjectile } from './projectiles';
-import { resolveCircle } from './room';
 import { newStatus, slowOf, stepStatus } from './status';
-import { addTelegraph, findTelegraph, telegraphCovers } from './telegraphs';
-import { KNOCK_DECAY, SCALING } from './tuning';
+import { addTelegraph, findTelegraph, laneAngle, telegraphCovers } from './telegraphs';
+import { RIPOSTE, SCALING } from './tuning';
 import type { Enemy, Player, World } from './types';
 
 export const SPAWN_TIME = 0.75;
@@ -45,6 +49,22 @@ const playerBySlot = (w: World, slot: number): Player | null => {
   for (const p of w.players) if (p.slot === slot) return p;
   return null;
 };
+
+/** A blow that landed in a Riposte comes back on whoever struck it: thrown clear, and dazed. */
+function answerRiposte(w: World, e: Enemy, p: Player): void {
+  let dx = e.x - p.x;
+  let dy = e.y - p.y;
+  const d = dhypot(dx, dy);
+  if (d > 1e-6) {
+    dx /= d;
+    dy /= d;
+  } else {
+    dx = dcos(p.aim);
+    dy = dsin(p.aim);
+  }
+  stunEnemy(w, e, RIPOSTE.stun, true);
+  pushBody(w, e, dx, dy, RIPOSTE.impulse, p.slot);
+}
 
 /** Keep the current target unless it is down or someone else is clearly closer. */
 function chooseTarget(w: World, e: Enemy): Player | null {
@@ -88,8 +108,17 @@ export function spawnEnemy(
     py: y,
     vx: 0,
     vy: 0,
-    kx: 0,
-    ky: 0,
+    lvx: 0,
+    lvy: 0,
+    launchBy: -1,
+    links: 0,
+    launchImmune: 0,
+    boost: 0,
+    caromWith: 0,
+    caromLock: 0,
+    stagger: 0,
+    staggerT: 0,
+    staggered: 0,
     radius: def.radius,
     hp,
     maxHp: hp,
@@ -139,19 +168,35 @@ function busyAttackers(w: World): number {
   return n;
 }
 
-function chooseMove(w: World, e: Enemy, dist: number): number {
+/** How much of the way to the target is open: nothing, a flight over pits only, or a walk. */
+const WAY_BLOCKED = 0;
+const WAY_FLIGHT = 1;
+const WAY_WALK = 2;
+
+/**
+ * A move may start if it is off cooldown, the target is in its range, and the way suits it: a
+ * charge needs a clear walk, a shot a clear flight, and something lobbed goes over anything.
+ */
+function usable(e: Enemy, i: number, dist: number, way: number): boolean {
+  const m = e.def.moves[i];
+  if (e.cooldowns[i] > 0 || dist < m.minRange || dist > m.maxRange) return false;
+  if (m.action.kind === 'lob') return true;
+  return m.action.kind === 'volley' ? way >= WAY_FLIGHT : way >= WAY_WALK;
+}
+
+function chooseMove(w: World, e: Enemy, dist: number, clear: number): number {
   let total = 0;
   const moves = e.def.moves;
   for (let i = 0; i < moves.length; i++) {
     const m = moves[i];
-    if (e.cooldowns[i] > 0 || dist < m.minRange || dist > m.maxRange) continue;
+    if (!usable(e, i, dist, clear)) continue;
     total += m.weight ?? 1;
   }
   if (total <= 0) return -1;
   let r = w.rng.next() * total;
   for (let i = 0; i < moves.length; i++) {
     const m = moves[i];
-    if (e.cooldowns[i] > 0 || dist < m.minRange || dist > m.maxRange) continue;
+    if (!usable(e, i, dist, clear)) continue;
     r -= m.weight ?? 1;
     if (r <= 0) return i;
   }
@@ -171,7 +216,7 @@ function beginWindup(w: World, e: Enemy, index: number, p: Player): void {
   const track = tg.track * e.windupMul;
   let t;
   if (tg.shape === 'lane') {
-    t = addTelegraph(w, 'lane', e.id, e.x, e.y, e.stateDur, { angle: e.facing, length: tg.length, width: tg.width, trackUntil: track });
+    t = addTelegraph(w, 'lane', e.id, e.x, e.y, e.stateDur, { angle: e.facing, length: tg.length, width: tg.width, trackUntil: track, count: tg.count ?? 1, spread: tg.spread ?? 0 });
   } else if (tg.shape === 'cone') {
     t = addTelegraph(w, 'cone', e.id, e.x, e.y, e.stateDur, { angle: e.facing, radius: tg.radius, halfArc: tg.halfArc, trackUntil: track });
   } else {
@@ -225,7 +270,8 @@ function beginAction(w: World, e: Enemy, m: MoveSpec): void {
       // Everyone standing in the warned shape is struck.
       if (t) {
         for (const p of w.players) {
-          if (standing(p) && telegraphCovers(t, p.x, p.y, p.radius)) damagePlayer(w, p, a.damage * e.damageMul, e.x, e.y, a.knock);
+          if (!standing(p) || !telegraphCovers(t, p.x, p.y, p.radius)) continue;
+          if (damagePlayer(w, p, a.damage * e.damageMul, e.x, e.y, a.knock) === HURT_GUARDED) answerRiposte(w, e, p);
         }
         w.events.push({ type: 'slam', x: t.x, y: t.y, radius: t.shape === 'lane' ? t.length / 2 : t.radius });
       }
@@ -233,26 +279,30 @@ function beginAction(w: World, e: Enemy, m: MoveSpec): void {
       break;
     }
     case 'volley': {
-      const base = datan2(e.aimY - e.y, e.aimX - e.x);
+      // The shots fly along the lanes that were drawn: the same angles, from the same arithmetic.
+      const fan = { angle: t ? t.angle : datan2(e.aimY - e.y, e.aimX - e.x), count: a.count, spread: a.spread };
       for (let i = 0; i < a.count; i++) {
-        const off = a.count === 1 ? 0 : (i / (a.count - 1) - 0.5) * a.spread;
-        const c = dcos(base + off);
-        const s = dsin(base + off);
+        const dir = laneAngle(fan, i);
+        // A shot leaves from the middle of the body, which is never inside a wall.
         spawnProjectile(w, {
           kind: a.projectile,
           faction: 'enemy',
           owner: e.id,
-          x: e.x + c * (e.radius + 0.1),
-          y: e.y + s * (e.radius + 0.1),
-          vx: c * a.speed,
-          vy: s * a.speed,
+          x: e.x,
+          y: e.y,
+          vx: dcos(dir) * a.speed,
+          vy: dsin(dir) * a.speed,
           radius: a.radius,
           damage: a.damage * e.damageMul,
           range: a.range,
-          light: true,
         });
       }
       setState(e, 'attack', 0.16);
+      break;
+    }
+    case 'lob': {
+      throwBomb(w, e, t ? t.x : e.aimX, t ? t.y : e.aimY, { damage: a.damage * e.damageMul, radius: a.radius, flight: a.flight, fuse: a.fuse });
+      setState(e, 'attack', 0.2);
       break;
     }
   }
@@ -271,15 +321,18 @@ function stepAttack(w: World, e: Enemy, m: MoveSpec): void {
       if ((p.x - e.x) * (p.x - e.x) + (p.y - e.y) * (p.y - e.y) <= reach * reach) {
         // One chance per player per lunge: a dash through it is a clean dodge.
         e.hitDone |= bit;
-        damagePlayer(w, p, a.damage * e.damageMul, e.x - dcos(e.facing), e.y - dsin(e.facing), a.knock);
+        if (damagePlayer(w, p, a.damage * e.damageMul, e.x - dcos(e.facing), e.y - dsin(e.facing), a.knock) === HURT_GUARDED) {
+          answerRiposte(w, e, p);
+          return;
+        }
       }
     }
   }
   if (e.stateTime >= e.stateDur) {
     if (a.kind === 'lunge') {
       // Skid to a stop.
-      e.kx += e.vx * 0.3;
-      e.ky += e.vy * 0.3;
+      e.lvx += e.vx * 0.2;
+      e.lvy += e.vy * 0.2;
     }
     e.vx = 0;
     e.vy = 0;
@@ -288,24 +341,37 @@ function stepAttack(w: World, e: Enemy, m: MoveSpec): void {
   }
 }
 
-function locomote(w: World, e: Enemy, dt: number): void {
+function locomote(w: World, e: Enemy, dt: number, s: BodyScratch): void {
   const p = chooseTarget(w, e);
   const loc = e.def.locomotion;
   let dx = 0;
   let dy = 0;
   let dist = 0;
+  // Whether a straight walk reaches the target, or only a flight does, or neither.
+  let way = WAY_WALK;
   if (p) {
     dx = p.x - e.x;
     dy = p.y - e.y;
     dist = dhypot(dx, dy) || 1e-6;
+    if (!e.airborne && castCircle(w.room.geo, true, e.x, e.y, dx, dy, e.radius * 0.9, s.hit)) {
+      way = castCircle(w.room.geo, false, e.x, e.y, dx, dy, 0.16, s.hit) ? WAY_BLOCKED : WAY_FLIGHT;
+    }
     dx /= dist;
     dy /= dist;
   }
+  const clear = way === WAY_WALK;
   const speed = e.def.speed * e.speedMul * (1 - slowOf(e));
   let tx = 0;
   let ty = 0;
   if (p) {
-    if (loc.kind === 'chase') {
+    if (!clear && loc.kind === 'chase') {
+      // Something is in the way: follow the walking field of that player round it.
+      const field = navFor(w, w.players.indexOf(p));
+      if (field && navStep(w.room, field, e.x, e.y, s.v)) {
+        tx = s.v.x * speed;
+        ty = s.v.y * speed;
+      }
+    } else if (loc.kind === 'chase') {
       if (dist > loc.range) {
         tx = dx * speed;
         ty = dy * speed;
@@ -343,36 +409,22 @@ function locomote(w: World, e: Enemy, dt: number): void {
   if (e.thinkT > 0) return;
   e.thinkT = 0.1;
   if (busyAttackers(w) >= attackTickets(w)) return;
-  const pick = chooseMove(w, e, dist);
+  const pick = chooseMove(w, e, dist, way);
   if (pick >= 0) beginWindup(w, e, pick, p);
 }
 
-function integrate(w: World, e: Enemy, dt: number, tmp: Vec2): void {
-  // Rooted or frozen: its own legs do nothing, but blows still move it.
-  const held = e.status.rootT > 0 || e.status.frozenT > 0;
-  const mx = (held ? 0 : e.vx) + e.kx;
-  const my = (held ? 0 : e.vy) + e.ky;
-  tmp.x = e.x + mx * dt;
-  tmp.y = e.y + my * dt;
-  resolveCircle(w.room, tmp, e.radius);
-  e.x = tmp.x;
-  e.y = tmp.y;
-  const k = dexp(-KNOCK_DECAY * dt);
-  e.kx *= k;
-  e.ky *= k;
-  if (Math.abs(e.kx) < 0.01) e.kx = 0;
-  if (Math.abs(e.ky) < 0.01) e.ky = 0;
-}
+/** Standing on the floor and taking up room: not arriving, not in flight, not down a pit. */
+const grounded = (e: Enemy): boolean => !e.dead && e.state !== 'spawn' && e.state !== 'launched' && e.state !== 'pit';
 
 /** Keep bodies from overlapping: enemies push each other apart, and are pushed off the players. */
 function separate(w: World, tmp: Vec2): void {
   const es = w.enemies;
   for (let i = 0; i < es.length; i++) {
     const a = es[i];
-    if (a.dead || a.state === 'spawn') continue;
+    if (!grounded(a)) continue;
     for (let j = i + 1; j < es.length; j++) {
       const b = es[j];
-      if (b.dead || b.state === 'spawn') continue;
+      if (!grounded(b)) continue;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const rr = a.radius + b.radius;
@@ -403,10 +455,10 @@ function separate(w: World, tmp: Vec2): void {
     }
   }
   for (const e of es) {
-    if (e.dead) continue;
+    if (!grounded(e)) continue;
     tmp.x = e.x;
     tmp.y = e.y;
-    if (resolveCircle(w.room, tmp, e.radius)) {
+    if (pushOut(w.room.geo, !e.airborne, tmp, e.radius)) {
       e.x = tmp.x;
       e.y = tmp.y;
     }
@@ -415,6 +467,7 @@ function separate(w: World, tmp: Vec2): void {
 
 export function stepEnemies(w: World, dt: number): void {
   const tmp: Vec2 = { x: 0, y: 0 };
+  const s = newBodyScratch();
   for (const e of w.enemies) {
     e.px = e.x;
     e.py = e.y;
@@ -440,7 +493,7 @@ export function stepEnemies(w: World, dt: number): void {
         break;
       case 'idle':
       case 'move':
-        locomote(w, e, dt);
+        locomote(w, e, dt, s);
         break;
       case 'windup':
         if (!m) {
@@ -470,10 +523,14 @@ export function stepEnemies(w: World, dt: number): void {
         e.vy = 0;
         if (e.stateTime >= e.stateDur) setState(e, 'idle');
         break;
+      case 'pit':
+        if (e.stateTime >= e.stateDur) climbOut(w, e, s);
+        break;
+      case 'launched':
       case 'dead':
         break;
     }
-    if (e.state !== 'spawn') integrate(w, e, dt, tmp);
+    if (e.state !== 'spawn' && e.state !== 'pit' && !e.dead) stepBody(w, e, dt, s);
   }
   separate(w, tmp);
 }

@@ -6,9 +6,9 @@
 // nothing is rounded through text. State may contain numbers, strings, booleans, null, arrays,
 // plain objects, Uint8Arrays and the seeded generator; anything else is a bug and throws.
 //
-// Three keys are never written, because they are not state: `events` (already handed to
-// presentation), and the pointers `def` and `content`, which are looked up again from ids by
-// `relink` after a snapshot is loaded.
+// Four keys are never written, because they are not state: `events` (already handed to
+// presentation), the pointers `def` and `content`, which are looked up again from ids by `relink`
+// after a snapshot is loaded, and `nav`, the walking fields, which are rebuilt from the room.
 import { Rng } from '../core/rng';
 import type { ContentRegistry } from './defs';
 import type { Session } from './session';
@@ -23,7 +23,7 @@ const T_OBJ = 6;
 const T_BYTES = 7;
 const T_RNG = 8;
 
-const SKIP: Readonly<Record<string, true>> = { events: true, def: true, content: true };
+const SKIP: Readonly<Record<string, true>> = { events: true, def: true, content: true, nav: true };
 
 class Writer {
   private buf = new Uint8Array(1 << 14);
@@ -225,6 +225,7 @@ export function relink(s: Session, content: ContentRegistry): void {
   for (const w of s.worlds) {
     w.content = content;
     w.events = [];
+    w.nav = [];
     for (const e of w.enemies) {
       const def = content.enemies[e.defId];
       if (!def) throw new Error(`Snapshot names an enemy this build does not have: ${e.defId}`);

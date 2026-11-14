@@ -29,26 +29,214 @@ export const DASH = {
   exitSpeed: 0.85,
 };
 
-/** The Sword's three-swing combo. */
+// ---------------------------------------------------------------- the Rebound
+
+/** Launched bodies: Echoes sent flying by a blow. */
+export const BODY = {
+  /** Faster than this, a body is launched: helpless, and able to slam and carom. */
+  launchSpeed: 3,
+  /** Tiles per second lost every second. */
+  friction: 18,
+  /** Nothing is ever launched faster than this. */
+  maxSpeed: 34,
+  /** A wall or post hit harder than this hurts: damage is `slamDamage` times the impact speed. */
+  slamSpeed: 5,
+  slamDamage: 0.9,
+  wallRestitution: 0.7,
+  /** A body-to-body hit harder than this is a carom: both take `caromDamage` times the closing speed. */
+  caromSpeed: 5,
+  caromDamage: 0.6,
+  /** Share of the closing speed (weighted by mass) passed to the struck body, and kept by the striker. */
+  caromPass: 0.6,
+  caromKeep: 0.4,
+  /** The struck body never leaves faster than this many times the closing speed. */
+  caromMaxGain: 1.5,
+  maxLinks: 4,
+  pairLock: 0.3,
+  /** Seconds a body lies where it landed, and seconds after that before it can be launched again. */
+  landRecover: 0.35,
+  launchImmune: 0.5,
+  bumperRestitution: 1.15,
+  bumperMinExit: 9,
+  /** Extra damage on the next hit after touching a bumper, or a Ringstone. */
+  bumperBoost: 0.25,
+  stoneBoost: 0.5,
+  /** Ring-out: share of maximum health lost by a body too heavy to die of it, seconds in the pit, seconds stunned after. */
+  ringOutShare: 0.25,
+  pitTime: 0.8,
+  pitStun: 1.0,
+  /** Stagger: points needed, seconds until points fade, seconds staggered, and how much harder a staggered body launches. */
+  staggerAt: 3,
+  staggerFade: 2,
+  staggerTime: 2.5,
+  staggerLaunchMul: 3,
+};
+
+/** How hard a body hits what it caroms into, by its own weight class. */
+export const massFactor = (mass: number): number => (mass >= 4 ? 2 : mass >= 2 ? 1.3 : 1);
+/** Light bodies die of a ring-out; nothing heavier does. */
+export const isLight = (mass: number): boolean => mass < 2;
+
+export const RALLY = {
+  cap: 20,
+  /** Seconds without a Return before Rally falls to nothing. */
+  hold: 4,
+  /** Extra Return damage per point. */
+  perPoint: 0.05,
+  /** How much each kind of Return adds. */
+  weight: { arrow: 1, sent: 2, perfect: 3 },
+};
+
+/** Hit-stop on the striker and the struck, in ticks. */
+export const HITSTOP = { light: 2, heavy: 4, perfect: 5, caromBig: 15 };
+
+/** Sending an enemy shot back with a swing. */
+export const REFLECT = {
+  speedMul: 1.3,
+  minSpeed: 16,
+  damageMul: 2.2,
+  minDamage: 14,
+  bounces: 1,
+  range: 14,
+  /** A shot turned when this close to the player is a perfect return. Each tick of input delay adds `perDelayTick`. */
+  perfectDist: 0.9,
+  perDelayTick: 0.15,
+  perfectMul: 1.5,
+  /** Impulse on what a returned shot strikes. */
+  impulse: 4,
+  /** A swing that lands on an Echo in its own attack frames launches it this hard. */
+  batImpulse: 14,
+};
+
+// ---------------------------------------------------------------- classes
+
+/** The Sword: a three-swing combo. Every swing reflects. */
 export const SWORD = {
   damage: [9, 9, 14] as const,
-  /** Half-angle of each swing's arc, radians. */
+  /** Half-angle of each swing, radians. */
   halfArc: [deg(60), deg(60), deg(75)] as const,
   reach: [2.0, 2.0, 2.3] as const,
   windup: [0.07, 0.07, 0.12] as const,
   active: [0.09, 0.09, 0.11] as const,
   recovery: [0.14, 0.14, 0.24] as const,
-  /** After a swing's active frames, how long the next press still continues the combo. */
+  /** After the active frames of a swing, how long the next press still continues the combo. */
   comboWindow: 0.45,
   step: [0.35, 0.35, 0.55] as const,
   moveMul: 0.35,
-  /** Light hits nudge (the next swing must still reach); the third sends them flying. */
-  knockback: [0.5, 0.5, 3.0] as const,
-  /** Hit-stop on the striker and the struck, in ticks. */
+  /** Light hits nudge (the next swing must still reach); the third sends a light body about two tiles. */
+  impulse: [3, 3, 9] as const,
   freeze: [2, 2, 4] as const,
 };
 
-/** Knockback is applied as a velocity that decays at this exponential rate. */
+/** The Sword special: a short guard that sends back whatever lands in it. */
+export const RIPOSTE = {
+  cooldown: 5,
+  guardTime: 0.4,
+  moveMul: 0.4,
+  impulse: 16,
+  stun: 0.6,
+  /** Share of the cooldown given back when it lands. */
+  refund: 0.5,
+  iframes: 0.3,
+  whiff: 0.2,
+};
+
+/** The Bow: arrows that ricochet and skip. */
+export const BOW = {
+  damage: 8,
+  speed: 24,
+  radius: 0.12,
+  /** Seconds between arrows while the button is held. */
+  interval: 0.36,
+  moveMul: 0.75,
+  bounces: 2,
+  /** Extra damage per bounce made. */
+  bounceBonus: 0.4,
+  range: 30,
+  life: 1.6,
+  skips: 1,
+  skipRange: 3.5,
+  skipMul: 0.7,
+  impulse: 1.5,
+  /** Seconds the loosing pose lasts. */
+  pose: 0.2,
+};
+
+/** The Bow special: a thrown bumper. */
+export const RINGSTONE = {
+  cooldown: 8,
+  range: 9,
+  radius: 0.4,
+  life: 8,
+  speed: 22,
+  /** A shot or a body that hits it is sent at the nearest Echo within this distance. */
+  seek: 10,
+  recovery: 0.18,
+};
+
+/** The Fist: jabs on the press, and a held punch. */
+export const FIST = {
+  damage: [6, 6, 10] as const,
+  windup: [0.04, 0.04, 0.07] as const,
+  active: 0.07,
+  recovery: [0.1, 0.1, 0.18] as const,
+  reach: 1.5,
+  halfArc: deg(50),
+  /** The third jab slaps a light body about two tiles. */
+  impulse: [2, 2, 8.5] as const,
+  comboWindow: 0.45,
+  step: [0.3, 0.3, 0.45] as const,
+  moveMul: 0.45,
+  freeze: [2, 2, 4] as const,
+};
+
+/** The held punch. `charge` runs from 0 at the least hold to 1 at the full one. */
+export const HAYMAKER = {
+  min: 0.25,
+  full: 0.8,
+  moveMul: 0.6,
+  lunge: 1.2,
+  lungeTime: 0.09,
+  reach: 1.8,
+  /** A 60 degree cone. */
+  halfArc: deg(30),
+  damage: 14,
+  damagePerCharge: 12,
+  impulse: 14,
+  impulsePerCharge: 12,
+  recovery: 0.22,
+};
+
+/** The Fist special: a ground slam that pops everything nearby outward. */
+export const BREAK = {
+  cooldown: 7,
+  windup: 0.15,
+  radius: 2.6,
+  damage: 10,
+  impulse: 11,
+  /** Heavy bodies are not moved; they take this much stagger instead. */
+  stagger: 2,
+  /** Enemy shots in the radius fly outward as the player's, at this share of their damage. */
+  shotMul: 0.6,
+  recovery: 0.3,
+};
+
+/** A bomb a player has struck. */
+export const BOMB = {
+  /** Speed when sent flying by a sword, and by a punch. */
+  swordSpeed: 14,
+  fistSpeed: 16,
+  /** Seconds a batted bomb flies before it bursts on its own. */
+  batFuse: 0.8,
+  /** What a blast does to Echoes once the bomb is a player's. */
+  damage: 18,
+  impulse: 7,
+  radius: 0.28,
+};
+
+// ---------------------------------------------------------------- the rest
+
+/** Knockback on a player is a velocity that decays at this exponential rate. */
 export const KNOCK_DECAY = 9;
 /** Seconds after a stun ends during which the same enemy cannot be stunned again. */
 export const STUN_IMMUNITY = 1.5;

@@ -2,7 +2,8 @@
 // simulation never imports content directly. It is handed a ContentRegistry when a session is
 // created, so tests can run the same engine on fixture content.
 
-export type ZoneId = 'bluefen' | 'unruled';
+/** The two halves of a run: the Outer Ring and the Inner Ring. */
+export type ZoneId = 'outer' | 'inner';
 export type RoomKind = 'combat' | 'arena';
 
 export interface RoomTemplate {
@@ -27,8 +28,8 @@ export type LocomotionSpec =
 
 /** The warning drawn on the floor during a wind-up. `track` is how long it follows the target before locking. */
 export type TelegraphSpec =
-  /** A strip from the enemy toward the target. */
-  | { shape: 'lane'; length: number; width: number; track: number }
+  /** A strip from the enemy toward the target; `count` strips fanned over `spread` radians when given. */
+  | { shape: 'lane'; length: number; width: number; track: number; count?: number; spread?: number }
   /** A disc around the enemy, or at the targeted point. */
   | { shape: 'circle'; radius: number; at: 'self' | 'target'; track: number }
   /** A wedge from the enemy toward the target. */
@@ -41,7 +42,9 @@ export type ActionSpec =
   /** Hurt everyone inside the telegraph, at once. */
   | { kind: 'strike'; damage: number; knock: number }
   /** Fire projectiles in a fan toward the target. */
-  | { kind: 'volley'; count: number; spread: number; speed: number; damage: number; range: number; radius: number; projectile: string };
+  | { kind: 'volley'; count: number; spread: number; speed: number; damage: number; range: number; radius: number; projectile: string }
+  /** Throw a bomb at the warned circle: it lands after `flight` seconds and bursts `fuse` seconds later. */
+  | { kind: 'lob'; damage: number; radius: number; flight: number; fuse: number };
 
 export interface MoveSpec {
   id: string;
@@ -113,6 +116,12 @@ export function validateEnemyDef(d: EnemyDef): string[] {
       if (m.windup < 0.35) out.push(`${d.id}/${m.id}: a damaging move needs at least 0.35 s of telegraph`);
     }
     if (m.action.kind === 'lunge' && m.telegraph.shape !== 'lane') out.push(`${d.id}/${m.id}: a lunge must be telegraphed by a lane`);
+    if (m.action.kind === 'lob' && (m.telegraph.shape !== 'circle' || m.telegraph.at !== 'target' || m.telegraph.radius !== m.action.radius)) {
+      out.push(`${d.id}/${m.id}: a lob must be telegraphed by a circle at the target, as wide as its blast`);
+    }
+    if (m.action.kind === 'volley' && m.telegraph.shape === 'lane' && ((m.telegraph.count ?? 1) !== m.action.count || (m.telegraph.spread ?? 0) !== m.action.spread)) {
+      out.push(`${d.id}/${m.id}: the lanes drawn do not match the shots fired`);
+    }
     if (m.action.kind === 'lunge' && m.telegraph.shape === 'lane' && m.telegraph.length + 0.01 < m.action.distance) {
       out.push(`${d.id}/${m.id}: the lane is shorter than the lunge it warns about`);
     }

@@ -2,19 +2,21 @@
 import { Rng } from '../core/rng';
 import { stepEnemies, sweepDead } from './ai';
 import type { ContentRegistry } from './defs';
+import { stepBombs } from './bombs';
 import { createFlow, stepFlow } from './flow';
 import type { RoomFlow } from './flow';
 import { createPlayer, readPresses, stepPlayer } from './player';
 import { stepProjectiles } from './projectiles';
 import { clampToFloor } from './room';
+import { stepStones } from './stones';
 import { stepTelegraphs } from './telegraphs';
 import { DT, PLAYER } from './tuning';
-import type { InputFrame, Player, Room, World } from './types';
+import type { ClassId, InputFrame, Player, Room, World } from './types';
 
 /** Who walks into a chamber: the seat, the class, and what they carry in from the run. */
 export interface Entrant {
   slot: number;
-  classId: string;
+  classId: ClassId;
   hp?: number;
   maxHp?: number;
   chimes?: number;
@@ -26,6 +28,8 @@ export interface WorldOptions {
   entrants?: Entrant[];
   /** How the chamber runs. Omitted, an ordinary fight for this chamber number. */
   flow?: RoomFlow;
+  /** Ticks between a press and its effect in this session (0 alone). */
+  inputDelay?: number;
 }
 
 /** Where each seat stands when a chamber begins, relative to the room's start mark. */
@@ -55,16 +59,20 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     players,
     enemies: [],
     projectiles: [],
+    bombs: [],
+    stones: [],
     telegraphs: [],
     events: [],
     freeze: 0,
     freezeAllowedAt: 0,
     nextId: 1,
     chamber,
+    inputDelay: o.inputDelay ?? 0,
     content,
     flow: o.flow ?? createFlow(chamber, players.length),
+    nav: [],
     deaths: [],
-    stats: { kills: 0, damageDealt: 0, damageTaken: 0 },
+    stats: { kills: 0, damageDealt: 0, damageTaken: 0, returns: 0, bestRally: 0 },
   };
 }
 
@@ -81,6 +89,14 @@ function holdPositions(w: World): void {
   for (const pr of w.projectiles) {
     pr.px = pr.x;
     pr.py = pr.y;
+  }
+  for (const b of w.bombs) {
+    b.px = b.x;
+    b.py = b.y;
+  }
+  for (const s of w.stones) {
+    s.px = s.x;
+    s.py = s.y;
   }
   for (const c of w.flow.pickups) {
     c.px = c.x;
@@ -105,6 +121,8 @@ export function stepWorld(w: World, inputs: ReadonlyArray<InputFrame | undefined
   for (const p of w.players) stepPlayer(w, p, inputs[p.slot] ?? idle, DT);
   stepEnemies(w, DT);
   stepProjectiles(w, DT);
+  stepBombs(w, DT);
+  stepStones(w, DT);
   stepFlow(w, DT);
   stepTelegraphs(w, DT);
   sweepDead(w);

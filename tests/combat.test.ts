@@ -4,7 +4,7 @@ import { THRUM } from '../src/content/enemies';
 import { SPAWN_TIME, spawnEnemy } from '../src/sim/ai';
 import { idleBot, swordBot } from '../src/sim/bots';
 import type { Bot } from '../src/sim/bots';
-import { damageEnemy, damagePlayer, standing, stunEnemy } from '../src/sim/combat';
+import { HURT_NONE, HURT_TAKEN, damageEnemy, damagePlayer, standing, stunEnemy } from '../src/sim/combat';
 import { validateEnemyDef } from '../src/sim/defs';
 import { createFlow, dropChimes } from '../src/sim/flow';
 import { spawnProjectile } from '../src/sim/projectiles';
@@ -31,7 +31,7 @@ describe('the swing combo', () => {
     const pad = new Pad();
     run(w, 1, pad);
     const ev = run(w, 1, pad.tap(PRESS.attack));
-    expect(p.state).toBe('swing');
+    expect(p.state).toBe('attack');
     expect(ev.some((x) => x.type === 'swing' && x.player === 0)).toBe(true);
     // nothing lands during the wind-up
     expect(e.hp).toBe(e.maxHp);
@@ -70,7 +70,9 @@ describe('the swing combo', () => {
     }
     expect(hits).toEqual([SWORD.damage[0], SWORD.damage[1], SWORD.damage[2]]);
     run(w, 40, pad);
-    expect(e.x - x0).toBeGreaterThan(SWORD.knockback[2] * 0.6);
+    // the first two only nudge; the third sends a light body about two tiles
+    expect(e.x - x0).toBeGreaterThan(1.4);
+    expect(e.x - x0).toBeLessThan(3.2);
   });
 
   it('freezes the striker and the struck for a moment, and nobody else', () => {
@@ -100,16 +102,6 @@ describe('the swing combo', () => {
     expect(w.freeze).toBe(0);
   });
 
-  it('knocks light shots out of the air', () => {
-    const w = openWorld();
-    const p = w.players[0];
-    const pad = new Pad();
-    run(w, 1, pad);
-    spawnProjectile(w, { kind: 'bolt', faction: 'enemy', owner: 99, x: p.x + 1.4, y: p.y, vx: -1, vy: 0, radius: 0.16, damage: 8, range: 10, light: true });
-    const ev = run(w, 12, pad.tap(PRESS.attack));
-    expect(ev.some((x) => x.type === 'deflect')).toBe(true);
-    expect(p.hp).toBe(p.maxHp);
-  });
 });
 
 describe('enemies', () => {
@@ -184,8 +176,8 @@ describe('getting hurt', () => {
   it('grants a moment of invulnerability and knocks the player back', () => {
     const w = openWorld();
     const p = w.players[0];
-    expect(damagePlayer(w, p, 10, p.x - 1, p.y, 2)).toBe(true);
-    expect(damagePlayer(w, p, 10, p.x - 1, p.y, 2)).toBe(false);
+    expect(damagePlayer(w, p, 10, p.x - 1, p.y, 2)).toBe(HURT_TAKEN);
+    expect(damagePlayer(w, p, 10, p.x - 1, p.y, 2)).toBe(HURT_NONE);
     expect(p.hp).toBe(PLAYER.maxHp - 10);
     const x0 = p.x;
     run(w, 30, new Pad());
@@ -231,7 +223,7 @@ describe('Chimes', () => {
 
 /** Play one chamber of waves with a bot in every seat. */
 function playChamber(players: number, makeBot: () => Bot, seed: number, maxSeconds = 120): { w: World; cleared: boolean; ticks: number } {
-  const entrants = Array.from({ length: players }, (_, slot) => ({ slot, classId: 'sword' }));
+  const entrants = Array.from({ length: players }, (_, slot) => ({ slot, classId: 'sword' as const }));
   const w = createWorld(buildRoom(OPEN_ROOM), seed, CONTENT, { entrants, flow: createFlow(1, players) });
   const bots = entrants.map(() => makeBot());
   const idle = emptyInput();

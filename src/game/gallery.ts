@@ -36,7 +36,7 @@ export class Gallery {
     private readonly app: Application,
     private readonly opts: GalleryOptions,
   ) {
-    const theme = ZONES.bluefen;
+    const theme = ZONES.outer;
     app.renderer.background.color = opts.silhouette ? PAPER : theme.ground;
     app.stage.addChild(this.root);
     BitmapFont.install({
@@ -118,7 +118,7 @@ export class Gallery {
       a.variant = cell.variant;
       a.away = this.opts.away;
       a.seed = 0.37;
-      a.speed = 1;
+      a.speed = cell.state === 'run' || cell.state === 'move' || cell.state === 'dash' ? 1 : 0;
       a.aim = -0.35;
       if (this.opts.live) {
         // each column runs the state at a different offset so the row reads as a loop

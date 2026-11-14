@@ -5,6 +5,8 @@ import type { Vec2 } from '../core/exact';
 import type { Rng } from '../core/rng';
 import type { ContentRegistry, EnemyDef, RoomKind, ZoneId } from './defs';
 import type { RoomFlow } from './flow';
+import type { Geo } from './geo';
+import type { NavField } from './nav';
 
 // ---------------------------------------------------------------- input
 
@@ -44,20 +46,14 @@ export const emptyInput = (): InputFrame => ({ moveAngle: 0, moveMag: 0, aimAngl
 
 // ---------------------------------------------------------------- room
 
-export interface Pillar {
-  x: number;
-  y: number;
-  r: number;
-}
-
 export interface DoorSlot {
   x: number;
   y: number;
-  /** Which far edge the door stands on: 'north' is row 0, 'west' is column 0. */
+  /** Which far edge the door stands on: 'north' is the low-y side, 'west' the low-x side. */
   side: 'north' | 'west';
 }
 
-/** A room instanced from a template: walkable grid plus the marks the template placed. */
+/** A room instanced from a template: a tile grid, its collision shape, and the marks the template placed. */
 export interface Room {
   id: string;
   name: string;
@@ -65,10 +61,12 @@ export interface Room {
   kind: RoomKind;
   w: number;
   h: number;
-  /** 1 = walkable, indexed [y * w + x]. */
-  floor: Uint8Array;
-  pillars: Pillar[];
-  stones: Vec2[];
+  /** Tile codes (see TILE in geo.ts), indexed [y * w + x]. */
+  tiles: Uint8Array;
+  /** Walls, pit edges, posts and bumpers as segments and circles. */
+  geo: Geo;
+  /** Flat marks on the floor, decoration only. */
+  marks: Vec2[];
   spawnMarks: Vec2[];
   doors: DoorSlot[];
   start: Vec2;
@@ -80,12 +78,19 @@ export interface Room {
 
 // ---------------------------------------------------------------- players
 
-export type PlayerState = 'idle' | 'run' | 'dash' | 'swing' | 'down';
+export type ClassId = 'sword' | 'bow' | 'fist';
+
+/**
+ * What a player is doing. 'attack' is a swing, a jab or loosing an arrow; 'charge' and 'release'
+ * are the held punch of the Fist; 'special' is a class special in progress (or its recovery);
+ * 'guard' is the Riposte of the Sword.
+ */
+export type PlayerState = 'idle' | 'run' | 'dash' | 'attack' | 'charge' | 'release' | 'special' | 'guard' | 'down';
 
 export interface Player {
   /** Which seat of the session this is: 0, 1 or 2. */
   slot: number;
-  classId: string;
+  classId: ClassId;
   x: number;
   y: number;
   /** Position at the previous tick, for render interpolation. */
@@ -121,7 +126,7 @@ export interface Player {
   hurtT: number;
   /** Total distance travelled on foot; drives the stride animation. */
   stride: number;
-  /** Which swing of the combo is in progress or was last made: 0, 1 or 2. */
+  /** Which blow of the combo is in progress or was last made: 0, 1 or 2. */
   combo: number;
   /** Seconds left in which another press continues the combo. */
   comboTimer: number;
@@ -129,7 +134,7 @@ export interface Player {
   actAngle: number;
   /** Total duration of the current action, seconds. */
   actDur: number;
-  /** True once the current action's hit has been resolved. */
+  /** True once the hit of the current action has been resolved. */
   actDone: boolean;
   /** Buffered presses: seconds left in which the press still counts. */
   bufAttack: number;
@@ -138,15 +143,33 @@ export interface Player {
   bufInteract: number;
   /** The press counters seen last tick, to tell a new press from an old one. */
   lastPresses: number[];
+  /** Buttons held this tick (BTN bits), as last read. */
+  held: number;
   /** Per-body hit-stop: ticks this player's own timeline stays frozen. */
   freeze: number;
   /** Run currency. */
   chimes: number;
+  /** Seconds until the class special is ready again. */
+  specialCd: number;
+  /** Rally: 0..20, built by Returns; and seconds since the last Return. */
+  rally: number;
+  rallyT: number;
+  /** Fist: how full the held punch is, 0..1, and the charge the punch in flight was released with. */
+  charge: number;
+  /** Bow: seconds until the next arrow may leave the string. */
+  fireT: number;
+  /** Sword: seconds of Riposte guard left, and whether something landed in it. */
+  guardT: number;
+  guardHit: boolean;
 }
 
 // ---------------------------------------------------------------- enemies
 
-export type EnemyState = 'spawn' | 'idle' | 'move' | 'windup' | 'attack' | 'recover' | 'stun' | 'dead';
+/**
+ * 'launched': flying from a blow, helpless, able to slam and carom. 'pit': fallen into a pit and
+ * climbing out. The rest is the ordinary attack cycle.
+ */
+export type EnemyState = 'spawn' | 'idle' | 'move' | 'windup' | 'attack' | 'recover' | 'stun' | 'launched' | 'pit' | 'dead';
 
 export interface Enemy {
   id: number;
@@ -160,9 +183,24 @@ export interface Enemy {
   /** Self-propelled velocity. */
   vx: number;
   vy: number;
-  /** Knockback velocity; decays on its own. */
-  kx: number;
-  ky: number;
+  /** Velocity from blows. Above the launch speed the body is launched. It slows steadily. */
+  lvx: number;
+  lvy: number;
+  /** The slot of the player whose blow sent it flying, or -1. */
+  launchBy: number;
+  /** How many caroms lie between the blow and this body: 0 for the body that was struck. */
+  links: number;
+  /** Seconds before this body may be launched again. */
+  launchImmune: number;
+  /** Extra damage (a fraction) its next slam or carom deals, from a bumper or a Ringstone. */
+  boost: number;
+  /** The body it last caromed with, and seconds before that pair may carom again. */
+  caromWith: number;
+  caromLock: number;
+  /** Stagger built by jabs, seconds until it fades, and seconds left of being staggered. */
+  stagger: number;
+  staggerT: number;
+  staggered: number;
   radius: number;
   hp: number;
   maxHp: number;
@@ -170,7 +208,7 @@ export interface Enemy {
   facing: number;
   state: EnemyState;
   stateTime: number;
-  /** Duration of the current state when it has one (wind-up, attack, recover, stun, spawn); otherwise 0. */
+  /** Duration of the current state when it has one (wind-up, attack, recover, stun, spawn, pit); otherwise 0. */
   stateDur: number;
   /** Index into def.moves of the move being performed, or -1. */
   move: number;
@@ -235,14 +273,14 @@ export interface EnemyStatus {
   rootImmune: number;
 }
 
-// ---------------------------------------------------------------- projectiles and telegraphs
+// ---------------------------------------------------------------- things in flight
 
 export interface Projectile {
   id: number;
-  /** Visual and behaviour kind: 'bolt', ... */
+  /** Visual and behaviour kind: 'bolt', 'arrow', ... */
   kind: string;
   faction: 'player' | 'enemy';
-  /** Who made it: an enemy id for enemy shots, a player slot for player shots. */
+  /** Whose it is now: an enemy id for enemy shots, a player slot for player shots. */
   owner: number;
   x: number;
   y: number;
@@ -251,13 +289,83 @@ export interface Projectile {
   vx: number;
   vy: number;
   radius: number;
+  /** Damage before bounces, skips and Rally are counted. */
   damage: number;
   /** Seconds left before it expires. */
   life: number;
   /** Distance left before it expires. */
   range: number;
-  /** Light projectiles are knocked out of the air by a swing. */
-  light: boolean;
+  /** Ricochets left, and made so far. */
+  bounces: number;
+  bounced: number;
+  /** Skips from one enemy to another left, and made so far. */
+  skips: number;
+  skipped: number;
+  /** Enemies it may still pass through. */
+  pierce: number;
+  /** It was an enemy shot and a player sent it back; `perfect` if at the last moment. */
+  returned: boolean;
+  perfect: boolean;
+  /** Extra damage (a fraction) its next hit deals, from a bumper or a Ringstone. */
+  boost: number;
+  /** The enemy it is flying home to (a Riposte), or 0. */
+  homing: number;
+  /** Ids of what it has struck since it last bounced off the chamber, so a skip or a pierce never strikes twice. */
+  hits: number[];
+  dead: boolean;
+}
+
+/** A thrown bomb. It flies in an arc, sits on its fuse, and bursts; a blow from a player makes it theirs. */
+export interface Bomb {
+  id: number;
+  /** The enemy that threw it. */
+  owner: number;
+  /** The player slot that batted it, or -1 while it still belongs to the enemy. */
+  by: number;
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  /** Where it was thrown from and where it lands. */
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  /** Velocity once batted. */
+  vx: number;
+  vy: number;
+  /** 'fly': in its arc, out of reach. 'fuse': on the floor. 'batted': sent flying by a player. */
+  state: 'fly' | 'fuse' | 'batted';
+  /** Seconds in the current state, and how long that state lasts. */
+  t: number;
+  dur: number;
+  /** Seconds of fuse once it lands. */
+  fuse: number;
+  /** Blast radius and the damage it does to players while it is still the enemy's. */
+  radius: number;
+  damage: number;
+  /** Id of the warning circle on the floor, or 0. */
+  telegraph: number;
+  dead: boolean;
+}
+
+/** The Ringstone of the Bow: a bumper a player plants for a while. */
+export interface Ringstone {
+  id: number;
+  owner: number;
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  /** While thrown: where it will come down. */
+  toX: number;
+  toY: number;
+  flying: boolean;
+  radius: number;
+  /** Seconds left once planted. */
+  life: number;
+  /** Seconds since something last bounced off it (drives the pulse). */
+  rungT: number;
   dead: boolean;
 }
 
@@ -283,6 +391,9 @@ export interface Telegraph {
   width: number;
   /** Cone half-angle. */
   halfArc: number;
+  /** Lanes only: how many lanes fan out, and the total angle they span. One lane spans nothing. */
+  count: number;
+  spread: number;
   /** Seconds elapsed and total. */
   t: number;
   dur: number;
@@ -293,7 +404,11 @@ export interface Telegraph {
 
 // ---------------------------------------------------------------- events
 
-export type HitKind = 'direct' | 'return' | 'slam' | 'carom' | 'burst' | 'burn' | 'other';
+/** How a hit was delivered. 'return', 'slam', 'carom' and 'ringout' are Returns: they came from something sent back. */
+export type HitKind = 'direct' | 'return' | 'slam' | 'carom' | 'ringout' | 'burst' | 'burn' | 'other';
+
+/** What a shot or a body bounced off. */
+export type BounceKind = 'wall' | 'post' | 'bumper' | 'stone';
 
 /**
  * Things that happened this tick, with everything presentation needs to react. Value snapshots
@@ -304,8 +419,34 @@ export type SimEvent =
   | { type: 'dashEnd'; player: number; x: number; y: number }
   | { type: 'dashCharge'; player: number; charges: number }
   | { type: 'swing'; player: number; n: number; x: number; y: number; angle: number; reach: number; halfArc: number }
+  | { type: 'jab'; player: number; n: number; x: number; y: number; angle: number; reach: number; halfArc: number }
+  | { type: 'loose'; player: number; x: number; y: number; angle: number }
+  | { type: 'chargeFull'; player: number; x: number; y: number }
+  | { type: 'haymaker'; player: number; x: number; y: number; angle: number; charge: number }
+  | { type: 'breakSlam'; player: number; x: number; y: number; radius: number }
+  | { type: 'guard'; player: number; x: number; y: number }
+  | { type: 'riposte'; player: number; x: number; y: number }
+  | { type: 'specialReady'; player: number }
+  | { type: 'reflect'; player: number; id: number; x: number; y: number; perfect: boolean }
+  | { type: 'ricochet'; id: number; by: number; x: number; y: number; n: number; off: BounceKind; nx: number; ny: number }
+  | { type: 'skip'; by: number; fromX: number; fromY: number; toX: number; toY: number }
+  | { type: 'launch'; id: number; by: number; x: number; y: number; speed: number }
+  | { type: 'wallSlam'; id: number; by: number; x: number; y: number; speed: number; off: BounceKind; nx: number; ny: number }
+  | { type: 'carom'; a: number; b: number; by: number; x: number; y: number; speed: number; links: number }
+  | { type: 'ringOut'; id: number; by: number; x: number; y: number; killed: boolean }
+  | { type: 'climbOut'; id: number; x: number; y: number }
+  | { type: 'land'; id: number; x: number; y: number }
+  | { type: 'stagger'; id: number; x: number; y: number }
+  | { type: 'rally'; player: number; value: number; weight: number; x: number; y: number }
+  | { type: 'rallyBreak'; player: number; value: number }
+  | { type: 'stoneThrow'; id: number; player: number; x: number; y: number }
+  | { type: 'stonePlant'; id: number; player: number; x: number; y: number }
+  | { type: 'stoneEnd'; id: number; x: number; y: number }
+  | { type: 'bombThrow'; id: number; x: number; y: number }
+  | { type: 'bombLand'; id: number; x: number; y: number }
+  | { type: 'bombBat'; id: number; player: number; x: number; y: number }
+  | { type: 'bombBurst'; id: number; by: number; x: number; y: number; radius: number }
   | { type: 'hit'; target: number; by: number; x: number; y: number; amount: number; kind: HitKind; heavy: boolean; crit: boolean; dx: number; dy: number; killed: boolean }
-  | { type: 'deflect'; player: number; x: number; y: number }
   | { type: 'playerHurt'; player: number; amount: number; x: number; y: number; dx: number; dy: number }
   | { type: 'playerDown'; player: number; x: number; y: number }
   | { type: 'enemySpawn'; id: number; kind: string; x: number; y: number }
@@ -336,6 +477,8 @@ export interface World {
   players: Player[];
   enemies: Enemy[];
   projectiles: Projectile[];
+  bombs: Bomb[];
+  stones: Ringstone[];
   telegraphs: Telegraph[];
   /** Appended to by the step; presentation clears it after reading. Never part of a snapshot. */
   events: SimEvent[];
@@ -343,14 +486,21 @@ export interface World {
   freeze: number;
   /** The earliest tick at which another whole-chamber freeze may start. */
   freezeAllowedAt: number;
-  /** Source of ids for enemies, projectiles and telegraphs. */
+  /** Source of ids for enemies, projectiles, bombs, stones and telegraphs. */
   nextId: number;
   /** How deep into the run this chamber is (1-based); scales enemy health and damage. */
   chamber: number;
+  /** Ticks between a press and its effect, as measured in the lobby (0 alone). Widens timing windows. */
+  inputDelay: number;
   /** The content this world runs on. A pointer, re-linked after a snapshot is loaded. */
   content: ContentRegistry;
   /** Waves and pickups of this chamber. */
   flow: RoomFlow;
+  /**
+   * One walking-distance field per player seat, rebuilt whenever that player steps onto another
+   * tile. Derived purely from the room and the tile, so it is never part of a snapshot.
+   */
+  nav: Array<NavField | null>;
   /** Enemies that died this tick, for drops. Cleared by the flow step. */
   deaths: Array<{ x: number; y: number; defId: string; elite: string | null }>;
   /** Totals for the results screen and for tests. */
@@ -358,5 +508,8 @@ export interface World {
     kills: number;
     damageDealt: number;
     damageTaken: number;
+    /** Returns landed, and the highest Rally anyone reached. */
+    returns: number;
+    bestRally: number;
   };
 }

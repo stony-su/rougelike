@@ -34,9 +34,14 @@ interface Leaf {
 interface PartNode {
   name: string;
   c: Container;
+  parent: PartNode | null;
+  kids: PartNode[];
   restX: number;
   restY: number;
   restRot: number;
+  /** Draw order among siblings at rest, and as last arranged. */
+  restZ: number;
+  appliedZ: number;
   target: PartPose;
   cur: PartPose;
   leaves: Leaf[];
@@ -46,7 +51,13 @@ export class RigView implements PoseWriter {
   /** Place this at the rig's projected foot point. */
   readonly root = new Container();
   readonly def: RigDef;
+  /**
+   * One drawing per rig that its owner redraws each frame, over the body and in the same space
+   * as `point` reports: a bowstring between two hands, the glow of a drawn-back fist.
+   */
+  readonly over = new Graphics();
   private readonly body = new Container();
+  private readonly tops: PartNode[] = [];
   private readonly nodes = new Map<string, PartNode>();
   private readonly order: PartNode[] = [];
   private readonly scratch = restPose();
@@ -62,16 +73,19 @@ export class RigView implements PoseWriter {
   constructor(def: RigDef, paletteOverride?: Record<string, number>) {
     this.def = def;
     this.palette = paletteOverride ? { ...def.palette, ...paletteOverride } : def.palette;
-    this.root.addChild(this.body);
+    this.root.addChild(this.body, this.over);
 
-    const children = new Map<string, Array<{ z: number; node: PartNode }>>();
     for (const p of def.parts) {
       const node: PartNode = {
         name: p.name,
         c: new Container(),
+        parent: null,
+        kids: [],
         restX: p.x,
         restY: p.y,
         restRot: p.rot ?? 0,
+        restZ: p.z ?? 0,
+        appliedZ: p.z ?? 0,
         target: restPose(),
         cur: restPose(),
         leaves: [],
@@ -80,32 +94,40 @@ export class RigView implements PoseWriter {
       node.c.rotation = node.restRot;
       this.nodes.set(p.name, node);
       this.order.push(node);
-      const parentKey = p.parent ?? '';
-      let list = children.get(parentKey);
-      if (!list) {
-        list = [];
-        children.set(parentKey, list);
-      }
-      list.push({ z: p.z ?? 0, node });
     }
-    // Assemble: children with z < 0, then the part's own leaves, then children with z >= 0.
     for (const p of def.parts) {
       const node = this.nodes.get(p.name) as PartNode;
-      const kids = (children.get(p.name) ?? []).slice().sort((a, b) => a.z - b.z);
-      for (const k of kids) if (k.z < 0) node.c.addChild(k.node.c);
+      const parent = p.parent ? (this.nodes.get(p.parent) ?? null) : null;
+      node.parent = parent;
+      if (parent) parent.kids.push(node);
+      else this.tops.push(node);
       p.shapes.forEach((s, i) => {
         const g = new Graphics(contextFor(`${def.id}/${p.name}/${i}`, s));
         const base = this.palette[s.role] ?? 0xffffff;
         g.tint = base;
         if (s.alpha !== undefined) g.alpha = s.alpha;
-        node.c.addChild(g);
         node.leaves.push({ g, role: s.role, base, view: s.view });
       });
-      for (const k of kids) if (k.z >= 0) node.c.addChild(k.node.c);
     }
-    const roots = (children.get('') ?? []).slice().sort((a, b) => a.z - b.z);
-    for (const r of roots) this.body.addChild(r.node.c);
+    for (const node of this.order) this.arrange(node);
+    this.arrange(null);
     this.applyView();
+  }
+
+  /**
+   * Put a part's children and its own shapes in drawing order: children behind it (order below
+   * zero), then its own shapes, then children in front. Children of the rig itself are simply
+   * ordered. Ties keep the order the rig lists them in.
+   */
+  private arrange(node: PartNode | null): void {
+    const c = node ? node.c : this.body;
+    const kids = (node ? node.kids : this.tops).slice().sort((a, b) => a.appliedZ - b.appliedZ);
+    c.removeChildren();
+    for (const k of kids) if (k.appliedZ < 0 || !node) c.addChild(k.c);
+    if (node) {
+      for (const l of node.leaves) c.addChild(l.g);
+      for (const k of kids) if (k.appliedZ >= 0) c.addChild(k.c);
+    }
   }
 
   /** PoseWriter: offsets for a part this frame. Call beginPose() first. */
@@ -130,6 +152,7 @@ export class RigView implements PoseWriter {
       t.rot = 0;
       t.sx = 1;
       t.sy = 1;
+      t.z = 0;
     }
   }
 
@@ -156,7 +179,50 @@ export class RigView implements PoseWriter {
       n.c.position.set(n.restX + c.x, n.restY + c.y);
       n.c.rotation = n.restRot + c.rot;
       n.c.scale.set(c.sx, c.sy);
+      // Draw order is not eased: a part is in front or it is behind.
+      c.z = t.z;
     }
+    this.reorder();
+  }
+
+  /** Re-arrange the children of any part whose draw order changed this frame. */
+  private reorder(): void {
+    let dirtyTop = false;
+    for (const n of this.order) {
+      const z = n.restZ + n.cur.z;
+      if (z === n.appliedZ) continue;
+      n.appliedZ = z;
+      if (n.parent) this.arrange(n.parent);
+      else dirtyTop = true;
+    }
+    if (dirtyTop) this.arrange(null);
+  }
+
+  /**
+   * Where a point given in a part's own space is this frame, in the space of `root` (pixels,
+   * y down, already mirrored for facing). Returns false for an unknown part.
+   */
+  point(name: string, lx: number, ly: number, out: { x: number; y: number }): boolean {
+    let n: PartNode | null = this.nodes.get(name) ?? null;
+    if (!n) return false;
+    let x = lx;
+    let y = ly;
+    while (n) {
+      const c = n.cur;
+      x *= c.sx;
+      y *= c.sy;
+      const r = n.restRot + c.rot;
+      const cs = Math.cos(r);
+      const sn = Math.sin(r);
+      const rx = x * cs - y * sn;
+      const ry = x * sn + y * cs;
+      x = rx + n.restX + c.x;
+      y = ry + n.restY + c.y;
+      n = n.parent;
+    }
+    out.x = x * this.body.scale.x;
+    out.y = y * this.body.scale.y;
+    return true;
   }
 
   /** Mirror for left/right and choose the toward/away leaves. */
@@ -239,10 +305,12 @@ export class RigView implements PoseWriter {
       n.cur.rot = o.cur.rot;
       n.cur.sx = o.cur.sx;
       n.cur.sy = o.cur.sy;
+      n.cur.z = o.cur.z;
       n.c.position.set(n.restX + n.cur.x, n.restY + n.cur.y);
       n.c.rotation = n.restRot + n.cur.rot;
       n.c.scale.set(n.cur.sx, n.cur.sy);
     }
+    this.reorder();
     this.first = false;
   }
 

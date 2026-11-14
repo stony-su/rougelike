@@ -1,7 +1,7 @@
 // Rigs and animators are pixi-free, so their coverage can be checked here: every declared state
 // must produce a real, finite, moving pose.
 import { describe, expect, it } from 'vitest';
-import { animInput, block, clipBelow, ell, hatchPoly, restPose, topEdges, validateRig } from '../src/render/rig/def';
+import { animInput, block, clipBelow, ell, restPose, topEdges, validateRig } from '../src/render/rig/def';
 import type { Animator, PartPose, PoseWriter, RigDef } from '../src/render/rig/def';
 import { RIGS } from '../src/render/rig/registry';
 
@@ -50,6 +50,7 @@ function sample(def: RigDef, animator: Animator, state: string, variant: number)
     a.speed = 1;
     a.aim = -0.4;
     a.seed = 0.37;
+    a.forward = 1;
     rec.reset();
     rates.push(animator(rec, a));
     frames.push(rec.snapshot());
@@ -87,29 +88,20 @@ describe('rig definitions', () => {
 });
 
 describe('part recipe', () => {
-  it('clips, hatches and rims an outline', () => {
+  it('clips and rims an outline', () => {
     const square = [0, 0, 10, 0, 10, 10, 0, 10];
     const lower = clipBelow(square, 6);
     const ys = lower.filter((_, i) => i % 2 === 1);
     expect(Math.min(...ys)).toBeCloseTo(6);
     expect(Math.max(...ys)).toBeCloseTo(10);
-    const hatch = hatchPoly(lower, 2, -0.9);
-    expect(hatch.length % 4).toBe(0);
-    expect(hatch.length).toBeGreaterThan(0);
-    for (let i = 0; i < hatch.length; i += 2) {
-      expect(hatch[i]).toBeGreaterThanOrEqual(-0.01);
-      expect(hatch[i]).toBeLessThanOrEqual(10.01);
-      expect(hatch[i + 1]).toBeGreaterThanOrEqual(5.99);
-      expect(hatch[i + 1]).toBeLessThanOrEqual(10.01);
-    }
     // only the top edge of a square faces up, whichever way it is wound
     expect(topEdges(square)).toEqual([0, 0, 10, 0]);
     expect(topEdges([0, 10, 10, 10, 10, 0, 0, 0])).toEqual([10, 0, 0, 0]);
   });
 
-  it('builds fill, shade, hatch and rim leaves from one outline', () => {
-    const shapes = block(ell(0, 0, 10, 14), { fill: 'a', shade: 'b', hatch: 'c', rim: 'd' });
-    expect(shapes.map((s) => s.role)).toEqual(['a', 'b', 'c', 'd']);
-    expect(shapes.map((s) => s.kind)).toEqual(['poly', 'poly', 'lines', 'lines']);
+  it('builds fill, shade and rim leaves from one outline', () => {
+    const shapes = block(ell(0, 0, 10, 14), { fill: 'a', shade: 'b', rim: 'd' });
+    expect(shapes.map((s) => s.role)).toEqual(['a', 'b', 'd']);
+    expect(shapes.map((s) => s.kind)).toEqual(['poly', 'poly', 'lines']);
   });
 });

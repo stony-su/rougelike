@@ -1,18 +1,32 @@
-// Rooms: instancing a template into a walkable grid, and collision against it.
+// Rooms: instancing a template into a tile grid with its collision shape, and questions about it.
 import { dhypot } from '../core/dmath';
 import type { Vec2 } from '../core/exact';
 import type { Rng } from '../core/rng';
+import { isOpen, pushOut } from './cast';
 import type { RoomTemplate } from './defs';
-import type { DoorSlot, Pillar, Room } from './types';
+import { CIRCLE_BUMPER, CIRCLE_POST, TILE, buildGeo } from './geo';
+import type { Circle } from './geo';
+import type { DoorSlot, Room } from './types';
 
-export const PILLAR_RADIUS = 0.42;
+export const POST_RADIUS = 0.42;
+export const BUMPER_RADIUS = 0.5;
+
+const TILE_OF: Readonly<Record<string, number>> = {
+  ' ': TILE.void,
+  '#': TILE.wall,
+  '~': TILE.pit,
+  '7': TILE.diagTL,
+  '9': TILE.diagTR,
+  '1': TILE.diagBL,
+  '3': TILE.diagBR,
+};
 
 export function buildRoom(t: RoomTemplate): Room {
   const h = t.map.length;
   const w = t.map.reduce((m, row) => Math.max(m, row.length), 0);
-  const floor = new Uint8Array(w * h);
-  const pillars: Pillar[] = [];
-  const stones: Vec2[] = [];
+  const tiles = new Uint8Array(w * h);
+  const circles: Circle[] = [];
+  const marks: Vec2[] = [];
   const spawnMarks: Vec2[] = [];
   const doors: DoorSlot[] = [];
   let start: Vec2 | null = null;
@@ -25,15 +39,21 @@ export function buildRoom(t: RoomTemplate): Room {
     const row = t.map[y] ?? '';
     for (let x = 0; x < w; x++) {
       const ch = row[x] ?? ' ';
-      if (ch === ' ' || ch === '#') continue;
-      floor[y * w + x] = 1;
+      const code = TILE_OF[ch];
+      if (code !== undefined) {
+        tiles[y * w + x] = code;
+        continue;
+      }
+      // every other symbol stands on floor
+      tiles[y * w + x] = TILE.floor;
       const cx = x + 0.5;
       const cy = y + 0.5;
       sx += cx;
       sy += cy;
       n++;
-      if (ch === 'o') pillars.push({ x: cx, y: cy, r: PILLAR_RADIUS });
-      else if (ch === 'b') stones.push({ x: cx, y: cy });
+      if (ch === 'o') circles.push({ x: cx, y: cy, r: POST_RADIUS, kind: CIRCLE_POST });
+      else if (ch === 'B') circles.push({ x: cx, y: cy, r: BUMPER_RADIUS, kind: CIRCLE_BUMPER });
+      else if (ch === 'b') marks.push({ x: cx, y: cy });
       else if (ch === 's') spawnMarks.push({ x: cx, y: cy });
       else if (ch === 'P') start = { x: cx, y: cy };
       else if (ch === 'r') rewardSpot = { x: cx, y: cy };
@@ -50,9 +70,9 @@ export function buildRoom(t: RoomTemplate): Room {
     kind: t.kind,
     w,
     h,
-    floor,
-    pillars,
-    stones,
+    tiles,
+    geo: buildGeo(tiles, w, h, circles),
+    marks,
     spawnMarks,
     doors,
     start: start ?? { x: cx, y: cy },
@@ -62,105 +82,27 @@ export function buildRoom(t: RoomTemplate): Room {
   };
 }
 
-export const isFloorTile = (room: Room, tx: number, ty: number): boolean =>
-  tx >= 0 && ty >= 0 && tx < room.w && ty < room.h && room.floor[ty * room.w + tx] === 1;
+export const tileAt = (room: Room, tx: number, ty: number): number => (tx < 0 || ty < 0 || tx >= room.w || ty >= room.h ? TILE.void : room.tiles[ty * room.w + tx]);
 
-/** True when a circle of radius r centred at (x, y) stands fully on floor and clear of pillars. */
-export function isClear(room: Room, x: number, y: number, r = 0): boolean {
-  const x0 = Math.floor(x - r);
-  const x1 = Math.floor(x + r);
-  const y0 = Math.floor(y - r);
-  const y1 = Math.floor(y + r);
-  for (let ty = y0; ty <= y1; ty++) {
-    for (let tx = x0; tx <= x1; tx++) {
-      if (isFloorTile(room, tx, ty)) continue;
-      const qx = Math.max(tx, Math.min(x, tx + 1));
-      const qy = Math.max(ty, Math.min(y, ty + 1));
-      const dx = x - qx;
-      const dy = y - qy;
-      if (dx * dx + dy * dy < r * r || (r === 0 && dx === 0 && dy === 0)) return false;
-    }
-  }
-  for (const p of room.pillars) {
-    const dx = x - p.x;
-    const dy = y - p.y;
-    const rr = r + p.r;
-    if (dx * dx + dy * dy < rr * rr) return false;
-  }
-  return true;
+/** What lies under a point: 'floor', 'pit' or 'solid'. A diagonal tile is solid in one corner and floor in the other half. */
+export function groundAt(room: Room, x: number, y: number): 'floor' | 'pit' | 'solid' {
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  const t = tileAt(room, tx, ty);
+  if (t === TILE.floor) return 'floor';
+  if (t === TILE.pit) return 'pit';
+  const fx = x - tx;
+  const fy = y - ty;
+  if (t === TILE.diagTL) return fx + fy >= 1 ? 'floor' : 'solid';
+  if (t === TILE.diagTR) return fy > fx ? 'floor' : 'solid';
+  if (t === TILE.diagBL) return fx > fy ? 'floor' : 'solid';
+  if (t === TILE.diagBR) return fx + fy <= 1 ? 'floor' : 'solid';
+  return 'solid';
 }
 
-/**
- * Push a circle out of void tiles and pillars. Mutates pos.
- * Returns true if anything was touched.
- */
-export function resolveCircle(room: Room, pos: Vec2, r: number): boolean {
-  let touched = false;
-  for (let iter = 0; iter < 3; iter++) {
-    let moved = false;
-    const x0 = Math.floor(pos.x - r);
-    const x1 = Math.floor(pos.x + r);
-    const y0 = Math.floor(pos.y - r);
-    const y1 = Math.floor(pos.y + r);
-    for (let ty = y0; ty <= y1; ty++) {
-      for (let tx = x0; tx <= x1; tx++) {
-        if (isFloorTile(room, tx, ty)) continue;
-        const qx = Math.max(tx, Math.min(pos.x, tx + 1));
-        const qy = Math.max(ty, Math.min(pos.y, ty + 1));
-        let dx = pos.x - qx;
-        let dy = pos.y - qy;
-        const d2 = dx * dx + dy * dy;
-        if (d2 >= r * r) continue;
-        if (d2 > 1e-10) {
-          const d = Math.sqrt(d2);
-          const push = r - d;
-          pos.x += (dx / d) * push;
-          pos.y += (dy / d) * push;
-        } else {
-          // Centre is inside the void tile: leave through the nearest face that leads to floor.
-          const left = pos.x - tx;
-          const right = tx + 1 - pos.x;
-          const up = pos.y - ty;
-          const down = ty + 1 - pos.y;
-          const options: Array<[number, number, number, boolean]> = [
-            [left + r, -1, 0, isFloorTile(room, tx - 1, ty)],
-            [right + r, 1, 0, isFloorTile(room, tx + 1, ty)],
-            [up + r, 0, -1, isFloorTile(room, tx, ty - 1)],
-            [down + r, 0, 1, isFloorTile(room, tx, ty + 1)],
-          ];
-          let best: [number, number, number, boolean] | null = null;
-          for (const o of options) {
-            if (!o[3]) continue;
-            if (!best || o[0] < best[0]) best = o;
-          }
-          if (!best) continue;
-          dx = best[1];
-          dy = best[2];
-          pos.x += dx * best[0];
-          pos.y += dy * best[0];
-        }
-        moved = true;
-      }
-    }
-    for (const p of room.pillars) {
-      const dx = pos.x - p.x;
-      const dy = pos.y - p.y;
-      const rr = r + p.r;
-      const d2 = dx * dx + dy * dy;
-      if (d2 >= rr * rr) continue;
-      const d = Math.sqrt(d2);
-      if (d > 1e-6) {
-        pos.x = p.x + (dx / d) * rr;
-        pos.y = p.y + (dy / d) * rr;
-      } else {
-        pos.x = p.x + rr;
-      }
-      moved = true;
-    }
-    if (!moved) break;
-    touched = true;
-  }
-  return touched;
+/** True when a circle of radius r centred at (x, y) stands on floor, clear of walls, pits, posts and bumpers. */
+export function isClear(room: Room, x: number, y: number, r = 0): boolean {
+  return groundAt(room, x, y) === 'floor' && isOpen(room.geo, true, x, y, r);
 }
 
 /** Snap a point to the nearest spot where a circle of radius r stands clear. Mutates and returns out. */
@@ -168,9 +110,11 @@ export function clampToFloor(room: Room, x: number, y: number, r: number, out: V
   out.x = x;
   out.y = y;
   if (isClear(room, x, y, r)) return out;
-  resolveCircle(room, out, r);
-  if (isClear(room, out.x, out.y, r * 0.98)) return out;
-  // Far outside the room: walk toward the centre until clear.
+  if (groundAt(room, x, y) === 'floor') {
+    pushOut(room.geo, true, out, r);
+    if (isClear(room, out.x, out.y, r * 0.98)) return out;
+  }
+  // Inside something or far outside: walk toward the centre until clear.
   const steps = 64;
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
@@ -187,33 +131,51 @@ export function clampToFloor(room: Room, x: number, y: number, r: number, out: V
   return out;
 }
 
+/**
+ * The clear floor spot nearest a point, for a body climbing out of a pit. Looks at tile centres
+ * in growing squares around the point; the first square that holds one decides, plus one more
+ * square in case a diagonal neighbour is nearer.
+ */
+export function nearestFloor(room: Room, x: number, y: number, r: number, out: Vec2): Vec2 {
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  let best = Infinity;
+  let last = -1;
+  for (let ring = 0; ring <= 12; ring++) {
+    if (last >= 0 && ring > last + 1) break;
+    for (let j = -ring; j <= ring; j++) {
+      for (let i = -ring; i <= ring; i++) {
+        if (Math.max(Math.abs(i), Math.abs(j)) !== ring) continue;
+        const cx = tx + i + 0.5;
+        const cy = ty + j + 0.5;
+        if (!isClear(room, cx, cy, r)) continue;
+        const d = (cx - x) * (cx - x) + (cy - y) * (cy - y);
+        if (d < best) {
+          best = d;
+          out.x = cx;
+          out.y = cy;
+          if (last < 0) last = ring;
+        }
+      }
+    }
+  }
+  if (last < 0) {
+    out.x = room.start.x;
+    out.y = room.start.y;
+  }
+  return out;
+}
+
 /** A random clear floor point at least minDist from `from` (if given). */
-export function randomFloorPoint(
-  room: Room,
-  rng: Rng,
-  r: number,
-  from?: Vec2,
-  minDist = 0,
-): Vec2 {
-  for (let i = 0; i < 80; i++) {
+export function randomFloorPoint(room: Room, rng: Rng, r: number, from?: Vec2, minDist = 0): Vec2 {
+  for (let i = 0; i < 120; i++) {
     const x = rng.float(0.5, room.w - 0.5);
     const y = rng.float(0.5, room.h - 0.5);
     if (!isClear(room, x, y, r)) continue;
     if (from && dhypot(x - from.x, y - from.y) < minDist) continue;
     return { x, y };
   }
-  return { x: room.cx, y: room.cy };
-}
-
-/** True when the straight segment between two points stays on floor (sampled). */
-export function segmentOnFloor(room: Room, ax: number, ay: number, bx: number, by: number): boolean {
-  const d = dhypot(bx - ax, by - ay);
-  const n = Math.max(1, Math.ceil(d / 0.4));
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    if (!isFloorTile(room, Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t))) return false;
-  }
-  return true;
+  return { x: room.start.x, y: room.start.y };
 }
 
 /** Problems in a room template, as human-readable strings. Used by content tests. */
@@ -223,10 +185,8 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
   const w = t.map.reduce((m, row) => Math.max(m, row.length), 0);
   if (w > 40 || h > 40) out.push(`${t.id}: larger than 40 x 40 (${w} x ${h})`);
   const at = (x: number, y: number): string => (y < 0 || y >= h ? ' ' : t.map[y][x] ?? ' ');
-  const isFloor = (x: number, y: number): boolean => {
-    const c = at(x, y);
-    return c !== ' ' && c !== '#';
-  };
+  /** Somewhere a walker's centre can be. Diagonal tiles count: half of each is floor. */
+  const walkable = (x: number, y: number): boolean => !' #~oB'.includes(at(x, y));
   const count = (ch: string): Array<[number, number]> => {
     const found: Array<[number, number]> = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (at(x, y) === ch) found.push([x, y]);
@@ -235,20 +195,29 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const c = at(x, y);
-      if (!' #.obsPDr'.includes(c)) out.push(`${t.id}: unknown symbol "${c}" at ${x},${y}`);
+      if (!' #~7913.oBbsPDr'.includes(c)) out.push(`${t.id}: unknown symbol "${c}" at ${x},${y}`);
     }
   }
   const starts = count('P');
   const focus = count('r');
-  const doors = count('D');
   const marks = count('s');
-  const pillars = count('o');
+  const posts = [...count('o'), ...count('B')];
   if (starts.length !== 1) out.push(`${t.id}: needs exactly one P, has ${starts.length}`);
   if (focus.length !== 1) out.push(`${t.id}: needs exactly one r, has ${focus.length}`);
-  if (doors.length < 1) out.push(`${t.id}: needs at least one D`);
-  for (const [x, y] of doors) if (x !== 0 && y !== 0) out.push(`${t.id}: door at ${x},${y} is not on a far edge (row 0 or column 0)`);
+  for (const [x, y] of count('D')) if (x !== 0 && y !== 0) out.push(`${t.id}: door at ${x},${y} is not on a far edge (row 0 or column 0)`);
 
-  // every floor tile must be reachable from P (pillars block)
+  // the arena must be closed: nothing but wall may touch the void or the rim of the grid
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // a door is a gap in a far wall, so it alone may stand on the rim
+      if (at(x, y) === ' ' || at(x, y) === '#' || at(x, y) === 'D') continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        if (at(x + dx, y + dy) === ' ') out.push(`${t.id}: tile at ${x},${y} is open to the void`);
+      }
+    }
+  }
+
+  // every walkable tile must be reachable from P on foot
   if (starts.length === 1) {
     const seen = new Set<number>();
     const stack: Array<[number, number]> = [starts[0]];
@@ -258,7 +227,7 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         const nx = x + dx;
         const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h || !isFloor(nx, ny) || at(nx, ny) === 'o') continue;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || !walkable(nx, ny)) continue;
         const key = ny * 64 + nx;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -267,18 +236,16 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
     }
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        if (isFloor(x, y) && at(x, y) !== 'o' && !seen.has(y * 64 + x)) out.push(`${t.id}: floor at ${x},${y} cannot be reached from P`);
+        if (walkable(x, y) && !seen.has(y * 64 + x)) out.push(`${t.id}: floor at ${x},${y} cannot be reached from P`);
       }
     }
   }
 
-  {
-    if (marks.length < 4) out.push(`${t.id}: a fight needs at least four spawn marks, has ${marks.length}`);
-    for (const [x, y] of marks) {
-      if (starts.length === 1 && dhypot(x - starts[0][0], y - starts[0][1]) < 4) out.push(`${t.id}: spawn mark at ${x},${y} is too close to P`);
-      for (const [px, py] of pillars) {
-        if (dhypot(x - px, y - py) < 1.6) out.push(`${t.id}: spawn mark at ${x},${y} is tucked against the pillar at ${px},${py}`);
-      }
+  if (marks.length < 4) out.push(`${t.id}: a fight needs at least four spawn marks, has ${marks.length}`);
+  for (const [x, y] of marks) {
+    if (starts.length === 1 && dhypot(x - starts[0][0], y - starts[0][1]) < 4) out.push(`${t.id}: spawn mark at ${x},${y} is too close to P`);
+    for (const [px, py] of posts) {
+      if (dhypot(x - px, y - py) < 1.6) out.push(`${t.id}: spawn mark at ${x},${y} is tucked against the post at ${px},${py}`);
     }
   }
   return out;

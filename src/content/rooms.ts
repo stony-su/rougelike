@@ -2,40 +2,50 @@
 // World (0, 0) is the far (top) corner on screen; x runs down-right, y runs down-left.
 //
 // Legend:
-//   .  floor
-//   o  round post (blocks movement, stands in the tile's centre)
-//   b  a flat mark on the floor, decoration only
-//   s  spawn mark: enemies may appear here
-//   P  where the party starts (near the bottom corner)
-//   D  door slot. Doors stand on the far edges: row 0 or column 0.
-//   r  the room's focus: where a reward or a boss stands
-//   (space) or #  void
+//   #        wall: shots and launched bodies bounce off it
+//   7 9 1 3  a wall cut at 45 degrees. The digit says which corner of the tile is solid, as on a
+//            numeric keypad (7 top-left, 9 top-right, 1 bottom-left, 3 bottom-right)
+//   ~        pit: nobody walks in, shots fly over, a launched body falls in
+//   .        floor
+//   o        round post (stands in the middle of the tile)
+//   B        bumper: a post that kicks back harder
+//   b        a flat mark on the floor, decoration only
+//   s        spawn mark: enemies may appear here
+//   P        where the party starts (near the bottom corner)
+//   D        door slot, in a far wall: row 0 or column 0
+//   r        the focus of the room: where a reward or a boss stands
+//   (space)  nothing
 //
-// The validator (src/sim/room.ts, checked by tests) requires exactly one P and one r, at least
-// one D on row 0 or column 0, every floor tile reachable from P, and at least four spawn marks
-// well away from P and not tucked behind a post.
+// The validator (src/sim/room.ts, checked by tests) requires a closed arena, exactly one P and
+// one r, every floor tile reachable from P on foot, and at least four spawn marks well away from
+// P and not tucked behind a post.
 import type { RoomTemplate } from '../sim/defs';
 
+/** The practice court: bank walls, cut corners, four posts, two bumpers and a pit to knock things into. */
 export const PRACTICE_COURT: RoomTemplate = {
   id: 'practice-court',
   name: 'Practice Court',
-  zone: 'bluefen',
+  zone: 'outer',
   kind: 'arena',
   map: [
-    '......D....D......',
-    '.s..............s.',
-    '..................',
-    '....o........o....',
-    '..................',
-    '..................',
-    '.s......b.......s.',
-    '........r.........',
-    '..................',
-    '..................',
-    '....o........o....',
-    '..................',
-    '.s..............s.',
-    '........P.........',
+    '########################',
+    '##7..................9##',
+    '#7.s................s.9#',
+    '#......................#',
+    '#....o.....B.....o.....#',
+    '#......................#',
+    '#......................#',
+    '#.s.......~~.........s.#',
+    '#.........~~...........#',
+    '#......................#',
+    '#.....o..........o.....#',
+    '#......................#',
+    '#..........r...........#',
+    '#..s......B.........s..#',
+    '#......................#',
+    '#1..........P.........3#',
+    '##1..................3##',
+    '########################',
   ],
 };
 

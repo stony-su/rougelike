@@ -13,7 +13,7 @@ import { createFlow } from './flow';
 import { buildRoom, randomFloorPoint } from './room';
 import { SIM_HZ } from './tuning';
 import { emptyInput } from './types';
-import type { InputFrame, World } from './types';
+import type { ClassId, InputFrame, World } from './types';
 import { createWorld, stepWorld } from './world';
 import type { Entrant } from './world';
 
@@ -21,7 +21,7 @@ export const MAX_PLAYERS = 3;
 
 export interface PlayerSetup {
   name: string;
-  classId: string;
+  classId: ClassId;
 }
 
 /** Fixed when the session is created; never changes during it. */
@@ -82,7 +82,7 @@ const CLEAR_BEAT = Math.round(3 * SIM_HZ);
 function startWorld(s: Session, content: ContentRegistry, chamber: number, entrants: Entrant[]): World {
   const template = content.rooms[0];
   if (!template) throw new Error('The content has no rooms');
-  return createWorld(buildRoom(template), `${s.config.seed}/${s.attempt}/${chamber}`, content, { chamber, entrants });
+  return createWorld(buildRoom(template), `${s.config.seed}/${s.attempt}/${chamber}`, content, { chamber, entrants, inputDelay: s.config.inputDelay });
 }
 
 export function createSession(config: SessionConfig, content: ContentRegistry): Session {

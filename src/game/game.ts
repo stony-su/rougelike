@@ -7,27 +7,31 @@ import type { Application, Ticker } from 'pixi.js';
 import { CONTENT } from '../content';
 import { Loopback } from '../net/transport';
 import type { Transport } from '../net/transport';
+import { AimPreview } from '../render/aimPreview';
 import { Ambient } from '../render/ambient';
 import { Camera } from '../render/camera';
 import { DamageNumbers } from '../render/damageNumbers';
 import { EnemyViews } from '../render/enemyView';
 import { Fx } from '../render/fx';
-import { CHIME, DANGER, PAPER, ZONES, css } from '../render/palette';
+import { ObjectViews } from '../render/objectView';
+import { CHIME, DANGER, PAPER, PLAYER_COLORS, PLAYER_PALE, RIM, ZONES, css } from '../render/palette';
 import type { ZoneTheme } from '../render/palette';
 import { Particles } from '../render/particles';
 import { PickupView } from '../render/pickupView';
 import { PlayerViews } from '../render/playerView';
-import { ProjectileViews } from '../render/projectileView';
+import { FLY_Z, ProjectileViews } from '../render/projectileView';
 import { RoomView } from '../render/roomView';
 import { Stage } from '../render/stage';
 import { TelegraphViews } from '../render/telegraphView';
 import { Textures } from '../render/textures';
-import { swordBot } from '../sim/bots';
+import { Trails } from '../render/trails';
+import { EXPERT, NOVICE, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
+import { aimAngleOf } from '../sim/input';
 import { MAX_PLAYERS, createSession, stepSession, worldOf } from '../sim/session';
 import type { Session } from '../sim/session';
 import { hashSession } from '../sim/snapshot';
-import type { SimEvent, World } from '../sim/types';
+import type { ClassId, SimEvent, World } from '../sim/types';
 import { Hud } from '../ui/hud';
 import { Label } from '../ui/label';
 import { Input } from './input';
@@ -35,17 +39,17 @@ import { Input } from './input';
 export interface GameOptions {
   debug: boolean;
   seed: string;
-  /** Let a bot play this laptop's seat (debug and automated checks): 'sword', 'novice', or '' for a human. */
+  /** Let a bot play this laptop's seat (debug and automated checks): 'expert', 'novice', or '' for a human. */
   autopilot: string;
-  /** Extra seats played by bots, 0 to 2, so several players can be seen in one world without a network. */
-  bots: number;
+  /** The class of each seat, 1 to 3 of them. The first is this laptop's; the rest are played by bots. */
+  classes: ClassId[];
   /** Stress scene: keep this many enemies alive and nobody can be hurt. 0 = off. */
   stress: number;
 }
 
-function makeBot(name: string): Bot | null {
-  if (name === 'sword') return swordBot();
-  if (name === 'novice') return swordBot({ reaction: 0.35, dashes: false });
+function makeBot(name: string, classId: ClassId): Bot | null {
+  if (name === 'expert') return classBot(classId, EXPERT);
+  if (name === 'novice') return classBot(classId, NOVICE);
   return null;
 }
 
@@ -69,6 +73,11 @@ export class Game {
   private readonly enemyViews: EnemyViews;
   private readonly telegraphViews: TelegraphViews;
   private readonly projectileViews: ProjectileViews;
+  private readonly objectViews: ObjectViews;
+  private readonly trails: Trails;
+  private readonly aimPreview: AimPreview;
+  /** The aim this laptop last sent, as an angle: the preview is drawn from exactly this. */
+  private aimSent = 0;
   private readonly pickupView: PickupView;
   private readonly particles: Particles;
   private readonly numbers: DamageNumbers;
@@ -94,12 +103,14 @@ export class Game {
     this.textures = new Textures(app.renderer);
     this.input = new Input(app.canvas);
 
-    const seats = 1 + Math.max(0, Math.min(MAX_PLAYERS - 1, opts.bots));
-    this.bots = Array.from({ length: seats }, (_, slot) => (slot === this.localSlot ? makeBot(opts.autopilot) : swordBot()));
+    const classes = opts.classes.slice(0, MAX_PLAYERS);
+    if (classes.length === 0) classes.push('sword');
+    const seats = classes.length;
+    this.bots = classes.map((classId, slot) => (slot === this.localSlot ? makeBot(opts.autopilot, classId) : classBot(classId, EXPERT)));
     this.session = createSession(
       {
         seed: opts.seed,
-        players: this.bots.map((_, slot) => ({ name: `Player ${slot + 1}`, classId: 'sword' })),
+        players: classes.map((classId, slot) => ({ name: `Player ${slot + 1}`, classId })),
         buildId: 'dev',
         inputDelay: 0,
         stress: opts.stress,
@@ -113,12 +124,15 @@ export class Game {
     this.theme = ZONES[room.zone];
     app.renderer.background.color = this.theme.voidColor;
 
-    this.roomView = new RoomView(room, this.theme, this.stage, app.renderer);
+    this.roomView = new RoomView(room, this.theme, this.stage);
     this.particles = new Particles(this.stage, this.textures);
     this.numbers = new DamageNumbers(this.stage);
     this.telegraphViews = new TelegraphViews(this.stage);
+    this.aimPreview = new AimPreview(this.stage);
     this.enemyViews = new EnemyViews(this.stage, this.theme);
     this.projectileViews = new ProjectileViews(this.stage, this.textures);
+    this.objectViews = new ObjectViews(this.stage);
+    this.trails = new Trails(this.stage);
     this.pickupView = new PickupView(this.stage, this.textures);
     this.playerViews = new PlayerViews(this.stage);
     this.fx = new Fx(this.stage, this.particles, this.camera, this.numbers, this.theme);
@@ -131,7 +145,7 @@ export class Game {
     if (opts.debug) {
       BitmapFont.install({
         name: 'debug',
-        style: { fontFamily: 'Consolas, Menlo, monospace', fontSize: 14, fill: css(ZONES.bluefen.highlight) },
+        style: { fontFamily: 'Consolas, Menlo, monospace', fontSize: 14, fill: css(ZONES.outer.highlight) },
         chars: [[' ', '~']],
       });
       this.debugText = new BitmapText({ text: '', style: { fontFamily: 'debug', fontSize: 14 } });
@@ -154,6 +168,9 @@ export class Game {
     this.playerViews.clear();
     this.enemyViews.clear();
     this.projectileViews.clear();
+    this.objectViews.clear();
+    this.trails.destroy();
+    this.aimPreview.destroy();
     this.telegraphViews.clear();
     this.pickupView.destroy();
     this.roomView.destroy();
@@ -181,10 +198,26 @@ export class Game {
       attempt: s.attempt,
       chamber: w.chamber,
       room: { id: w.room.id, phase: w.flow.phase, wave: w.flow.wave, waves: w.flow.waves, pickups: w.flow.pickups.length },
-      players: w.players.map((p) => ({ slot: p.slot, x: +p.x.toFixed(3), y: +p.y.toFixed(3), state: p.state, hp: p.hp, dash: p.dashCharges, chimes: p.chimes, combo: p.combo })),
-      enemies: w.enemies.map((e) => ({ id: e.id, kind: e.defId, state: e.state, hp: e.hp, x: +e.x.toFixed(2), y: +e.y.toFixed(2), target: e.target })),
+      players: w.players.map((p) => ({
+        slot: p.slot,
+        class: p.classId,
+        x: +p.x.toFixed(3),
+        y: +p.y.toFixed(3),
+        state: p.state,
+        hp: p.hp,
+        dash: p.dashCharges,
+        chimes: p.chimes,
+        combo: p.combo,
+        rally: p.rally,
+        special: +p.specialCd.toFixed(2),
+        charge: +p.charge.toFixed(2),
+      })),
+      enemies: w.enemies.map((e) => ({ id: e.id, kind: e.defId, state: e.state, hp: Math.round(e.hp), x: +e.x.toFixed(2), y: +e.y.toFixed(2), target: e.target })),
       telegraphs: w.telegraphs.length,
       projectiles: w.projectiles.length,
+      bombs: w.bombs.length,
+      stones: w.stones.length,
+      trails: this.trails.count,
       stats: w.stats,
       frameMs: { median: q(this.frameTimes, 0.5), p95: q(this.frameTimes, 0.95), max: q(this.frameTimes, 1), samples: this.frameTimes.length },
       workMs: { median: q(this.workTimes, 0.5), p95: q(this.workTimes, 0.95), max: q(this.workTimes, 1) },
@@ -234,10 +267,13 @@ export class Game {
     this.theme = ZONES[room.zone];
     this.app.renderer.background.color = this.theme.voidColor;
     this.roomView.destroy();
-    this.roomView = new RoomView(room, this.theme, this.stage, this.app.renderer);
+    this.roomView = new RoomView(room, this.theme, this.stage);
     this.playerViews.clear();
     this.enemyViews.clear();
     this.projectileViews.clear();
+    this.objectViews.clear();
+    this.trails.clear();
+    this.aimPreview.clear();
     this.telegraphViews.clear();
     this.pickupView.clear();
     this.particles.clear();
@@ -252,8 +288,19 @@ export class Game {
   private onEvent(ev: SimEvent, w: World): void {
     this.playerViews.handle(ev);
     this.enemyViews.handle(ev);
+    this.roomView.handle(ev);
     this.fx.handle(ev);
     switch (ev.type) {
+      // the exact point of a bounce goes into the trail of whatever bounced
+      case 'ricochet':
+        this.trails.corner(ev.id, ev.x, ev.y, FLY_Z);
+        break;
+      case 'reflect':
+        this.trails.corner(ev.id, ev.x, ev.y, FLY_Z);
+        break;
+      case 'wallSlam':
+        this.trails.corner(ev.id, ev.x, ev.y, 0.45);
+        break;
       case 'roomClear':
         this.hud.banner('Chamber cleared', CHIME);
         break;
@@ -290,7 +337,9 @@ export class Game {
       } else {
         const mine = this.playerViews.get(slot);
         const p = worldOf(s, slot).players.find((q) => q.slot === slot);
-        this.net.input(slot, this.input.frame(this.camera, mine ? mine.x : p ? p.x : 0, mine ? mine.y : p ? p.y : 0), now);
+        const frame = this.input.frame(this.camera, mine ? mine.x : p ? p.x : 0, mine ? mine.y : p ? p.y : 0);
+        if (slot === this.localSlot) this.aimSent = aimAngleOf(frame);
+        this.net.input(slot, frame, now);
       }
     }
     if (this.input.take('pause')) this.net.command(this.localSlot, 'pause');
@@ -316,13 +365,25 @@ export class Game {
     this.playerViews.update(w.players, alpha, dt, this.time);
     this.enemyViews.update(w, alpha, dt, this.time);
     this.projectileViews.update(w, alpha);
+    this.objectViews.update(w, alpha, this.time);
     this.telegraphViews.update(w);
     this.pickupView.update(w, alpha, this.time);
+    this.roomView.update(dt, this.time);
+    // Whatever a player has sent on its way leaves a ribbon in their colour.
+    const trail = (id: number, x: number, y: number, z: number, by: number, width: number, life: number): void => {
+      this.trails.touch(id, x, y, z, PLAYER_COLORS[by] ?? RIM, PLAYER_PALE[by] ?? RIM, width, life);
+    };
+    this.projectileViews.eachOwned((id, x, y, owner) => trail(id, x, y, FLY_Z, owner, 9, 0.2));
+    this.enemyViews.eachFlying((id, x, y, by) => trail(id, x, y, 0.45, by, 26, 0.32));
+    this.objectViews.eachBatted(w, alpha, (id, x, y, by) => trail(id, x, y, 0.35, by, 14, 0.24));
+    this.trails.update(dt);
     this.particles.update(dt);
     this.numbers.update(dt);
     this.fx.update(dt);
 
     const me = w.players.find((p) => p.slot === this.localSlot);
+    // a person aims with what they are about to send; a bot with what it has sent
+    this.aimPreview.update(w, me, me && this.bots[this.localSlot] ? me.aim : this.aimSent, this.time);
     const mineView = this.playerViews.get(this.localSlot);
     const fx = mineView ? mineView.x : w.room.cx;
     const fy = mineView ? mineView.y : w.room.cy;

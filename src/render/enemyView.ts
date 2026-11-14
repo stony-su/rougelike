@@ -1,5 +1,6 @@
 // Enemies on screen. Each view owns a rig, a pale halo under its feet, and a depth footprint.
 // When the simulation removes an enemy the view lives on briefly as a corpse to play its death.
+// A body sent flying tumbles about its middle; one that falls into a pit shrinks away into it.
 import { Graphics, GraphicsContext } from 'pixi.js';
 import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { lerp, mixColor } from '../core/math';
@@ -19,6 +20,8 @@ const DEATH_TIME = 0.42;
 const DEATH_FADE = 0.22;
 const HURT_POSE = 0.18;
 const FLASH_TIME = 0.1;
+/** Seconds a body takes to drop out of sight in a pit. */
+const FALL_TIME = 0.45;
 
 let haloCtx: GraphicsContext | null = null;
 let spawnCtx: GraphicsContext | null = null;
@@ -76,6 +79,17 @@ class EnemyView {
   /** Seconds since death, or -1 while alive. */
   deadFor = -1;
   seen = 0;
+  /** How far it has tumbled, in radians, while launched. */
+  private spin = 0;
+  /** 0 on its feet, 1 fully in the air: eased so take-off and landing are not a snap. */
+  private air = 0;
+  /** Seconds it has been falling into a pit, or -1. */
+  private falling = -1;
+  /** It died by falling: the corpse sinks instead of bursting. */
+  private fell = false;
+  /** The slot that launched it, for the colour of its trail. */
+  launchedBy = -1;
+  flying = false;
 
   constructor(
     private readonly stage: Stage,
@@ -101,11 +115,19 @@ class EnemyView {
   update(e: Enemy, alpha: number, dt: number, time: number): void {
     const x = lerp(e.px, e.x, alpha);
     const y = lerp(e.py, e.y, alpha);
-    this.stride += Math.hypot(x - this.lastX, y - this.lastY);
+    const moved = Math.hypot(x - this.lastX, y - this.lastY);
+    this.stride += moved;
+    // In flight it tumbles forward, a full turn about every three tiles.
+    this.flying = e.state === 'launched';
+    this.launchedBy = e.launchBy;
+    if (this.flying && e.freeze === 0) this.spin += moved * 2.1 * (e.lvx - e.lvy >= 0 ? 1 : -1);
+    this.air += ((this.flying ? 1 : 0) - this.air) * Math.min(1, dt * 14);
+    if (!this.flying && this.air < 0.02) this.spin = 0;
+    this.falling = e.state === 'pit' ? (this.falling < 0 ? 0 : this.falling + dt) : -1;
     this.lastX = x;
     this.lastY = y;
     this.place(x, y);
-    this.setFacing(e.facing);
+    this.setFacing(this.flying ? Math.atan2(e.lvy, e.lvx) : e.facing);
 
     const a = this.anim;
     const flinching = e.hurtT < HURT_POSE && (e.state === 'idle' || e.state === 'move' || e.state === 'recover');
@@ -130,6 +152,7 @@ class EnemyView {
     else if (st.chillT > 0) wash = mixColor(WHITE, STATUS.frost, 0.55);
     else if (st.burnT > 0) wash = mixColor(WHITE, STATUS.burn, 0.45 + 0.2 * Math.sin(time * 22 + e.seed * 9));
     else if (e.armor < 1) wash = mixColor(WHITE, INK, 0.45);
+    else if (e.staggered > 0 && e.state === 'stun') wash = mixColor(WHITE, STATUS.stagger, 0.35 + 0.25 * Math.sin(time * 14));
     this.rig.setWash(wash);
 
     // The mark under its feet: pale by default, danger-red for an elite, the barb's colour while rooted.
@@ -147,10 +170,15 @@ class EnemyView {
       this.mark.scale.set(this.entry.def.footprint * (1.9 - 0.9 * k));
       this.mark.rotation = k * 1.2;
       this.halo.alpha = haloAlpha * k;
+    } else if (this.falling >= 0) {
+      this.mark.visible = false;
+      this.halo.alpha = 0;
+      this.sink(this.falling);
     } else {
       this.rig.root.alpha = 1;
+      this.rig.root.scale.set(1);
       this.mark.visible = false;
-      this.halo.alpha = haloAlpha;
+      this.halo.alpha = haloAlpha * (1 - this.air * 0.6);
     }
 
     // Signs over the head.
@@ -173,9 +201,25 @@ class EnemyView {
     }
   }
 
+  /** It is going into a pit and will not come out. */
+  ringOut(): void {
+    this.fell = true;
+  }
+
+  /** Shrink and drop out of sight, `t` seconds into the fall. */
+  private sink(t: number): void {
+    const k = Math.min(1, t / FALL_TIME);
+    this.rig.root.scale.set(1 - 0.75 * k * k);
+    this.rig.root.alpha = 1 - k * k;
+    this.rig.root.y += k * k * T * 0.7;
+    this.rig.root.rotation = this.spin + k * 2.4;
+  }
+
   /** The simulation has removed this enemy: play the death where it fell. */
   die(ev: Extract<SimEvent, { type: 'enemyDeath' }>): void {
     this.deadFor = 0;
+    this.flying = false;
+    this.air = this.fell ? this.air : 0;
     this.place(ev.x, ev.y);
     this.mark.visible = false;
     this.rig.setRole('eye', WHITE);
@@ -187,6 +231,13 @@ class EnemyView {
   /** Returns false when the corpse is finished and can be destroyed. */
   updateCorpse(dt: number, time: number): boolean {
     this.deadFor += dt;
+    if (this.fell) {
+      // gone down the pit: no burst, just the fall
+      this.place(this.x, this.y);
+      this.sink(this.deadFor);
+      this.halo.alpha = 0;
+      return this.deadFor < FALL_TIME;
+    }
     const a = this.anim;
     a.state = 'dead';
     a.t = this.deadFor;
@@ -224,7 +275,12 @@ class EnemyView {
   private place(x: number, y: number): void {
     this.x = x;
     this.y = y;
-    this.rig.root.position.set(projX(x, y), projY(x, y));
+    // A tumbling body turns about its middle and rides a little above the floor.
+    const mid = this.entry.def.height * 0.45;
+    const lift = this.air * (mid + 9);
+    this.rig.root.pivot.set(0, -mid * this.air);
+    this.rig.root.position.set(projX(x, y), projY(x, y) - lift);
+    this.rig.root.rotation = this.spin * this.air;
     this.sort.depth = depthKey(x, y);
     this.halo.position.set(x * T, y * T);
     this.mark.position.set(x * T, y * T);
@@ -262,7 +318,13 @@ export class EnemyViews {
     return v ? { x: v.x, y: v.y, height: v.entry.def.height } : null;
   }
 
+  /** Call for each launched body this frame with where it is and who sent it. */
+  eachFlying(fn: (id: number, x: number, y: number, by: number) => void): void {
+    for (const [id, v] of this.live) if (v.flying) fn(id, v.x, v.y, v.launchedBy);
+  }
+
   handle(ev: SimEvent): void {
+    if (ev.type === 'ringOut' && ev.killed) this.live.get(ev.id)?.ringOut();
     if (ev.type !== 'enemyDeath') return;
     const v = this.live.get(ev.id);
     if (!v) return;

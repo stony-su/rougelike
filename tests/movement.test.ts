@@ -3,7 +3,8 @@ import { CONTENT } from '../src/content';
 import { PRACTICE_COURT } from '../src/content/rooms';
 import { Rng } from '../src/core/rng';
 import { freezeBody, freezeWorld } from '../src/sim/combat';
-import { buildRoom, isClear, resolveCircle } from '../src/sim/room';
+import { pushOut } from '../src/sim/cast';
+import { buildRoom, isClear } from '../src/sim/room';
 import { DASH, DT, PLAYER } from '../src/sim/tuning';
 import { createWorld } from '../src/sim/world';
 import { PRESS, Pad, openWorld, run } from './helpers';
@@ -133,14 +134,15 @@ describe('dash', () => {
 });
 
 describe('collision', () => {
-  it('pushes a circle out of the void and out of posts', () => {
+  it('pushes a circle out of a wall it overlaps and out of posts', () => {
     const room = buildRoom(PRACTICE_COURT);
-    const pos = { x: -0.2, y: 5 };
-    resolveCircle(room, pos, PLAYER.radius);
+    const pos = { x: 1.1, y: 5.5 };
+    expect(isClear(room, pos.x, pos.y, PLAYER.radius)).toBe(false);
+    expect(pushOut(room.geo, true, pos, PLAYER.radius)).toBe(true);
     expect(isClear(room, pos.x, pos.y, PLAYER.radius * 0.99)).toBe(true);
-    const post = room.pillars[0];
+    const post = room.geo.circles[0];
     const q = { x: post.x + 0.05, y: post.y };
-    resolveCircle(room, q, PLAYER.radius);
+    pushOut(room.geo, true, q, PLAYER.radius);
     expect(Math.hypot(q.x - post.x, q.y - post.y)).toBeGreaterThanOrEqual(post.r + PLAYER.radius - 1e-6);
   });
 

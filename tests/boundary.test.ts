@@ -136,7 +136,7 @@ describe('the simulation computes the same bits on every machine', () => {
 describe('one path changes the game', () => {
   // Presentation reads simulation state and sends inputs and commands; only the session step
   // changes anything. So presentation may not call the modules that mutate a world.
-  const MUTATORS = ['world', 'ai', 'combat', 'player', 'projectiles', 'flow', 'status'];
+  const MUTATORS = ['world', 'ai', 'combat', 'player', 'projectiles', 'flow', 'status', 'bodies', 'bombs', 'stones', 'rally', 'move', 'sword', 'bow', 'fist'];
 
   it('game, ui, render and audio never call into the modules that mutate a world', () => {
     const problems: string[] = [];

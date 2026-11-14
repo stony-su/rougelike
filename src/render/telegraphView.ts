@@ -3,6 +3,7 @@
 // it as the wind-up runs out, so the player can read both where and when.
 import { Container, Graphics, GraphicsContext } from 'pixi.js';
 import { TILE } from '../core/iso';
+import { laneAngle } from '../sim/telegraphs';
 import type { Telegraph, World } from '../sim/types';
 import { DANGER, DANGER_HOT } from './palette';
 import type { Stage } from './stage';
@@ -17,7 +18,7 @@ interface Shapes {
 const cache = new Map<string, Shapes>();
 
 function shapesFor(t: Telegraph): Shapes {
-  const key = `${t.shape}:${t.radius}:${t.length}:${t.width}:${t.halfArc}`;
+  const key = `${t.shape}:${t.radius}:${t.length}:${t.width}:${t.halfArc}:${t.count}:${t.spread}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const outline = new GraphicsContext();
@@ -27,6 +28,20 @@ function shapesFor(t: Telegraph): Shapes {
     const r = t.radius * T;
     outline.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.1 }).circle(0, 0, r).stroke(stroke);
     fill.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.3 });
+  } else if (t.shape === 'lane' && t.count > 1) {
+    // A fan of thin lines: exactly the paths the shots will fly, drawn about the middle one.
+    const l = t.length * T;
+    const hw = Math.max(2, (t.width * T) / 2);
+    const fan = { angle: 0, count: t.count, spread: t.spread };
+    for (let i = 0; i < t.count; i++) {
+      const a = laneAngle(fan, i);
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      const quad = [-s * -hw, c * -hw, c * l - s * -hw, s * l + c * -hw, c * l - s * hw, s * l + c * hw, -s * hw, c * hw];
+      outline.poly(quad).fill({ color: 0xffffff, alpha: 0.16 });
+      outline.moveTo(0, 0).lineTo(c * l, s * l).stroke({ width: 2, color: 0xffffff, alpha: 0.9, cap: 'round' });
+      fill.poly(quad).fill({ color: 0xffffff, alpha: 0.4 });
+    }
   } else if (t.shape === 'lane') {
     const l = t.length * T;
     const hw = (t.width * T) / 2;

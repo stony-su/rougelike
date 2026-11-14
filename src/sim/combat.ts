@@ -1,7 +1,8 @@
-// Damage, knockback, stun and hit-stop: the rules every attack goes through.
+// Damage, stun and hit-stop: the rules every attack goes through. Blows that move a body are in
+// bodies.ts; this file only takes health away and says what happened.
 import { dhypot } from '../core/dmath';
 import { removeTelegraph } from './telegraphs';
-import { FREEZE, KNOCK_DECAY, PLAYER, STUN_IMMUNITY } from './tuning';
+import { FREEZE, KNOCK_DECAY, PLAYER, RIPOSTE, STUN_IMMUNITY } from './tuning';
 import type { Enemy, HitKind, Player, World } from './types';
 
 /**
@@ -20,6 +21,9 @@ export function freezeWorld(w: World, ticks: number): void {
   w.freezeAllowedAt = w.tick + FREEZE.spacing;
 }
 
+/** True while an enemy can be struck: it has arrived, it is alive, and it is not down a pit. */
+export const hittable = (e: Enemy): boolean => !e.dead && e.state !== 'spawn' && e.state !== 'pit';
+
 export interface HitSource {
   kind: HitKind;
   /** The player slot that dealt it, or -1. */
@@ -27,8 +31,6 @@ export interface HitSource {
   /** Unit direction the blow travels in. */
   dx: number;
   dy: number;
-  /** Knockback distance in tiles for a mass-1 enemy. */
-  knock?: number;
   heavy?: boolean;
   crit?: boolean;
   /** Ticks the struck body freezes. */
@@ -37,11 +39,11 @@ export interface HitSource {
 
 /** Deal damage to an enemy. Returns true if it died. */
 export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource): boolean {
-  if (e.dead || e.state === 'spawn') return false;
+  if (!hittable(e)) return false;
   if (e.status.markT > 0) amount *= 1 + e.status.markBonus;
   if (e.armor < 1) {
-    // Armour holds until something slams it; the breaking blow lands in full.
-    if (src.kind === 'slam' || src.kind === 'carom') {
+    // Armour holds until the body is bounced off something; the breaking blow lands in full.
+    if (src.kind === 'slam' || src.kind === 'carom' || src.kind === 'ringout') {
       e.armor = 1;
       w.events.push({ type: 'armorBreak', id: e.id, x: e.x, y: e.y });
     } else {
@@ -53,12 +55,6 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
   e.hurtT = 0;
   e.lastHitX = src.dx;
   e.lastHitY = src.dy;
-  if (src.knock) {
-    // An impulse v0 that decays at rate k travels v0 / k in total.
-    const v0 = (src.knock * KNOCK_DECAY) / e.def.mass;
-    e.kx += src.dx * v0;
-    e.ky += src.dy * v0;
-  }
   if (src.freeze) freezeBody(e, src.freeze);
   w.stats.damageDealt += dealt;
   const killed = e.hp <= 0;
@@ -93,18 +89,27 @@ export function killEnemy(w: World, e: Enemy): void {
   w.events.push({ type: 'enemyDeath', id: e.id, kind: e.defId, x: e.x, y: e.y, dx: e.lastHitX, dy: e.lastHitY, elite: e.elite });
 }
 
-/** Stun an enemy, cancelling whatever it was doing. Returns false if it is immune right now. */
-export function stunEnemy(w: World, e: Enemy, seconds: number): boolean {
-  if (e.dead || e.state === 'spawn' || e.stunImmune > 0) return false;
+/** Cut short whatever an enemy was doing: its warning goes, and the move it was making goes on a short cooldown. */
+export function interruptEnemy(w: World, e: Enemy): void {
   removeTelegraph(w, e.telegraph);
   e.telegraph = 0;
   if (e.move >= 0) e.cooldowns[e.move] = Math.max(e.cooldowns[e.move], 0.7);
   e.move = -1;
+  e.vx = 0;
+  e.vy = 0;
+}
+
+/**
+ * Stun an enemy, cancelling whatever it was doing. Returns false if it is immune right now.
+ * `force` ignores the immunity (a stagger, a climb out of a pit).
+ */
+export function stunEnemy(w: World, e: Enemy, seconds: number, force = false): boolean {
+  if (!hittable(e) || e.state === 'launched') return false;
+  if (!force && e.stunImmune > 0) return false;
+  interruptEnemy(w, e);
   e.state = 'stun';
   e.stateTime = 0;
   e.stateDur = seconds;
-  e.vx = 0;
-  e.vy = 0;
   e.stunImmune = seconds + STUN_IMMUNITY;
   w.events.push({ type: 'enemyStun', id: e.id, x: e.x, y: e.y });
   return true;
@@ -113,9 +118,28 @@ export function stunEnemy(w: World, e: Enemy, seconds: number): boolean {
 /** True while a player can be targeted, hit and counted as standing. */
 export const standing = (p: Player): boolean => p.state !== 'down';
 
-/** Hurt a player from a source at (sx, sy). Returns true if damage was taken. */
-export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy: number, knock: number): boolean {
-  if (p.state === 'down' || p.iframes > 0) return false;
+/** What became of a blow aimed at a player. */
+export const HURT_NONE = 0;
+export const HURT_TAKEN = 1;
+/** It landed in a Riposte: no damage was done, and whoever struck should answer for it. */
+export const HURT_GUARDED = 2;
+
+/**
+ * Hurt a player from a source at (sx, sy). Returns HURT_TAKEN if damage was done, HURT_GUARDED if
+ * it landed in a Riposte (the caller sends the blow back), HURT_NONE if it passed harmlessly.
+ */
+export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy: number, knock: number): number {
+  if (p.state === 'down') return HURT_NONE;
+  if (p.guardT > 0) {
+    if (!p.guardHit) {
+      p.guardHit = true;
+      p.specialCd *= 1 - RIPOSTE.refund;
+    }
+    p.iframes = Math.max(p.iframes, p.guardT + RIPOSTE.iframes);
+    w.events.push({ type: 'riposte', player: p.slot, x: p.x, y: p.y });
+    return HURT_GUARDED;
+  }
+  if (p.iframes > 0) return HURT_NONE;
   let dx = p.x - sx;
   let dy = p.y - sy;
   const d = dhypot(dx, dy);
@@ -139,8 +163,10 @@ export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy
     p.stateTime = 0;
     p.vx = 0;
     p.vy = 0;
+    p.charge = 0;
+    p.guardT = 0;
     freezeWorld(w, FREEZE.playerDown);
     w.events.push({ type: 'playerDown', player: p.slot, x: p.x, y: p.y });
   }
-  return true;
+  return HURT_TAKEN;
 }
