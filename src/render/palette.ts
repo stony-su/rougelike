@@ -12,6 +12,11 @@ export const RIPE = 0xfff6d8;
 export const DANGER = 0xff3b5c;
 export const DANGER_HOT = 0xffc2cc;
 
+/** Each seat's own colour: their ring, their trails, whatever they have sent back. Never used for danger. */
+export const PLAYER_COLORS: readonly number[] = [0xffc24a, 0x4ad8ff, 0xb6f25a];
+/** Run currency on the floor and in the purse. */
+export const CHIME = 0xffe9a8;
+
 export const PAPER = 0xe9e2d0;
 export const INK = 0x1b2033;
 export const RIM = 0xe8e4d8;
@@ -30,21 +35,12 @@ export const UI = {
   good: 0x2f7a5a,
 };
 
-/**
- * Each Head has a tint, shown on its stake's cap, its lines and its card. All of them are the
- * player's colours, so none is pink-red.
- */
-export const HEAD_TINT: Record<string, number> = {
-  lamp: 0xffb35c,
+/** What a condition looks like on a body. */
+export const STATUS = {
   frost: 0x9fe3ff,
-  bell: 0xe8c56a,
-  lode: 0xb59cff,
-  helio: 0xfff1a8,
-  vernier: 0x8ff0c8,
-  barb: 0xc9a27a,
+  burn: 0xffb35c,
+  root: 0xc9a27a,
   mark: 0xa8b8ff,
-  spring: 0xb6f07a,
-  anchor: 0xc8ccd6,
 };
 
 export const HERO = {

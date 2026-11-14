@@ -1,27 +1,29 @@
 // Damage, knockback, stun and hit-stop: the rules every attack goes through.
-import { FEEL, LINES, PLAYER } from './tuning';
+import { dhypot } from '../core/dmath';
 import { removeTelegraph } from './telegraphs';
-import type { Enemy, HitKind, World } from './types';
+import { FREEZE, KNOCK_DECAY, PLAYER, STUN_IMMUNITY } from './tuning';
+import type { Enemy, HitKind, Player, World } from './types';
 
-/** Hooks the upgrade kit installs. Behaviour, not state, so they live at module level. */
-export interface CombatHooks {
-  onPlayerHurt?(w: World): void;
+/**
+ * Hit-stop is per body: the striker and the struck freeze for a few ticks while the rest of the
+ * chamber keeps moving, so one player's hits never stall another's timing. Requests never add
+ * up: the longest one wins.
+ */
+export function freezeBody(body: { freeze: number }, ticks: number): void {
+  if (ticks > body.freeze) body.freeze = ticks;
 }
-let combatHooks: CombatHooks = {};
-export function setCombatHooks(h: CombatHooks): void {
-  combatHooks = h;
-}
 
-/** Longest freeze any single impact may request. */
-const HITSTOP_CAP = 0.11;
-
-/** Request a freeze. Requests never add up: the longest one wins. */
-export function hitStop(w: World, seconds: number): void {
-  w.hitstop = Math.min(HITSTOP_CAP, Math.max(w.hitstop, seconds));
+/** A whole-chamber freeze, for moments the party shares. Rate-limited. */
+export function freezeWorld(w: World, ticks: number): void {
+  if (w.tick < w.freezeAllowedAt) return;
+  w.freeze = Math.max(w.freeze, ticks);
+  w.freezeAllowedAt = w.tick + FREEZE.spacing;
 }
 
 export interface HitSource {
   kind: HitKind;
+  /** The player slot that dealt it, or -1. */
+  by: number;
   /** Unit direction the blow travels in. */
   dx: number;
   dy: number;
@@ -29,17 +31,17 @@ export interface HitSource {
   knock?: number;
   heavy?: boolean;
   crit?: boolean;
+  /** Ticks the struck body freezes. */
+  freeze?: number;
 }
-
-/** Knockback is applied as a velocity that decays at this exponential rate. */
-export const KNOCK_DECAY = 9;
 
 /** Deal damage to an enemy. Returns true if it died. */
 export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource): boolean {
   if (e.dead || e.state === 'spawn') return false;
+  if (e.status.markT > 0) amount *= 1 + e.status.markBonus;
   if (e.armor < 1) {
-    // Armour holds until a discharge cracks it; the cracking blow lands in full.
-    if (src.kind === 'discharge') {
+    // Armour holds until something slams it; the breaking blow lands in full.
+    if (src.kind === 'slam' || src.kind === 'carom') {
       e.armor = 1;
       w.events.push({ type: 'armorBreak', id: e.id, x: e.x, y: e.y });
     } else {
@@ -57,13 +59,13 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
     e.kx += src.dx * v0;
     e.ky += src.dy * v0;
   }
+  if (src.freeze) freezeBody(e, src.freeze);
   w.stats.damageDealt += dealt;
-  if (src.kind === 'rod') w.stats.rodDamage += dealt;
-  else if (src.kind === 'line' || src.kind === 'discharge') w.stats.lineDamage += dealt;
   const killed = e.hp <= 0;
   w.events.push({
     type: 'hit',
     target: e.id,
+    by: src.by,
     x: e.x,
     y: e.y,
     amount: Math.round(amount),
@@ -87,9 +89,8 @@ export function killEnemy(w: World, e: Enemy): void {
   removeTelegraph(w, e.telegraph);
   e.telegraph = 0;
   w.stats.kills++;
-  w.deaths.push({ x: e.x, y: e.y, def: e.def, elite: e.elite });
-  hitStop(w, FEEL.hitstopKill);
-  w.events.push({ type: 'enemyDeath', id: e.id, kind: e.def.id, x: e.x, y: e.y, dx: e.lastHitX, dy: e.lastHitY, elite: e.elite });
+  w.deaths.push({ x: e.x, y: e.y, defId: e.defId, elite: e.elite });
+  w.events.push({ type: 'enemyDeath', id: e.id, kind: e.defId, x: e.x, y: e.y, dx: e.lastHitX, dy: e.lastHitY, elite: e.elite });
 }
 
 /** Stun an enemy, cancelling whatever it was doing. Returns false if it is immune right now. */
@@ -104,18 +105,20 @@ export function stunEnemy(w: World, e: Enemy, seconds: number): boolean {
   e.stateDur = seconds;
   e.vx = 0;
   e.vy = 0;
-  e.stunImmune = seconds + LINES.stunImmunity;
+  e.stunImmune = seconds + STUN_IMMUNITY;
   w.events.push({ type: 'enemyStun', id: e.id, x: e.x, y: e.y });
   return true;
 }
 
-/** Hurt the player from a source at (sx, sy). Returns true if damage was taken. */
-export function damagePlayer(w: World, amount: number, sx: number, sy: number, knock: number): boolean {
-  const p = w.player;
-  if (p.state === 'dead' || p.iframes > 0) return false;
+/** True while a player can be targeted, hit and counted as standing. */
+export const standing = (p: Player): boolean => p.state !== 'down';
+
+/** Hurt a player from a source at (sx, sy). Returns true if damage was taken. */
+export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy: number, knock: number): boolean {
+  if (p.state === 'down' || p.iframes > 0) return false;
   let dx = p.x - sx;
   let dy = p.y - sy;
-  const d = Math.hypot(dx, dy);
+  const d = dhypot(dx, dy);
   if (d > 1e-6) {
     dx /= d;
     dy /= d;
@@ -123,29 +126,21 @@ export function damagePlayer(w: World, amount: number, sx: number, sy: number, k
     dx = 1;
     dy = 0;
   }
-  amount *= w.mods.damageTakenMul;
-  if (p.shield > 0) {
-    // A shield soaks what it can; a hit that breaks it still grants the usual mercy frames.
-    const soaked = Math.min(p.shield, amount);
-    p.shield -= soaked;
-    amount -= soaked;
-    if (p.shield <= 0) w.events.push({ type: 'shield', on: false, x: p.x, y: p.y });
-  }
   p.hp = Math.max(0, p.hp - amount);
   p.iframes = PLAYER.hurtIframes;
   p.hurtT = 0;
   p.kx += dx * knock * KNOCK_DECAY;
   p.ky += dy * knock * KNOCK_DECAY;
   w.stats.damageTaken += amount;
-  hitStop(w, FEEL.hitstopHurt);
-  w.events.push({ type: 'playerHurt', amount: Math.round(amount), x: p.x, y: p.y, dx, dy });
-  combatHooks.onPlayerHurt?.(w);
+  freezeBody(p, FREEZE.hurt);
+  w.events.push({ type: 'playerHurt', player: p.slot, amount: Math.round(amount), x: p.x, y: p.y, dx, dy });
   if (p.hp <= 0) {
-    p.state = 'dead';
+    p.state = 'down';
     p.stateTime = 0;
     p.vx = 0;
     p.vy = 0;
-    w.events.push({ type: 'playerDeath', x: p.x, y: p.y });
+    freezeWorld(w, FREEZE.playerDown);
+    w.events.push({ type: 'playerDown', player: p.slot, x: p.x, y: p.y });
   }
   return true;
 }

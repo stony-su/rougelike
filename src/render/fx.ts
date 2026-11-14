@@ -1,12 +1,12 @@
-// Reactions to simulation events: sparks, ink, shake, the sweep of the Rod, damage numbers.
+// Reactions to simulation events: sparks, splashes, shake, the sweep of a swing, damage numbers.
 // One exhaustive switch: adding an event type without deciding how it looks fails the type-check.
 import { Graphics, GraphicsContext } from 'pixi.js';
 import { TILE } from '../core/iso';
-import { ROD } from '../sim/tuning';
+import { SWORD } from '../sim/tuning';
 import type { SimEvent } from '../sim/types';
 import type { Camera } from './camera';
 import type { DamageNumbers } from './damageNumbers';
-import { CHALK, DANGER, DANGER_HOT, HERO, RIM, RIPE } from './palette';
+import { CHIME, DANGER, DANGER_HOT, HERO, PLAYER_COLORS, RIM, RIPE } from './palette';
 import type { ZoneTheme } from './palette';
 import type { Particles } from './particles';
 import type { Stage } from './stage';
@@ -43,10 +43,17 @@ interface Arc {
   active: boolean;
 }
 
+const colorOf = (slot: number): number => PLAYER_COLORS[slot] ?? RIM;
+
 export class Fx {
   private readonly arcs: Arc[] = [];
   private readonly arcCtx: GraphicsContext[];
   private theme: ZoneTheme;
+  /** Where this laptop's player stands: shake falls off with distance from here. */
+  private focusX = 0;
+  private focusY = 0;
+  /** Whose hits are numbered loudest on this laptop. */
+  private localSlot = 0;
 
   constructor(
     stage: Stage,
@@ -56,11 +63,10 @@ export class Fx {
     theme: ZoneTheme,
   ) {
     this.theme = theme;
-    this.arcCtx = [0, 1, 2].map((i) => arcContext(ROD.reach[i], ROD.halfArc[i]));
-    for (let i = 0; i < 4; i++) {
+    this.arcCtx = [0, 1, 2].map((i) => arcContext(SWORD.reach[i], SWORD.halfArc[i]));
+    for (let i = 0; i < 8; i++) {
       const g = new Graphics(this.arcCtx[0]);
       g.visible = false;
-      g.tint = HERO.rim;
       stage.decals.addChild(g);
       this.arcs.push({ g, t: 0, life: 0.16, dir: 1, active: false });
     }
@@ -70,12 +76,26 @@ export class Fx {
     this.theme = theme;
   }
 
+  /** Tell the effects where this laptop's own player is, and which seat is theirs. */
+  setFocus(x: number, y: number, slot: number): void {
+    this.focusX = x;
+    this.focusY = y;
+    this.localSlot = slot;
+  }
+
+  /** Shake for something that happened at (x, y): full strength nearby, none far away. */
+  private shake(x: number, y: number, amount: number): void {
+    const d = Math.hypot(x - this.focusX, y - this.focusY);
+    const k = d < 4 ? 1 : d > 14 ? 0 : 1 - (d - 4) / 10;
+    if (k > 0) this.camera.shake(amount * k);
+  }
+
   handle(ev: SimEvent): void {
     const ps = this.particles;
     switch (ev.type) {
       case 'dash':
         ps.dust(ev.x, ev.y, -ev.dx, -ev.dy, this.theme.highlight, 7);
-        ps.ring(ev.x, ev.y, this.theme.highlight, 0.2, 0.9, 0.22, 0.45);
+        ps.ring(ev.x, ev.y, colorOf(ev.player), 0.2, 0.9, 0.22, 0.45);
         break;
       case 'dashEnd':
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 4);
@@ -85,11 +105,12 @@ export class Fx {
       case 'swing': {
         const arc = this.arcs.find((a) => !a.active) ?? this.arcs[0];
         arc.g.context = this.arcCtx[ev.n];
+        arc.g.tint = colorOf(ev.player);
         arc.g.position.set(ev.x * T, ev.y * T);
         arc.g.rotation = ev.angle;
         arc.g.visible = true;
         arc.g.alpha = 0;
-        arc.t = -ROD.windup[ev.n];
+        arc.t = -SWORD.windup[ev.n];
         arc.life = ev.n === 2 ? 0.2 : 0.14;
         arc.dir = ev.n === 1 ? -1 : 1;
         arc.active = true;
@@ -98,43 +119,36 @@ export class Fx {
       case 'hit': {
         const z = 0.5;
         const power = ev.heavy ? 1.5 : 1;
-        const ripe = ev.kind === 'discharge';
-        ps.sparks(ev.x, ev.y, z, ev.dx, ev.dy, ripe ? RIPE : ev.kind === 'line' ? CHALK : RIM, ev.heavy || ripe ? 9 : 5, power);
+        const returned = ev.kind === 'return' || ev.kind === 'carom' || ev.kind === 'slam';
+        const tint = ev.by >= 0 ? colorOf(ev.by) : RIM;
+        ps.sparks(ev.x, ev.y, z, ev.dx, ev.dy, returned ? tint : RIM, ev.heavy || returned ? 9 : 5, power);
         ps.ink(ev.x, ev.y, z, ev.dx, ev.dy, this.theme.inkWash, ev.heavy ? 8 : 4, power);
-        ps.flash(ev.x, ev.y, z, ripe ? RIPE : RIM, ev.heavy || ripe ? 90 : 56);
-        this.numbers.spawn(ev.x, ev.y, ev.amount, ripe ? RIPE : ev.kind === 'line' ? CHALK : HERO.rim, ev.heavy || ripe);
-        this.camera.shake(ev.heavy || ripe ? 0.26 : 0.1);
-        if (ev.heavy) this.camera.kick(0.02);
+        ps.flash(ev.x, ev.y, z, returned ? tint : RIM, ev.heavy || returned ? 90 : 56);
+        this.numbers.spawn(ev.x, ev.y, ev.amount, returned ? tint : HERO.rim, ev.heavy || returned);
+        this.shake(ev.x, ev.y, ev.by === this.localSlot ? (ev.heavy || returned ? 0.26 : 0.1) : 0.05);
+        if (ev.heavy && ev.by === this.localSlot) this.camera.kick(0.02);
         break;
       }
       case 'deflect':
-        ps.sparks(ev.x, ev.y, 0.5, 0, 0, RIM, 6, 0.8);
+        ps.sparks(ev.x, ev.y, 0.5, 0, 0, colorOf(ev.player), 6, 0.8);
         ps.flash(ev.x, ev.y, 0.5, RIM, 46);
-        break;
-      case 'plumbFire':
-        ps.dust(ev.x, ev.y, -Math.cos(ev.angle), -Math.sin(ev.angle), CHALK, 3);
-        break;
-      case 'plumbHook':
-        ps.ring(ev.x, ev.y, CHALK, 0.15, 0.7, 0.2, 0.9);
-        ps.sparks(ev.x, ev.y, 0.5, 0, 0, CHALK, 6, 0.7);
-        break;
-      case 'plumbMiss':
-        ps.dust(ev.x, ev.y, 0, 0, CHALK, 3);
         break;
       case 'playerHurt':
         ps.sparks(ev.x, ev.y, 0.6, ev.dx, ev.dy, DANGER_HOT, 10, 1.2);
         ps.flash(ev.x, ev.y, 0.6, DANGER, 130, 0.2);
         ps.scraps(ev.x, ev.y, 0.7, HERO.coat, 4, 0.8);
         this.numbers.spawn(ev.x, ev.y, ev.amount, DANGER, true);
-        this.camera.shake(0.5);
-        this.camera.kick(0.035);
+        if (ev.player === this.localSlot) {
+          this.camera.shake(0.5);
+          this.camera.kick(0.035);
+        }
         break;
-      case 'playerDeath':
+      case 'playerDown':
         ps.scraps(ev.x, ev.y, 0.7, HERO.coat, 16, 1.4);
         ps.scraps(ev.x, ev.y, 0.9, HERO.hat, 6, 1.2);
         ps.flash(ev.x, ev.y, 0.6, DANGER, 220, 0.4);
         ps.ring(ev.x, ev.y, DANGER, 0.3, 3.2, 0.6, 0.8);
-        this.camera.shake(0.9);
+        this.shake(ev.x, ev.y, 0.9);
         break;
       case 'enemySpawn':
         ps.ring(ev.x, ev.y, DANGER, 1.1, 0.3, 0.6, 0.5);
@@ -155,135 +169,39 @@ export class Fx {
         ps.scraps(ev.x, ev.y, 0.5, RIM, 5, 1);
         ps.flash(ev.x, ev.y, 0.4, RIM, 110, 0.18);
         ps.ring(ev.x, ev.y, RIM, 0.2, 1.3, 0.28, 0.5);
-        this.camera.shake(0.22);
+        this.shake(ev.x, ev.y, 0.22);
         break;
       case 'slam':
         ps.ring(ev.x, ev.y, DANGER, ev.radius * 0.4, ev.radius * 1.15, 0.3, 0.9);
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 10);
-        this.camera.shake(0.4);
+        this.shake(ev.x, ev.y, 0.4);
         break;
       case 'projectileSpawn':
-        if (ev.kind !== 'plumb') ps.flash(ev.x, ev.y, 0.5, DANGER, 40, 0.1);
+        ps.flash(ev.x, ev.y, 0.5, DANGER, 40, 0.1);
         break;
       case 'projectileEnd':
-        if (ev.kind !== 'plumb') ps.sparks(ev.x, ev.y, 0.5, 0, 0, DANGER_HOT, ev.hit ? 5 : 2, 0.6);
+        ps.sparks(ev.x, ev.y, 0.5, 0, 0, DANGER_HOT, ev.hit ? 5 : 2, 0.6);
         break;
       case 'waveStart':
         break;
       case 'refused':
         break;
-      case 'stakePlant':
-        ps.dust(ev.x, ev.y, 0, 0, CHALK, 5);
-        ps.ring(ev.x, ev.y, CHALK, 0.1, 0.75, 0.25, 0.8);
-        this.camera.shake(0.06);
-        break;
-      case 'whip':
-        if (ev.live) {
-          this.camera.shake(0.14);
-          this.camera.kick(0.012);
-        }
-        break;
-      case 'stakeLand':
-        ps.dust(ev.x, ev.y, 0, 0, CHALK, 6);
-        ps.ring(ev.x, ev.y, CHALK, 0.15, 0.9, 0.22, 0.9);
-        ps.sparks(ev.x, ev.y, 0.2, 0, 0, CHALK, 5, 0.6);
-        break;
-      case 'stakeLost':
-        ps.ring(ev.x, ev.y, DANGER, 0.2, 1.3, 0.4, 0.9);
-        ps.scraps(ev.x, ev.y, 0.4, HERO.rodPale, 6, 0.9);
-        this.camera.shake(0.25);
-        break;
-      case 'stakeReturn':
-        break;
-      case 'lineRipe': {
-        // a snap of light runs the length of the line
-        for (let i = 0; i <= 4; i++) {
-          const k = i / 4;
-          ps.flash(ev.ax + (ev.bx - ev.ax) * k, ev.ay + (ev.by - ev.ay) * k, 0.05, RIPE, 46, 0.22);
-        }
-        break;
-      }
-      case 'lineDischarge': {
-        for (let i = 0; i <= 5; i++) {
-          const k = i / 5;
-          const x = ev.ax + (ev.bx - ev.ax) * k;
-          const y = ev.ay + (ev.by - ev.ay) * k;
-          ps.flash(x, y, 0.05, RIPE, 70, 0.2);
-          ps.sparks(x, y, 0.1, 0, 0, RIPE, 2, 0.7);
-        }
-        this.camera.shake(0.2);
-        break;
-      }
-      case 'lineSever':
-        ps.sparks(ev.x, ev.y, 0.1, 0, 0, DANGER_HOT, 8, 0.8);
-        ps.ring(ev.x, ev.y, DANGER, 0.1, 0.8, 0.25, 0.8);
-        break;
-      case 'lineMend':
-        break;
-      case 'hammer':
-        ps.ring(ev.x, ev.y, RIPE, 0.15, 1.4, 0.3, 1);
-        ps.sparks(ev.x, ev.y, 0.5, 0, 0, RIPE, 12, 1);
-        ps.flash(ev.x, ev.y, 0.4, RIPE, 120, 0.2);
-        this.camera.shake(0.22);
-        break;
-      case 'dashRefund':
-        ps.ring(ev.x, ev.y, CHALK, 0.2, 1.1, 0.25, 0.9);
-        break;
-      case 'plotChange':
-        break;
-      case 'enemySurface':
-        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 10);
-        ps.ring(ev.x, ev.y, RIPE, 0.2, 1.2, 0.3, 0.8);
-        break;
-      case 'hostilePlant':
-        ps.ring(ev.x, ev.y, DANGER, 0.9, 0.2, 0.3, 0.9);
-        ps.dust(ev.x, ev.y, 0, 0, DANGER, 4);
-        break;
-      case 'hostileBreak':
-        ps.scraps(ev.x, ev.y, 0.4, DANGER, 5, 0.8);
-        ps.sparks(ev.x, ev.y, 0.3, 0, 0, DANGER_HOT, 6, 0.7);
-        break;
-      case 'hostileCross':
-        ps.sparks(ev.x, ev.y, 0.4, 0, 0, DANGER_HOT, 8, 1);
-        break;
       case 'shockwave':
         ps.ring(ev.x, ev.y, RIPE, ev.radius * 0.2, ev.radius, 0.3, 0.9);
-        ps.dust(ev.x, ev.y, 0, 0, CHALK, 8);
-        this.camera.shake(0.2);
+        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 8);
+        this.shake(ev.x, ev.y, 0.2);
         break;
-      case 'beam': {
-        const n = 14;
-        for (let i = 0; i <= n; i++) {
-          const k = i / n;
-          ps.flash(ev.ax + (ev.bx - ev.ax) * k, ev.ay + (ev.by - ev.ay) * k, 0.1, RIPE, 60, 0.22);
-        }
-        this.camera.shake(0.25);
-        break;
-      }
-      case 'zone':
-        break;
-      case 'shield':
-        ps.ring(ev.x, ev.y, ev.on ? RIPE : RIM, ev.on ? 1.2 : 0.3, ev.on ? 0.5 : 1.3, 0.3, 0.9);
-        break;
-      case 'chalk':
-        ps.sparks(ev.x, ev.y, 0.6, 0, -1, RIM, 3, 0.5);
-        break;
-      case 'teleport':
-        ps.ring(ev.x, ev.y, CHALK, 0.2, 1.4, 0.3, 0.9);
-        ps.flash(ev.x, ev.y, 0.5, CHALK, 120, 0.2);
+      case 'chime':
+        ps.sparks(ev.x, ev.y, 0.6, 0, -1, CHIME, 3, 0.5);
         break;
       case 'armorBreak':
         ps.scraps(ev.x, ev.y, 0.5, RIM, 10, 1.2);
         ps.ring(ev.x, ev.y, RIPE, 0.2, 1.2, 0.3, 1);
-        this.camera.shake(0.25);
+        this.shake(ev.x, ev.y, 0.25);
         break;
       case 'roomClear':
-        ps.ring(ev.x, ev.y, CHALK, 0.3, 4.5, 0.7, 0.7);
+        ps.ring(ev.x, ev.y, CHIME, 0.3, 4.5, 0.7, 0.7);
         ps.ring(ev.x, ev.y, RIPE, 0.2, 2.2, 0.5, 0.8);
-        break;
-      case 'doorsOpen':
-        break;
-      case 'interact':
         break;
       default: {
         // Adding a simulation event without deciding how it looks is a compile error here.

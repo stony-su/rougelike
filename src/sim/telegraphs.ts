@@ -1,5 +1,6 @@
 // Floor warnings. A telegraph is both what the renderer draws and the exact shape the attack
 // tests when its wind-up ends, so what you see is what hits.
+import { dcos, dsin } from '../core/dmath';
 import { pointInSector } from '../core/geom';
 import type { Telegraph, TelegraphShape, World } from './types';
 
@@ -53,8 +54,8 @@ export function telegraphCovers(t: Telegraph, x: number, y: number, r: number): 
       return dx * dx + dy * dy <= rr * rr;
     }
     case 'lane': {
-      const c = Math.cos(t.angle);
-      const s = Math.sin(t.angle);
+      const c = dcos(t.angle);
+      const s = dsin(t.angle);
       const dx = x - t.x;
       const dy = y - t.y;
       const along = dx * c + dy * s;

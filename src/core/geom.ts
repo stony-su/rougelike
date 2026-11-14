@@ -1,13 +1,8 @@
-// Plane geometry used by collision and by the line mechanic. All pure functions.
+// Plane geometry used by collision. Pure functions built from exact arithmetic and core/dmath,
+// so the simulation may use them.
+import { PI, dcos, dsin } from './dmath';
 
 export const cross = (ax: number, ay: number, bx: number, by: number): number => ax * by - ay * bx;
-
-/** Signed area of triangle abc (positive when counter-clockwise in a y-up frame). */
-export const triSignedArea = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number =>
-  0.5 * ((bx - ax) * (cy - ay) - (by - ay) * (cx - ax));
-
-export const triArea = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number =>
-  Math.abs(triSignedArea(ax, ay, bx, by, cx, cy));
 
 /**
  * Intersection of segments AB and CD. Returns the parameter t along AB in [0, 1],
@@ -30,11 +25,6 @@ export function segSegT(
   if (t < 0 || t > 1 || u < 0 || u > 1) return -1;
   return t;
 }
-
-export const segmentsCross = (
-  ax: number, ay: number, bx: number, by: number,
-  cx: number, cy: number, dx: number, dy: number,
-): boolean => segSegT(ax, ay, bx, by, cx, cy, dx, dy) >= 0;
 
 /** Parameter in [0, 1] of the point on segment AB closest to P. */
 export function closestT(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
@@ -60,70 +50,31 @@ export const circleTouchesSegment = (
   ax: number, ay: number, bx: number, by: number,
 ): boolean => pointSegDist2(cx, cy, ax, ay, bx, by) <= r * r;
 
-export function pointInTri(
-  px: number, py: number,
-  ax: number, ay: number, bx: number, by: number, cx: number, cy: number,
-): boolean {
-  const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
-  const d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
-  const d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
-  const neg = d1 < 0 || d2 < 0 || d3 < 0;
-  const pos = d1 > 0 || d2 > 0 || d3 > 0;
-  return !(neg && pos);
-}
-
-/** True when a circle overlaps a (possibly degenerate) triangle. */
-export function circleTouchesTri(
-  px: number, py: number, r: number,
-  ax: number, ay: number, bx: number, by: number, cx: number, cy: number,
-): boolean {
-  if (pointInTri(px, py, ax, ay, bx, by, cx, cy)) return true;
-  const r2 = r * r;
-  return (
-    pointSegDist2(px, py, ax, ay, bx, by) <= r2 ||
-    pointSegDist2(px, py, bx, by, cx, cy) <= r2 ||
-    pointSegDist2(px, py, cx, cy, ax, ay) <= r2
-  );
-}
-
-/** Area of a simple polygon given as [x0, y0, x1, y1, ...]. */
-export function polyArea(pts: readonly number[]): number {
-  let a = 0;
-  const n = pts.length / 2;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    a += (pts[i * 2] as number) * (pts[j * 2 + 1] as number) - (pts[j * 2] as number) * (pts[i * 2 + 1] as number);
-  }
-  return Math.abs(a) * 0.5;
-}
-
-/** Even-odd point-in-polygon for [x0, y0, x1, y1, ...]. */
-export function pointInPoly(px: number, py: number, pts: readonly number[]): boolean {
-  let inside = false;
-  const n = pts.length / 2;
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const xi = pts[i * 2] as number;
-    const yi = pts[i * 2 + 1] as number;
-    const xj = pts[j * 2] as number;
-    const yj = pts[j * 2 + 1] as number;
-    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
-/** True when point P lies within the circular sector at C facing `angle` with half-width `half` and radius r. */
+/**
+ * True when a circle of radius `pad` centred at P touches the circular sector at C that faces
+ * `angle` with half-width `half` and radius r. Worked with dot and cross products, so there is
+ * no inverse trigonometry: off the arc by an angle phi, the pad reaches in when sin(phi) <= pad / d.
+ */
 export function pointInSector(
   px: number, py: number,
   cx: number, cy: number, angle: number, half: number, r: number, pad = 0,
 ): boolean {
   const dx = px - cx;
   const dy = py - cy;
-  const d = Math.hypot(dx, dy);
-  if (d > r + pad) return false;
-  if (d < 1e-6) return true;
-  let da = Math.atan2(dy, dx) - angle;
-  da = ((da + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-  // widen the sector slightly by the target's angular size
-  const slack = pad > 0 ? Math.asin(Math.min(1, pad / Math.max(d, pad))) : 0;
-  return Math.abs(da) <= half + slack;
+  const d2 = dx * dx + dy * dy;
+  const reach = r + pad;
+  if (d2 > reach * reach) return false;
+  if (d2 <= pad * pad || d2 < 1e-12 || half >= PI) return true;
+  const d = Math.sqrt(d2);
+  const fx = dcos(angle);
+  const fy = dsin(angle);
+  const cosT = (dx * fx + dy * fy) / d;
+  const sinT = Math.abs(dx * fy - dy * fx) / d;
+  const ch = dcos(half);
+  if (cosT >= ch) return true;
+  if (pad <= 0) return false;
+  const sh = dsin(half);
+  const sinPhi = sinT * ch - cosT * sh;
+  const cosPhi = cosT * ch + sinT * sh;
+  return cosPhi > 0 && sinPhi <= pad / d;
 }

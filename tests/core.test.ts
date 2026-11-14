@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { circleTouchesSegment, circleTouchesTri, pointInPoly, pointInSector, pointInTri, polyArea, segSegT, triArea } from '../src/core/geom';
+import { ddamp, ddampAngle, normInto } from '../src/core/exact';
+import { circleTouchesSegment, pointInSector, segSegT } from '../src/core/geom';
 import { ISO_COS, ISO_SIN, TILE, project, projectAngle, screenDirToWorld, unproject } from '../src/core/iso';
 import { angleDiff, damp, mixColor, wrapAngle } from '../src/core/math';
 import { Rng } from '../src/core/rng';
@@ -59,27 +60,6 @@ describe('geometry', () => {
     expect(segSegT(0, 0, 4, 4, 0, 4, 4, 0)).toBeCloseTo(0.5);
   });
 
-  it('tests points and circles against triangles, including degenerate ones', () => {
-    expect(pointInTri(1, 1, 0, 0, 4, 0, 0, 4)).toBe(true);
-    expect(pointInTri(3, 3, 0, 0, 4, 0, 0, 4)).toBe(false);
-    // winding must not matter
-    expect(pointInTri(1, 1, 0, 0, 0, 4, 4, 0)).toBe(true);
-    expect(circleTouchesTri(4.3, 0, 0.5, 0, 0, 4, 0, 0, 4)).toBe(true);
-    expect(circleTouchesTri(5, 0, 0.5, 0, 0, 4, 0, 0, 4)).toBe(false);
-    // collinear "triangle": only its edges count
-    expect(circleTouchesTri(2, 0.2, 0.3, 0, 0, 2, 0, 4, 0)).toBe(true);
-    expect(circleTouchesTri(2, 1, 0.3, 0, 0, 2, 0, 4, 0)).toBe(false);
-    expect(triArea(0, 0, 2, 0, 4, 0)).toBe(0);
-  });
-
-  it('measures areas and containment of polygons', () => {
-    const square = [0, 0, 2, 0, 2, 2, 0, 2];
-    expect(polyArea(square)).toBeCloseTo(4);
-    expect(pointInPoly(1, 1, square)).toBe(true);
-    expect(pointInPoly(3, 1, square)).toBe(false);
-    expect(triArea(0, 0, 4, 0, 0, 3)).toBeCloseTo(6);
-  });
-
   it('tests circles against segments and sectors', () => {
     expect(circleTouchesSegment(2, 0.4, 0.5, 0, 0, 4, 0)).toBe(true);
     expect(circleTouchesSegment(2, 0.6, 0.5, 0, 0, 4, 0)).toBe(false);
@@ -89,6 +69,41 @@ describe('geometry', () => {
     expect(pointInSector(3, 0, 0, 0, 0, 0.5, 2)).toBe(false);
     // a sector across the +-PI seam
     expect(pointInSector(-1, -0.1, 0, 0, Math.PI, 0.5, 2)).toBe(true);
+  });
+
+  it('lets a body just outside a sector edge be touched, by exactly its own radius', () => {
+    // a point 30 degrees off the facing, at distance 1.5, against a 20 degree half-arc
+    const a = (30 * Math.PI) / 180;
+    const x = Math.cos(a) * 1.5;
+    const y = Math.sin(a) * 1.5;
+    const off = 1.5 * Math.sin(a - (20 * Math.PI) / 180); // distance from the point to the sector's edge ray
+    expect(pointInSector(x, y, 0, 0, 0, (20 * Math.PI) / 180, 3, 0)).toBe(false);
+    expect(pointInSector(x, y, 0, 0, 0, (20 * Math.PI) / 180, 3, off * 0.98)).toBe(false);
+    expect(pointInSector(x, y, 0, 0, 0, (20 * Math.PI) / 180, 3, off * 1.02)).toBe(true);
+    // the pad extends the reach too, and a body over the apex always counts
+    expect(pointInSector(3.2, 0, 0, 0, 0, 0.3, 3, 0.25)).toBe(true);
+    expect(pointInSector(-0.1, 0, 0, 0, 0, 0.3, 3, 0.25)).toBe(true);
+  });
+});
+
+describe('exact helpers for the simulation', () => {
+  it('ddamp is frame-rate independent and agrees with the damp the renderer uses', () => {
+    let a = 0;
+    for (let i = 0; i < 60; i++) a = ddamp(a, 1, 8, 1 / 60);
+    let b = 0;
+    for (let i = 0; i < 240; i++) b = ddamp(b, 1, 8, 1 / 240);
+    expect(a).toBeCloseTo(b, 6);
+    expect(ddamp(0.2, 1, 8, 1 / 60)).toBeCloseTo(damp(0.2, 1, 8, 1 / 60), 12);
+  });
+
+  it('turns by the shortest way and normalises vectors', () => {
+    expect(ddampAngle(3, -3, 1000, 1)).toBeCloseTo(-3 + Math.PI * 2, 6);
+    const out = { x: 0, y: 0 };
+    expect(normInto(3, 4, out)).toBe(5);
+    expect(out.x).toBeCloseTo(0.6);
+    expect(out.y).toBeCloseTo(0.8);
+    expect(normInto(0, 0, out)).toBe(0);
+    expect(out).toEqual({ x: 0, y: 0 });
   });
 });
 

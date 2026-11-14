@@ -1,67 +1,79 @@
-// The world step: one fixed tick of the whole simulation.
+// One chamber's simulation: creation, and the step that advances it by exactly one tick.
 import { Rng } from '../core/rng';
-import { sweepDead, stepEnemies } from './ai';
+import { stepEnemies, sweepDead } from './ai';
 import type { ContentRegistry } from './defs';
 import { createFlow, stepFlow } from './flow';
 import type { RoomFlow } from './flow';
-import { createKit, defaultMods, installKit, kitRoomStart, rebuildKit, stepKit } from './kit';
-import type { KitState } from './kit';
-import { createLines, stepLines } from './lines';
-import { bufferInput, createPlayer, stepPlayer } from './player';
+import { createPlayer, readPresses, stepPlayer } from './player';
 import { stepProjectiles } from './projectiles';
+import { clampToFloor } from './room';
 import { stepTelegraphs } from './telegraphs';
-import { DT } from './tuning';
-import type { InputFrame, Room, World } from './types';
+import { DT, PLAYER } from './tuning';
+import type { InputFrame, Player, Room, World } from './types';
+
+/** Who walks into a chamber: the seat, the class, and what they carry in from the run. */
+export interface Entrant {
+  slot: number;
+  classId: string;
+  hp?: number;
+  maxHp?: number;
+  chimes?: number;
+}
 
 export interface WorldOptions {
-  /** 1-based sheet number; scales enemy health and damage. */
-  sheet?: number;
-  /** The run's kit, carried between rooms. A fresh one is made if omitted. */
-  kit?: KitState;
-  chalk?: number;
-  base?: World['base'];
-  /** How the room runs. Omitted, the room is quiet: no waves, nothing to clear. */
+  /** 1-based chamber number; scales enemy health and damage. */
+  chamber?: number;
+  entrants?: Entrant[];
+  /** How the chamber runs. Omitted, an ordinary fight for this chamber number. */
   flow?: RoomFlow;
 }
 
+/** Where each seat stands when a chamber begins, relative to the room's start mark. */
+const START_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  [-0.95, 0.55],
+  [0.95, 0.55],
+];
+
 export function createWorld(room: Room, seed: number | string, content: ContentRegistry, o: WorldOptions = {}): World {
-  installKit();
-  const w: World = {
+  const entrants = o.entrants ?? [{ slot: 0, classId: 'sword' }];
+  const chamber = o.chamber ?? 1;
+  const players: Player[] = entrants.map((en, i) => {
+    const off = START_OFFSETS[i % START_OFFSETS.length];
+    const at = clampToFloor(room, room.start.x + off[0], room.start.y + off[1], PLAYER.radius, { x: 0, y: 0 });
+    const p = createPlayer(en.slot, en.classId, at.x, at.y);
+    if (en.maxHp !== undefined) p.maxHp = en.maxHp;
+    p.hp = Math.min(p.maxHp, en.hp ?? p.maxHp);
+    p.chimes = en.chimes ?? 0;
+    return p;
+  });
+  return {
     tick: 0,
     time: 0,
     rng: new Rng(seed),
     room,
-    player: createPlayer(room.start.x, room.start.y),
+    players,
     enemies: [],
     projectiles: [],
     telegraphs: [],
     events: [],
-    hitstop: 0,
+    freeze: 0,
+    freezeAllowedAt: 0,
     nextId: 1,
-    sheet: o.sheet ?? 1,
-    lines: createLines(),
+    chamber,
     content,
-    kit: o.kit ?? createKit(),
-    mods: defaultMods(),
-    zones: [],
-    chalk: o.chalk ?? 0,
-    flow: o.flow ?? createFlow({ kind: 'tutorial', elite: false }, o.sheet ?? 1),
+    flow: o.flow ?? createFlow(chamber, players.length),
     deaths: [],
-    base: o.base ?? { dashCharges: 0, dashRechargeMul: 1, chalkMul: 1 },
-    stats: { kills: 0, damageDealt: 0, damageTaken: 0, rodDamage: 0, lineDamage: 0, whips: 0, discharges: 0, trips: 0 },
+    stats: { kills: 0, damageDealt: 0, damageTaken: 0 },
   };
-  rebuildKit(w);
-  kitRoomStart(w);
-  w.player.dashCharges = w.player.dashMaxCharges;
-  w.player.plumbCharges = w.player.plumbMax;
-  return w;
 }
 
-/** During a freeze nothing moves, so previous positions must equal current ones or interpolation would drift. */
+/** During a whole-chamber freeze nothing moves, so previous positions must equal current ones or interpolation would drift. */
 function holdPositions(w: World): void {
-  const p = w.player;
-  p.px = p.x;
-  p.py = p.y;
+  for (const p of w.players) {
+    p.px = p.x;
+    p.py = p.y;
+  }
   for (const e of w.enemies) {
     e.px = e.x;
     e.py = e.y;
@@ -70,25 +82,30 @@ function holdPositions(w: World): void {
     pr.px = pr.x;
     pr.py = pr.y;
   }
+  for (const c of w.flow.pickups) {
+    c.px = c.x;
+    c.py = c.y;
+  }
 }
 
-/** Advance the world by exactly one tick (DT seconds). */
-export function stepWorld(w: World, inp: InputFrame): void {
+/**
+ * Advance the world by exactly one tick. `inputs` is indexed by seat (slot); a seat with no
+ * input this tick stands idle.
+ */
+export function stepWorld(w: World, inputs: ReadonlyArray<InputFrame | undefined>, idle: InputFrame): void {
   w.tick++;
-  bufferInput(w.player, inp);
-  if (w.hitstop > 0) {
-    w.hitstop = Math.max(0, w.hitstop - DT);
+  if (w.freeze > 0) {
+    w.freeze--;
+    // presses made during the freeze are buffered, not lost
+    for (const p of w.players) readPresses(p, inputs[p.slot] ?? idle);
     holdPositions(w);
     return;
   }
   w.time += DT;
-  stepPlayer(w, inp, DT);
+  for (const p of w.players) stepPlayer(w, p, inputs[p.slot] ?? idle, DT);
   stepEnemies(w, DT);
   stepProjectiles(w, DT);
-  // Lines resolve after everything has moved, so trips see this tick's positions.
-  stepLines(w, DT);
-  stepKit(w, DT);
-  stepFlow(w, DT, inp.interactPressed);
+  stepFlow(w, DT);
   stepTelegraphs(w, DT);
   sweepDead(w);
 }

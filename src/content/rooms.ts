@@ -3,359 +3,43 @@
 //
 // Legend:
 //   .  floor
-//   o  round pillar (blocks movement, stands in the tile's centre)
-//   b  boundary stone: a flat mark on the floor, decoration only
+//   o  round post (blocks movement, stands in the tile's centre)
+//   b  a flat mark on the floor, decoration only
 //   s  spawn mark: enemies may appear here
-//   P  player start (near the bottom corner)
-//   D  door slot (exit). Doors stand on the far edges: row 0 or column 0.
-//   r  the room's focus: where the reward, the stall, the pillar or the boss stands
+//   P  where the party starts (near the bottom corner)
+//   D  door slot. Doors stand on the far edges: row 0 or column 0.
+//   r  the room's focus: where a reward or a boss stands
 //   (space) or #  void
 //
-// Rules the validator enforces (src/sim/room.ts, checked by tests): at most 16 x 16 tiles;
-// exactly one P and one r; at least one D, on row 0 or column 0; every floor tile reachable
-// from P; fights have at least four spawn marks, each well away from P and not tucked behind
-// a pillar.
-//
-// To add a room, add a record. `zone` and `kind` decide when it can be drawn.
+// The validator (src/sim/room.ts, checked by tests) requires exactly one P and one r, at least
+// one D on row 0 or column 0, every floor tile reachable from P, and at least four spawn marks
+// well away from P and not tucked behind a post.
 import type { RoomTemplate } from '../sim/defs';
 
-export const ROOM_TEMPLATES: readonly RoomTemplate[] = [
-  // ------------------------------------------------------------ the Bluefen: fights
-  {
-    id: 'bluefen-reedbed',
-    name: 'Reedbed Traverse',
-    zone: 'bluefen',
-    kind: 'combat',
-    map: [
-      '.....D...D....',
-      '.s..........s.',
-      '..............',
-      '....o....o....',
-      '..............',
-      '.s....b.....s.',
-      '......r.......',
-      '..............',
-      '....o....o....',
-      '..............',
-      '.s..........s.',
-      '......P.......',
-    ],
-  },
-  {
-    id: 'bluefen-marker-field',
-    name: 'Marker Field',
-    zone: 'bluefen',
-    kind: 'combat',
-    map: [
-      '....D..D....',
-      '.s........s.',
-      '............',
-      '.....o......',
-      '............',
-      '..o...r..o..',
-      '............',
-      '......o.....',
-      '............',
-      '.s........s.',
-      '............',
-      '.....P......',
-    ],
-  },
-  {
-    id: 'bluefen-long-chain',
-    name: 'The Long Chain',
-    zone: 'bluefen',
-    kind: 'combat',
-    map: [
-      '......D....D....',
-      '.s............s.',
-      '................',
-      '...o...b....o...',
-      '.......r........',
-      '................',
-      '.s............s.',
-      '................',
-      '.......P........',
-    ],
-  },
-  {
-    id: 'bluefen-notched-fen',
-    name: 'Notched Fen',
-    zone: 'bluefen',
-    kind: 'combat',
-    map: [
-      '...D...D..   ',
-      '..........   ',
-      '.s......s.   ',
-      '.............',
-      '....o........',
-      '......r...o..',
-      '..o..........',
-      '.............',
-      '........o....',
-      '   .s......s.',
-      '   ..........',
-      '   ..........',
-      '   ....P.....',
-    ],
-  },
-  {
-    id: 'bluefen-twin-mounds',
-    name: 'Twin Mounds',
-    zone: 'bluefen',
-    kind: 'combat',
-    map: [
-      '...D....D...',
-      '............',
-      '.s........s.',
-      '............',
-      '...o....o...',
-      '............',
-      '.....r......',
-      '............',
-      '...o....o...',
-      '............',
-      '.s........s.',
-      '............',
-      '............',
-      '.....P......',
-    ],
-  },
-  {
-    id: 'bluefen-open-level',
-    name: 'Open Level',
-    zone: 'bluefen',
-    kind: 'combat',
-    map: [
-      '.....D...D.....',
-      '.s...........s.',
-      '...............',
-      '....b.....b....',
-      '...............',
-      '.s.....r.....s.',
-      '...............',
-      '....b.....b....',
-      '...............',
-      '.s...........s.',
-      '.......P.......',
-    ],
-  },
+export const PRACTICE_COURT: RoomTemplate = {
+  id: 'practice-court',
+  name: 'Practice Court',
+  zone: 'bluefen',
+  kind: 'arena',
+  map: [
+    '......D....D......',
+    '.s..............s.',
+    '..................',
+    '....o........o....',
+    '..................',
+    '..................',
+    '.s......b.......s.',
+    '........r.........',
+    '..................',
+    '..................',
+    '....o........o....',
+    '..................',
+    '.s..............s.',
+    '........P.........',
+  ],
+};
 
-  // ------------------------------------------------------------ the Unruled: fights
-  {
-    id: 'unruled-half-erased',
-    name: 'Half-Erased Hill',
-    zone: 'unruled',
-    kind: 'combat',
-    map: [
-      '....D....D....',
-      '.s..........s.',
-      '..............',
-      '..o........o..',
-      '..............',
-      '......r.......',
-      '.s..........s.',
-      '..............',
-      '.....o..o.....',
-      '..............',
-      '.s..........s.',
-      '......P.......',
-    ],
-  },
-  {
-    id: 'unruled-construction',
-    name: 'Construction Lines',
-    zone: 'unruled',
-    kind: 'combat',
-    map: [
-      '   ...D..D...   ',
-      '   ..........   ',
-      '.s............s.',
-      '................',
-      '....o......o....',
-      '.......r........',
-      '................',
-      '.s............s.',
-      '   ..........   ',
-      '   ....P.....   ',
-    ],
-  },
-  {
-    id: 'unruled-smudged-corner',
-    name: 'The Smudged Corner',
-    zone: 'unruled',
-    kind: 'combat',
-    map: [
-      '...D....D....',
-      '.s.........s.',
-      '.............',
-      '.............',
-      '....o....b...',
-      '......r......',
-      '...b....o....',
-      '.............',
-      '.............',
-      '.s.........s.',
-      '.............',
-      '......P......',
-    ],
-  },
-  {
-    id: 'unruled-rough-draft',
-    name: 'Rough Draft',
-    zone: 'unruled',
-    kind: 'combat',
-    map: [
-      '....D...D...    ',
-      '.s..........    ',
-      '............    ',
-      '................',
-      '.....o.......s..',
-      '........r.......',
-      '..s.......o.....',
-      '................',
-      '    ............',
-      '    .........s..',
-      '    ....P.......',
-    ],
-  },
-  {
-    id: 'unruled-margin',
-    name: 'The Margin',
-    zone: 'unruled',
-    kind: 'combat',
-    map: [
-      '.....D.....D....',
-      '.s............s.',
-      '................',
-      '.......b........',
-      '...o...r....o...',
-      '................',
-      '.s............s.',
-      '................',
-      '.......P........',
-    ],
-  },
-
-  // ------------------------------------------------------------ quiet rooms
-  {
-    id: 'baseline',
-    name: 'The Baseline',
-    zone: 'bluefen',
-    kind: 'tutorial',
-    map: [
-      '.....D......',
-      '............',
-      '............',
-      '............',
-      '.....r......',
-      '............',
-      '............',
-      '............',
-      '............',
-      '.....P......',
-    ],
-  },
-  {
-    id: 'tally-tent',
-    name: 'The Tally Tent',
-    zone: 'bluefen',
-    kind: 'shop',
-    map: [
-      '...D..D...',
-      '..........',
-      '..b....b..',
-      '....r.....',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '....P.....',
-    ],
-  },
-  {
-    id: 'trig-pillar',
-    name: 'The Trig Pillar',
-    zone: 'unruled',
-    kind: 'rest',
-    map: [
-      '...D..D...',
-      '..........',
-      '..........',
-      '....r.....',
-      '..b....b..',
-      '..........',
-      '..........',
-      '..........',
-      '....P.....',
-    ],
-  },
-  {
-    id: 'disputed-claim',
-    name: 'The Disputed Claim',
-    zone: 'bluefen',
-    kind: 'event',
-    map: [
-      '....D..D....',
-      '.s........s.',
-      '............',
-      '............',
-      '.....r......',
-      '............',
-      '............',
-      '.s........s.',
-      '............',
-      '.....P......',
-    ],
-  },
-
-  // ------------------------------------------------------------ boss arenas (no pillars: nothing to hide behind)
-  {
-    id: 'counterclaim-ground',
-    name: 'Contested Ground',
-    zone: 'bluefen',
-    kind: 'miniboss',
-    map: [
-      '......D.......',
-      '.s..........s.',
-      '..............',
-      '..............',
-      '..............',
-      '..............',
-      '......r.......',
-      '..............',
-      '..............',
-      '..............',
-      '..............',
-      '.s..........s.',
-      '..............',
-      '......P.......',
-    ],
-  },
-  {
-    id: 'point-zero',
-    name: 'Point Zero',
-    zone: 'unruled',
-    kind: 'boss',
-    map: [
-      '.......D.......',
-      '.s...........s.',
-      '...............',
-      '...............',
-      '...............',
-      '...............',
-      '...............',
-      '.......r.......',
-      '...............',
-      '...............',
-      '...............',
-      '...............',
-      '...............',
-      '.s...........s.',
-      '.......P.......',
-    ],
-  },
-];
+export const ROOM_TEMPLATES: readonly RoomTemplate[] = [PRACTICE_COURT];
 
 export function roomTemplate(id: string): RoomTemplate {
   const t = ROOM_TEMPLATES.find((r) => r.id === id);

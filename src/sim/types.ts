@@ -1,41 +1,46 @@
-// Simulation state. Plain data only: no rendering, no DOM. Everything here can run headless.
+// Simulation state. Plain data only: numbers, strings, booleans, arrays, plain objects and typed
+// arrays, plus the seeded generator. No rendering, no DOM, no Maps or Sets. Everything here runs
+// headless, is identical on every laptop of a co-op session, and can be snapshotted and hashed.
+import type { Vec2 } from '../core/exact';
 import type { Rng } from '../core/rng';
-import type { Vec2 } from '../core/math';
 import type { ContentRegistry, EnemyDef, RoomKind, ZoneId } from './defs';
 import type { RoomFlow } from './flow';
-import type { KitState, Mods, Zone } from './kit';
-import type { LinesState } from './lines';
 
 // ---------------------------------------------------------------- input
 
-/** One tick of player intent, already converted to world space by the input layer (or produced by a bot). */
+/** Bits of InputFrame.held. */
+export const BTN = { attack: 1, special: 2, dash: 4, interact: 8 } as const;
+/** Indices into InputFrame.presses. */
+export const PRESS = { attack: 0, special: 1, dash: 2, interact: 3 } as const;
+export const PRESS_COUNT = 4;
+
+/** Movement angles are sent in 256ths of a turn, aim angles in 65536ths, aim distance in eighths of a tile. */
+export const MOVE_STEPS = 256;
+export const AIM_STEPS = 65536;
+export const AIM_DIST_SCALE = 8;
+export const MOVE_MAG_MAX = 15;
+
+/**
+ * One tick of one player's intent, as integers, exactly as it travels between laptops.
+ * A press is "the counter changed since the last tick", so merging, repeating or delaying
+ * messages can neither lose a tap nor count it twice.
+ */
 export interface InputFrame {
-  /** Unit world-space movement direction, or (0, 0). */
-  moveX: number;
-  moveY: number;
-  /** Cursor position on the ground plane, world units. */
-  aimX: number;
-  aimY: number;
-  attackHeld: boolean;
-  attackPressed: boolean;
-  specialPressed: boolean;
-  dashPressed: boolean;
-  stakePressed: boolean;
-  interactPressed: boolean;
+  /** World-space movement direction, 0..255 (256ths of a turn). */
+  moveAngle: number;
+  /** 0 = standing still; 15 = full speed. */
+  moveMag: number;
+  /** World-space aim direction from the player, 0..65535. */
+  aimAngle: number;
+  /** Distance from the player to the aimed point, in eighths of a tile, 0..255. */
+  aimDist: number;
+  /** Buttons held this tick (BTN bits). */
+  held: number;
+  /** One wrapping counter (0..255) per button, bumped on every press. */
+  presses: number[];
 }
 
-export const emptyInput = (): InputFrame => ({
-  moveX: 0,
-  moveY: 0,
-  aimX: 0,
-  aimY: 0,
-  attackHeld: false,
-  attackPressed: false,
-  specialPressed: false,
-  dashPressed: false,
-  stakePressed: false,
-  interactPressed: false,
-});
+export const emptyInput = (): InputFrame => ({ moveAngle: 0, moveMag: 0, aimAngle: 0, aimDist: 0, held: 0, presses: [0, 0, 0, 0] });
 
 // ---------------------------------------------------------------- room
 
@@ -43,8 +48,6 @@ export interface Pillar {
   x: number;
   y: number;
   r: number;
-  /** The footprint of something that is not a stone (the tent, the trig pillar): solid, but drawn by its own view. */
-  fixture?: boolean;
 }
 
 export interface DoorSlot {
@@ -75,11 +78,14 @@ export interface Room {
   cy: number;
 }
 
-// ---------------------------------------------------------------- player
+// ---------------------------------------------------------------- players
 
-export type PlayerState = 'idle' | 'run' | 'dash' | 'swing' | 'shot' | 'dead';
+export type PlayerState = 'idle' | 'run' | 'dash' | 'swing' | 'down';
 
 export interface Player {
+  /** Which seat of the session this is: 0, 1 or 2. */
+  slot: number;
+  classId: string;
   x: number;
   y: number;
   /** Position at the previous tick, for render interpolation. */
@@ -91,11 +97,9 @@ export interface Player {
   kx: number;
   ky: number;
   radius: number;
-  /** World-space angle from the player to the cursor. */
+  /** World-space aim angle in radians, and how far away the aimed point is. */
   aim: number;
-  /** The cursor's point on the ground plane. */
-  aimX: number;
-  aimY: number;
+  aimDist: number;
   /** Last non-zero movement direction (unit, world space). */
   moveDirX: number;
   moveDirY: number;
@@ -121,23 +125,23 @@ export interface Player {
   combo: number;
   /** Seconds left in which another press continues the combo. */
   comboTimer: number;
-  /** World angle the current swing or shot was aimed along. */
+  /** World angle the current action was aimed along. */
   actAngle: number;
-  /** Total duration of the current swing or shot, seconds. */
+  /** Total duration of the current action, seconds. */
   actDur: number;
-  /** True once the current swing's hit has been resolved. */
+  /** True once the current action's hit has been resolved. */
   actDone: boolean;
-  /** Seconds until the next Plumb Shot charge returns. */
-  plumbCooldown: number;
-  plumbCharges: number;
-  plumbMax: number;
-  /** Damage a shield will absorb before health is touched. */
-  shield: number;
   /** Buffered presses: seconds left in which the press still counts. */
   bufAttack: number;
   bufSpecial: number;
   bufDash: number;
-  bufStake: number;
+  bufInteract: number;
+  /** The press counters seen last tick, to tell a new press from an old one. */
+  lastPresses: number[];
+  /** Per-body hit-stop: ticks this player's own timeline stays frozen. */
+  freeze: number;
+  /** Run currency. */
+  chimes: number;
 }
 
 // ---------------------------------------------------------------- enemies
@@ -146,6 +150,8 @@ export type EnemyState = 'spawn' | 'idle' | 'move' | 'windup' | 'attack' | 'reco
 
 export interface Enemy {
   id: number;
+  /** Which definition this is; `def` is the same thing looked up, re-linked after a snapshot is loaded. */
+  defId: string;
   def: EnemyDef;
   x: number;
   y: number;
@@ -172,6 +178,8 @@ export interface Enemy {
   cooldowns: number[];
   /** Seconds until the next decision. */
   thinkT: number;
+  /** The player (slot) this enemy is after. */
+  target: number;
   /** The point the current attack is aimed at, locked during the wind-up. */
   aimX: number;
   aimY: number;
@@ -189,33 +197,24 @@ export interface Enemy {
   elite: string | null;
   /** Stable 0..1 number so crowds do not animate in unison. */
   seed: number;
-  /** True while the attack's hit has already landed on the player this activation. */
-  hitDone: boolean;
+  /** Bit per player slot: set once this activation's hit has landed on that player. */
+  hitDone: number;
   /** Direction of the last hit taken, for the death scatter. */
   lastHitX: number;
   lastHitY: number;
-  /** Forced movement (a Plumb Shot drag): remaining time and velocity. */
-  dragT: number;
-  dragVX: number;
-  dragVY: number;
   /** Per-kind scratch numbers owned by the action primitives. */
   mem: number[];
-  /** Set each tick by the line step: standing inside the player's Plot / touching one of their lines. */
-  inPlot: boolean;
-  onLine: boolean;
-  /** No line may trip this enemy before this time (a global limiter across all lines). */
-  tripUntil: number;
-  /** Damage multiplier from armour: 1 is none; below 1 until a discharge breaks it. */
+  /** Damage multiplier from armour: 1 is none. */
   armor: number;
-  /** Underground: cannot be hit or tripped; a whip sweep over it surfaces it. */
-  burrowed: boolean;
-  /** In the air: ground lines do not trip it. */
+  /** In the air: out of reach of ground attacks. */
   airborne: boolean;
+  /** Per-body hit-stop: ticks this enemy stays frozen. */
+  freeze: number;
   status: EnemyStatus;
   dead: boolean;
 }
 
-/** Timed conditions on an enemy. Plain numbers so the whole world stays serialisable. */
+/** Timed conditions on an enemy. */
 export interface EnemyStatus {
   /** Burn: damage per second, and seconds left. */
   burnDps: number;
@@ -229,13 +228,9 @@ export interface EnemyStatus {
   frozenT: number;
   /** Rooted: cannot move, can still act. Seconds left. */
   rootT: number;
-  /** Marked: takes this much more Rod and Plumb damage. Seconds left. */
+  /** Marked: takes this much more damage from everyone. Seconds left. */
   markBonus: number;
   markT: number;
-  /** Extra slow from ground effects this tick (dust), 0..1. Reset every tick. */
-  zoneSlow: number;
-  /** Extra line damage taken this tick from ground effects, as a fraction. Reset every tick. */
-  zoneLineBonus: number;
   /** Seconds before another root may be applied. */
   rootImmune: number;
 }
@@ -244,10 +239,10 @@ export interface EnemyStatus {
 
 export interface Projectile {
   id: number;
-  /** Visual and behaviour kind: 'quill', 'plumb', ... */
+  /** Visual and behaviour kind: 'bolt', ... */
   kind: string;
   faction: 'player' | 'enemy';
-  /** Enemy id of the shooter, or 0. */
+  /** Who made it: an enemy id for enemy shots, a player slot for player shots. */
   owner: number;
   x: number;
   y: number;
@@ -261,10 +256,8 @@ export interface Projectile {
   life: number;
   /** Distance left before it expires. */
   range: number;
-  /** Light projectiles are destroyed by a Rod swing. */
+  /** Light projectiles are knocked out of the air by a swing. */
   light: boolean;
-  /** For the plumb bob: the id of the player's own stake it was cast at, or -1. */
-  targetStake: number;
   dead: boolean;
 }
 
@@ -300,21 +293,21 @@ export interface Telegraph {
 
 // ---------------------------------------------------------------- events
 
-export type HitKind = 'rod' | 'plumb' | 'line' | 'discharge' | 'burst' | 'burn' | 'other';
+export type HitKind = 'direct' | 'return' | 'slam' | 'carom' | 'burst' | 'burn' | 'other';
 
-/** Things that happened this tick, with everything presentation needs to react. Value snapshots only. */
+/**
+ * Things that happened this tick, with everything presentation needs to react. Value snapshots
+ * only. `player` is always a slot; `by` is the slot that dealt a hit, or -1.
+ */
 export type SimEvent =
-  | { type: 'dash'; x: number; y: number; dx: number; dy: number }
-  | { type: 'dashEnd'; x: number; y: number }
-  | { type: 'dashCharge'; charges: number }
-  | { type: 'swing'; n: number; x: number; y: number; angle: number; reach: number; halfArc: number }
-  | { type: 'hit'; target: number; x: number; y: number; amount: number; kind: HitKind; heavy: boolean; crit: boolean; dx: number; dy: number; killed: boolean }
-  | { type: 'deflect'; x: number; y: number }
-  | { type: 'plumbFire'; x: number; y: number; angle: number }
-  | { type: 'plumbHook'; x: number; y: number; target: number }
-  | { type: 'plumbMiss'; x: number; y: number }
-  | { type: 'playerHurt'; amount: number; x: number; y: number; dx: number; dy: number }
-  | { type: 'playerDeath'; x: number; y: number }
+  | { type: 'dash'; player: number; x: number; y: number; dx: number; dy: number }
+  | { type: 'dashEnd'; player: number; x: number; y: number }
+  | { type: 'dashCharge'; player: number; charges: number }
+  | { type: 'swing'; player: number; n: number; x: number; y: number; angle: number; reach: number; halfArc: number }
+  | { type: 'hit'; target: number; by: number; x: number; y: number; amount: number; kind: HitKind; heavy: boolean; crit: boolean; dx: number; dy: number; killed: boolean }
+  | { type: 'deflect'; player: number; x: number; y: number }
+  | { type: 'playerHurt'; player: number; amount: number; x: number; y: number; dx: number; dy: number }
+  | { type: 'playerDown'; player: number; x: number; y: number }
   | { type: 'enemySpawn'; id: number; kind: string; x: number; y: number }
   | { type: 'enemyWindup'; id: number; kind: string; move: string; x: number; y: number }
   | { type: 'enemyAttack'; id: number; kind: string; move: string; x: number; y: number }
@@ -324,50 +317,11 @@ export type SimEvent =
   | { type: 'projectileSpawn'; id: number; kind: string; x: number; y: number }
   | { type: 'projectileEnd'; id: number; kind: string; x: number; y: number; hit: boolean }
   | { type: 'waveStart'; wave: number }
-  | { type: 'refused'; what: string }
-  | { type: 'stakePlant'; stake: number; x: number; y: number }
-  | {
-      type: 'whip';
-      stake: number;
-      cause: RelocateCause;
-      fromX: number;
-      fromY: number;
-      toX: number;
-      toY: number;
-      /** Seconds the flight takes. */
-      dur: number;
-      /** Swept triangles, each as [farX, farY, ripe ? 1 : 0]. */
-      tris: number[][];
-      /** False when the sweep was too small to count. */
-      live: boolean;
-      hits: number;
-    }
-  | { type: 'stakeLand'; stake: number; x: number; y: number; cause: RelocateCause }
-  | { type: 'stakeLost'; stake: number; x: number; y: number; seconds: number }
-  | { type: 'stakeReturn'; stake: number }
-  | { type: 'lineRipe'; a: number; b: number; ax: number; ay: number; bx: number; by: number }
-  | { type: 'lineDischarge'; a: number; b: number; ax: number; ay: number; bx: number; by: number; cause: 'trip' | 'sweep' | 'effect' }
-  | { type: 'lineSever'; a: number; b: number; x: number; y: number; seconds: number }
-  | { type: 'lineMend'; a: number; b: number }
-  | { type: 'hammer'; stake: number; x: number; y: number }
-  | { type: 'dashRefund'; x: number; y: number }
-  | { type: 'plotChange'; formed: boolean }
-  | { type: 'enemySurface'; id: number; x: number; y: number }
-  | { type: 'hostilePlant'; group: number; x: number; y: number }
-  | { type: 'hostileBreak'; group: number; x: number; y: number }
-  | { type: 'hostileCross'; group: number; x: number; y: number }
+  | { type: 'refused'; player: number; what: string }
   | { type: 'shockwave'; x: number; y: number; radius: number }
-  | { type: 'beam'; ax: number; ay: number; bx: number; by: number }
-  | { type: 'zone'; id: number; zone: string; pts: number[]; dur: number }
-  | { type: 'shield'; on: boolean; x: number; y: number }
-  | { type: 'chalk'; amount: number; x: number; y: number }
-  | { type: 'teleport'; x: number; y: number }
+  | { type: 'chime'; amount: number; x: number; y: number }
   | { type: 'armorBreak'; id: number; x: number; y: number }
-  | { type: 'roomClear'; x: number; y: number }
-  | { type: 'doorsOpen'; count: number }
-  | { type: 'interact'; id: number; kind: 'reward' | 'shop' | 'rest' | 'event' | 'door'; index: number };
-
-export type RelocateCause = 'whip' | 'yank' | 'shove' | 'offset' | 'swap';
+  | { type: 'roomClear'; x: number; y: number };
 
 export type SimEventType = SimEvent['type'];
 
@@ -375,49 +329,34 @@ export type SimEventType = SimEvent['type'];
 
 export interface World {
   tick: number;
-  /** Simulated seconds; does not advance during hit-stop. */
+  /** Simulated seconds; does not advance during a whole-chamber freeze. */
   time: number;
   rng: Rng;
   room: Room;
-  player: Player;
+  players: Player[];
   enemies: Enemy[];
   projectiles: Projectile[];
   telegraphs: Telegraph[];
-  /** Appended to by the step; the consumer clears it after reading. */
+  /** Appended to by the step; presentation clears it after reading. Never part of a snapshot. */
   events: SimEvent[];
-  /** Seconds of freeze left; the step does nothing but count this down. */
-  hitstop: number;
+  /** Whole-chamber freeze, in ticks, for moments the party shares. Ordinary hits freeze only the bodies involved. */
+  freeze: number;
+  /** The earliest tick at which another whole-chamber freeze may start. */
+  freezeAllowedAt: number;
   /** Source of ids for enemies, projectiles and telegraphs. */
   nextId: number;
-  /** How deep into the run this room is (1-based sheet number); scales enemy health and damage. */
-  sheet: number;
-  /** Stakes, lines, the Plot and hostile geometry. */
-  lines: LinesState;
-  /** The content this world runs on. */
+  /** How deep into the run this chamber is (1-based); scales enemy health and damage. */
+  chamber: number;
+  /** The content this world runs on. A pointer, re-linked after a snapshot is loaded. */
   content: ContentRegistry;
-  /** The player's upgrades, carried from room to room. */
-  kit: KitState;
-  /** Numbers and switches resolved from the kit. */
-  mods: Mods;
-  /** Lingering areas on the ground. */
-  zones: Zone[];
-  /** Run currency. */
-  chalk: number;
-  /** Waves, pickups, the reward and the doors of this room. */
+  /** Waves and pickups of this chamber. */
   flow: RoomFlow;
-  /** Enemies that died this tick, for Chalk drops. Cleared by the flow step. */
-  deaths: Array<{ x: number; y: number; def: EnemyDef; elite: string | null }>;
-  /** Bonuses from permanent progression, applied under the kit. */
-  base: { dashCharges: number; dashRechargeMul: number; chalkMul: number };
-  /** Totals for the end-of-run screens and for tests. */
+  /** Enemies that died this tick, for drops. Cleared by the flow step. */
+  deaths: Array<{ x: number; y: number; defId: string; elite: string | null }>;
+  /** Totals for the results screen and for tests. */
   stats: {
     kills: number;
     damageDealt: number;
     damageTaken: number;
-    rodDamage: number;
-    lineDamage: number;
-    whips: number;
-    discharges: number;
-    trips: number;
   };
 }

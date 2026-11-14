@@ -1,5 +1,5 @@
-// The Smudge: a squat teardrop of ink on two stub legs. It squashes flat before it lunges.
-// Pixi-free: a RigDef plus a pure animator. This file is the pattern every Errata rig follows.
+// The Thrum: a squat teardrop on two stub legs. It squashes flat before it lunges.
+// Pixi-free: a RigDef plus a pure animator. This file is the pattern every Echo rig follows.
 import { INK, RIM, WHITE, ZONES } from '../palette';
 import { block, ell, flat, smooth } from './def';
 import type { AnimInput, Animator, PartDef, PoseWriter, RigDef } from './def';
@@ -74,8 +74,8 @@ const parts: PartDef[] = [
   },
 ];
 
-export const SMUDGE_RIG: RigDef = {
-  id: 'smudge',
+export const THRUM_RIG: RigDef = {
+  id: 'thrum',
   parts,
   palette,
   footprint: 0.38,
@@ -231,7 +231,7 @@ function dead(p: PoseWriter, a: AnimInput): void {
   p.part('hips').y = 6 * e;
 }
 
-export const smudgeAnimator: Animator = (p, a) => {
+export const thrumAnimator: Animator = (p, a) => {
   switch (a.state) {
     case 'spawn':
       spawn(p, a);

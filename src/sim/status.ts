@@ -1,6 +1,5 @@
 // Timed conditions on enemies: burn, chill, freeze, root, mark.
 import { damageEnemy, stunEnemy } from './combat';
-import { LINES } from './tuning';
 import type { Enemy, EnemyStatus, World } from './types';
 
 export const newStatus = (): EnemyStatus => ({
@@ -13,8 +12,6 @@ export const newStatus = (): EnemyStatus => ({
   rootT: 0,
   markBonus: 0,
   markT: 0,
-  zoneSlow: 0,
-  zoneLineBonus: 0,
   rootImmune: 0,
 });
 
@@ -31,7 +28,7 @@ export function applyChill(e: Enemy, slow: number, seconds: number): void {
   e.status.chillT = Math.max(e.status.chillT, seconds);
 }
 
-/** Freeze solid: a stun, so it respects stun immunity. Bosses (mass 5 or more) are only chilled. */
+/** Freeze solid: a stun, so it respects stun immunity. Heavy bodies (mass 5 or more) are only chilled. */
 export function applyFreeze(w: World, e: Enemy, seconds: number): boolean {
   if (e.dead) return false;
   if (e.def.mass >= 5) {
@@ -61,7 +58,7 @@ export function applyMark(e: Enemy, bonus: number, seconds: number): void {
 export function slowOf(e: Enemy): number {
   const s = e.status;
   if (s.rootT > 0 || s.frozenT > 0) return 1;
-  return Math.max(e.inPlot ? LINES.plotSlow : 0, s.chillT > 0 ? s.chillSlow : 0, s.zoneSlow);
+  return s.chillT > 0 ? s.chillSlow : 0;
 }
 
 export function stepStatus(w: World, e: Enemy, dt: number): void {
@@ -77,7 +74,7 @@ export function stepStatus(w: World, e: Enemy, dt: number): void {
     if (s.burnAcc >= Math.max(1, s.burnDps * 0.5) || (s.burnT === 0 && s.burnAcc >= 1)) {
       const amount = Math.floor(s.burnAcc);
       s.burnAcc -= amount;
-      damageEnemy(w, e, amount, { kind: 'burn', dx: 0, dy: -1 });
+      damageEnemy(w, e, amount, { kind: 'burn', by: -1, dx: 0, dy: -1 });
     }
   }
   if (s.chillT > 0) {

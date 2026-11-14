@@ -1,9 +1,11 @@
-// Keyboard and mouse. Collects raw state and press edges from DOM events, and turns them into
-// one InputFrame per simulation tick. A press is never lost between ticks, and never counted twice.
+// Keyboard and mouse. Collects raw state and press edges from DOM events and writes them into
+// the integer input frame that travels to the relay: held buttons, one press counter per button,
+// movement as a direction, and aim as an angle and a distance from the player.
 import { screenDirToWorld } from '../core/iso';
 import type { Vec2 } from '../core/math';
 import type { Camera } from '../render/camera';
-import { emptyInput } from '../sim/types';
+import { hold, press, setAim, setMove } from '../sim/input';
+import { BTN, PRESS, emptyInput } from '../sim/types';
 import type { InputFrame } from '../sim/types';
 
 export const BINDINGS = {
@@ -14,12 +16,10 @@ export const BINDINGS = {
   attack: ['Mouse0', 'KeyJ'],
   special: ['Mouse2', 'KeyK'],
   dash: ['Space', 'ShiftLeft', 'ShiftRight'],
-  stake: ['KeyE', 'KeyQ'],
-  interact: ['KeyF'],
+  interact: ['KeyF', 'KeyE'],
   pause: ['Escape', 'KeyP'],
   restart: ['KeyR'],
   mute: ['KeyM'],
-  kit: ['Tab'],
   confirm: ['Enter', 'Space', 'KeyF'],
 } as const;
 
@@ -90,11 +90,6 @@ export class Input {
     this.pressed.clear();
   }
 
-  /** Press a key from code, as if it had been tapped (the autopilot answers menus this way). */
-  inject(code: string): void {
-    this.pressed.add(code);
-  }
-
   isDown(action: Action): boolean {
     for (const code of BINDINGS[action]) if (this.down.has(code)) return true;
     return false;
@@ -114,30 +109,29 @@ export class Input {
     return this.pressed.delete(code);
   }
 
-  /** Any press at all since the last call (for "press any key"). Consumes everything. */
-  takeAny(): boolean {
-    const any = this.pressed.size > 0;
-    this.pressed.clear();
-    return any;
-  }
-
-  /** Build the InputFrame for one simulation tick. Consumes gameplay press edges. */
-  frame(cam: Camera): InputFrame {
+  /**
+   * This device's input as it will be sent. Called once per rendered frame; gameplay press edges
+   * are consumed here and become counter bumps, so a tap is never lost and never counted twice.
+   * Aim is measured from where the player is drawn right now.
+   */
+  frame(cam: Camera, playerX: number, playerY: number): InputFrame {
     const f = this.frameOut;
     const ix = (this.isDown('right') ? 1 : 0) - (this.isDown('left') ? 1 : 0);
     const iy = (this.isDown('down') ? 1 : 0) - (this.isDown('up') ? 1 : 0);
     screenDirToWorld(ix, iy, this.dir);
-    f.moveX = this.dir.x;
-    f.moveY = this.dir.y;
-    cam.screenToWorld(this.mouseX, this.mouseY, this.aim);
-    f.aimX = this.aim.x;
-    f.aimY = this.aim.y;
-    f.attackHeld = this.isDown('attack');
-    f.attackPressed = this.take('attack');
-    f.specialPressed = this.take('special');
-    f.dashPressed = this.take('dash');
-    f.stakePressed = this.take('stake');
-    f.interactPressed = this.take('interact');
+    setMove(f, this.dir.x, this.dir.y);
+    if (this.hasMouse) {
+      cam.screenToWorld(this.mouseX, this.mouseY, this.aim);
+      setAim(f, playerX, playerY, this.aim.x, this.aim.y);
+    }
+    hold(f, BTN.attack, this.isDown('attack'));
+    hold(f, BTN.special, this.isDown('special'));
+    hold(f, BTN.dash, this.isDown('dash'));
+    hold(f, BTN.interact, this.isDown('interact'));
+    if (this.take('attack')) press(f, PRESS.attack);
+    if (this.take('special')) press(f, PRESS.special);
+    if (this.take('dash')) press(f, PRESS.dash);
+    if (this.take('interact')) press(f, PRESS.interact);
     return f;
   }
 

@@ -5,7 +5,7 @@ import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { lerp, mixColor } from '../core/math';
 import type { Enemy, SimEvent, World } from '../sim/types';
 import type { Sortable } from './depth';
-import { CHALK, DANGER, HEAD_TINT, INK, RIM, WHITE } from './palette';
+import { DANGER, INK, RIM, STATUS, WHITE } from './palette';
 import type { ZoneTheme } from './palette';
 import { animInput } from './rig/def';
 import type { AnimInput } from './rig/def';
@@ -98,7 +98,7 @@ class EnemyView {
     this.setFacing(e.facing);
   }
 
-  update(e: Enemy, alpha: number, dt: number, time: number, targeted: boolean): void {
+  update(e: Enemy, alpha: number, dt: number, time: number): void {
     const x = lerp(e.px, e.x, alpha);
     const y = lerp(e.py, e.y, alpha);
     this.stride += Math.hypot(x - this.lastX, y - this.lastY);
@@ -121,23 +121,21 @@ class EnemyView {
     // The body itself warns: the eye turns danger-red through the wind-up and the attack.
     const threatening = e.state === 'windup' || e.state === 'attack';
     this.rig.setRole('eye', threatening ? DANGER : WHITE);
-    // Chalk on its outline: it stands in the Plot, on a line, or in the path of the next whip.
-    this.rig.setRole('rim', targeted || e.inPlot || e.onLine ? CHALK : RIM);
     this.rig.setFlash(Math.max(0, 1 - e.hurtT / FLASH_TIME));
 
     // Conditions wash the whole body: ice over chill over burn; unbroken armour reads as heavier ink.
     const st = e.status;
     let wash = WHITE;
-    if (st.frozenT > 0) wash = HEAD_TINT.frost;
-    else if (st.chillT > 0) wash = mixColor(WHITE, HEAD_TINT.frost, 0.55);
-    else if (st.burnT > 0) wash = mixColor(WHITE, HEAD_TINT.lamp, 0.45 + 0.2 * Math.sin(time * 22 + e.seed * 9));
+    if (st.frozenT > 0) wash = STATUS.frost;
+    else if (st.chillT > 0) wash = mixColor(WHITE, STATUS.frost, 0.55);
+    else if (st.burnT > 0) wash = mixColor(WHITE, STATUS.burn, 0.45 + 0.2 * Math.sin(time * 22 + e.seed * 9));
     else if (e.armor < 1) wash = mixColor(WHITE, INK, 0.45);
     this.rig.setWash(wash);
 
     // The mark under its feet: pale by default, danger-red for an elite, the barb's colour while rooted.
     const elite = e.elite !== null;
     const rooted = st.rootT > 0;
-    this.halo.tint = rooted ? HEAD_TINT.barb : elite ? DANGER : RIM;
+    this.halo.tint = rooted ? STATUS.root : elite ? DANGER : RIM;
     const haloAlpha = rooted ? 0.5 : elite ? 0.3 + 0.08 * Math.sin(time * 5 + e.seed * 6) : 0.16;
     this.halo.scale.set(this.entry.def.footprint * (elite ? 1.7 : 1.25));
 
@@ -165,7 +163,7 @@ class EnemyView {
     if (this.badge) this.badge.position.set(this.rig.root.x, top);
     if (st.markT > 0 && !this.witness) {
       this.witness = new Graphics(witness());
-      this.witness.tint = HEAD_TINT.mark;
+      this.witness.tint = STATUS.mark;
       this.stage.fxCrisp.addChild(this.witness);
     }
     if (this.witness) {
@@ -273,7 +271,7 @@ export class EnemyViews {
     this.corpses.push(v);
   }
 
-  update(w: World, alpha: number, dt: number, time: number, targets: ReadonlySet<number>): void {
+  update(w: World, alpha: number, dt: number, time: number): void {
     this.frame++;
     for (const e of w.enemies) {
       if (e.dead) continue;
@@ -283,7 +281,7 @@ export class EnemyViews {
         this.live.set(e.id, v);
       }
       v.seen = this.frame;
-      v.update(e, alpha, dt, time, targets.has(e.id));
+      v.update(e, alpha, dt, time);
     }
     // Anything the simulation dropped without a death event (room change) just goes.
     for (const [id, v] of this.live) {

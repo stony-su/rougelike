@@ -11,7 +11,7 @@
 //   {"mouse": [800, 450]}                   move the mouse (viewport pixels)
 //   {"click": "left"} / {"click": "right"}  click at the current mouse position
 //   {"mdown": "left"} / {"mup": "left"}     press / release a mouse button
-//   {"eval": "window.__snapline.debug()"}  run script in the page; the result is printed
+//   {"eval": "window.__resound.debug()"}  run script in the page; the result is printed
 //   {"shot": "name"}                        save a screenshot as <dir>/<name>.png
 //   {"shot": "name", "clip": [x, y, w, h]}  save only that region (CSS pixels); use --dsf 3 for close-ups
 //   {"shot": "name", "around": "js expr -> [x, y]", "size": [w, h]}   clip centred on a point computed in the page

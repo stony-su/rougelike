@@ -1,6 +1,7 @@
 // Rooms: instancing a template into a walkable grid, and collision against it.
+import { dhypot } from '../core/dmath';
+import type { Vec2 } from '../core/exact';
 import type { Rng } from '../core/rng';
-import type { Vec2 } from '../core/math';
 import type { RoomTemplate } from './defs';
 import type { DoorSlot, Pillar, Room } from './types';
 
@@ -198,7 +199,7 @@ export function randomFloorPoint(
     const x = rng.float(0.5, room.w - 0.5);
     const y = rng.float(0.5, room.h - 0.5);
     if (!isClear(room, x, y, r)) continue;
-    if (from && Math.hypot(x - from.x, y - from.y) < minDist) continue;
+    if (from && dhypot(x - from.x, y - from.y) < minDist) continue;
     return { x, y };
   }
   return { x: room.cx, y: room.cy };
@@ -206,7 +207,7 @@ export function randomFloorPoint(
 
 /** True when the straight segment between two points stays on floor (sampled). */
 export function segmentOnFloor(room: Room, ax: number, ay: number, bx: number, by: number): boolean {
-  const d = Math.hypot(bx - ax, by - ay);
+  const d = dhypot(bx - ax, by - ay);
   const n = Math.max(1, Math.ceil(d / 0.4));
   for (let i = 0; i <= n; i++) {
     const t = i / n;
@@ -220,7 +221,7 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
   const out: string[] = [];
   const h = t.map.length;
   const w = t.map.reduce((m, row) => Math.max(m, row.length), 0);
-  if (w > 16 || h > 16) out.push(`${t.id}: larger than 16 x 16 (${w} x ${h})`);
+  if (w > 40 || h > 40) out.push(`${t.id}: larger than 40 x 40 (${w} x ${h})`);
   const at = (x: number, y: number): string => (y < 0 || y >= h ? ' ' : t.map[y][x] ?? ' ');
   const isFloor = (x: number, y: number): boolean => {
     const c = at(x, y);
@@ -246,21 +247,19 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
   if (focus.length !== 1) out.push(`${t.id}: needs exactly one r, has ${focus.length}`);
   if (doors.length < 1) out.push(`${t.id}: needs at least one D`);
   for (const [x, y] of doors) if (x !== 0 && y !== 0) out.push(`${t.id}: door at ${x},${y} is not on a far edge (row 0 or column 0)`);
-  const quiet = t.kind === 'shop' || t.kind === 'rest' || t.kind === 'tutorial';
-  if (!quiet && t.kind !== 'miniboss' && t.kind !== 'boss' && doors.length < 2) out.push(`${t.id}: needs two door slots so a choice of doors can be shown`);
 
   // every floor tile must be reachable from P (pillars block)
   if (starts.length === 1) {
     const seen = new Set<number>();
     const stack: Array<[number, number]> = [starts[0]];
-    seen.add(starts[0][1] * 32 + starts[0][0]);
+    seen.add(starts[0][1] * 64 + starts[0][0]);
     while (stack.length) {
       const [x, y] = stack.pop() as [number, number];
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         const nx = x + dx;
         const ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h || !isFloor(nx, ny) || at(nx, ny) === 'o') continue;
-        const key = ny * 32 + nx;
+        const key = ny * 64 + nx;
         if (seen.has(key)) continue;
         seen.add(key);
         stack.push([nx, ny]);
@@ -268,22 +267,19 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
     }
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        if (isFloor(x, y) && at(x, y) !== 'o' && !seen.has(y * 32 + x)) out.push(`${t.id}: floor at ${x},${y} cannot be reached from P`);
+        if (isFloor(x, y) && at(x, y) !== 'o' && !seen.has(y * 64 + x)) out.push(`${t.id}: floor at ${x},${y} cannot be reached from P`);
       }
     }
   }
 
-  if (!quiet) {
+  {
     if (marks.length < 4) out.push(`${t.id}: a fight needs at least four spawn marks, has ${marks.length}`);
     for (const [x, y] of marks) {
-      if (starts.length === 1 && Math.hypot(x - starts[0][0], y - starts[0][1]) < 4) out.push(`${t.id}: spawn mark at ${x},${y} is too close to P`);
+      if (starts.length === 1 && dhypot(x - starts[0][0], y - starts[0][1]) < 4) out.push(`${t.id}: spawn mark at ${x},${y} is too close to P`);
       for (const [px, py] of pillars) {
-        if (Math.hypot(x - px, y - py) < 1.6) out.push(`${t.id}: spawn mark at ${x},${y} is tucked against the pillar at ${px},${py}`);
+        if (dhypot(x - px, y - py) < 1.6) out.push(`${t.id}: spawn mark at ${x},${y} is tucked against the pillar at ${px},${py}`);
       }
     }
-  }
-  if (t.kind === 'miniboss' || t.kind === 'boss') {
-    if (pillars.length > 0) out.push(`${t.id}: boss arenas have no pillars`);
   }
   return out;
 }

@@ -1,349 +1,269 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
-import { SMUDGE } from '../src/content/enemies';
-import { roomTemplate } from '../src/content/rooms';
+import { THRUM } from '../src/content/enemies';
 import { SPAWN_TIME, spawnEnemy } from '../src/sim/ai';
-import { idleBot, rodBot } from '../src/sim/bots';
+import { idleBot, swordBot } from '../src/sim/bots';
 import type { Bot } from '../src/sim/bots';
-import { damageEnemy, damagePlayer, hitStop, stunEnemy } from '../src/sim/combat';
+import { damageEnemy, damagePlayer, standing, stunEnemy } from '../src/sim/combat';
 import { validateEnemyDef } from '../src/sim/defs';
+import { createFlow, dropChimes } from '../src/sim/flow';
+import { spawnProjectile } from '../src/sim/projectiles';
 import { buildRoom, isClear } from '../src/sim/room';
-import { createYard, stepYard } from '../src/sim/sandbox';
 import { telegraphCovers } from '../src/sim/telegraphs';
-import { DT, PLAYER, PLUMB, ROD } from '../src/sim/tuning';
+import { DT, FREEZE, PLAYER, SCALING, SWORD } from '../src/sim/tuning';
 import { emptyInput } from '../src/sim/types';
-import type { Enemy, InputFrame, SimEvent, World } from '../src/sim/types';
+import type { SimEvent, World } from '../src/sim/types';
 import { createWorld, stepWorld } from '../src/sim/world';
-
-function world(seed = 5): World {
-  const w = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), seed, CONTENT);
-  w.player.x = w.player.px = 6.5;
-  w.player.y = w.player.py = 6.5;
-  return w;
-}
-
-const inp = (o: Partial<InputFrame> = {}): InputFrame => ({ ...emptyInput(), aimX: 100, aimY: 6.5, ...o });
-
-function steps(w: World, n: number, f: InputFrame = inp()): SimEvent[] {
-  const out: SimEvent[] = [];
-  for (let i = 0; i < n; i++) {
-    stepWorld(w, i === 0 ? f : { ...f, attackPressed: false, dashPressed: false, specialPressed: false, stakePressed: false });
-    out.push(...w.events);
-    w.events.length = 0;
-  }
-  return out;
-}
-
-/** A Smudge standing ready (spawn finished) that will not attack for a long while. */
-function dummy(w: World, x: number, y: number): Enemy {
-  const e = spawnEnemy(w, SMUDGE, x, y, { instant: true });
-  e.cooldowns.fill(999);
-  e.def = { ...SMUDGE, speed: 0 };
-  return e;
-}
+import { OPEN_ROOM } from './fixtures';
+import { PRESS, Pad, dummy, openWorld, run } from './helpers';
 
 describe('content', () => {
-  it('every enemy definition is valid and can hurt the player', () => {
+  it('every enemy definition is valid and can hurt a player', () => {
     for (const def of Object.values(CONTENT.enemies)) expect(validateEnemyDef(def)).toEqual([]);
   });
 });
 
-describe('Ranging Rod', () => {
+describe('the swing combo', () => {
   it('hits enemies in the arc after the wind-up, once per swing', () => {
-    const w = world();
-    const e = dummy(w, 8, 6.5);
-    const before = e.hp;
-    const ev = steps(w, 1, inp({ attackPressed: true }));
-    expect(w.player.state).toBe('swing');
-    expect(ev.some((x) => x.type === 'swing')).toBe(true);
+    const w = openWorld();
+    const p = w.players[0];
+    const e = dummy(w, p.x + 1.5, p.y);
+    const pad = new Pad();
+    run(w, 1, pad);
+    const ev = run(w, 1, pad.tap(PRESS.attack));
+    expect(p.state).toBe('swing');
+    expect(ev.some((x) => x.type === 'swing' && x.player === 0)).toBe(true);
     // nothing lands during the wind-up
-    expect(e.hp).toBe(before);
-    const more = steps(w, 30);
-    expect(more.filter((x) => x.type === 'hit')).toHaveLength(1);
-    expect(e.hp).toBe(before - ROD.damage[0]);
+    expect(e.hp).toBe(e.maxHp);
+    const more = run(w, 30, pad);
+    const hits = more.filter((x) => x.type === 'hit');
+    expect(hits).toHaveLength(1);
+    expect(hits[0].type === 'hit' && hits[0].by).toBe(0);
+    expect(e.hp).toBe(e.maxHp - SWORD.damage[0]);
   });
 
   it('misses enemies behind the player and out of reach', () => {
-    const w = world();
-    const behind = dummy(w, 5, 6.5);
-    const far = dummy(w, 6.5 + ROD.reach[0] + 1.2, 6.5);
-    steps(w, 30, inp({ attackPressed: true }));
+    const w = openWorld();
+    const p = w.players[0];
+    const behind = dummy(w, p.x - 1.5, p.y);
+    const far = dummy(w, p.x + SWORD.reach[0] + 1.2, p.y);
+    const pad = new Pad();
+    run(w, 1, pad);
+    run(w, 30, pad.tap(PRESS.attack));
     expect(behind.hp).toBe(behind.maxHp);
     expect(far.hp).toBe(far.maxHp);
   });
 
   it('chains three swings, the third heavier and with knockback', () => {
-    const w = world();
-    const e = dummy(w, 8, 6.5);
-    e.hp = e.maxHp = 1000;
+    const w = openWorld();
+    const p = w.players[0];
+    const e = dummy(w, p.x + 1.5, p.y, 1000);
+    const pad = new Pad();
+    run(w, 1, pad);
     const hits: number[] = [];
     const x0 = e.x;
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 120 && hits.length < 3; i++) {
       // tap attack every few ticks, like a player mashing
-      stepWorld(w, inp({ attackPressed: i % 6 === 0, aimX: e.x, aimY: e.y }));
-      for (const ev of w.events) if (ev.type === 'hit') hits.push(ev.amount);
-      w.events.length = 0;
-      if (hits.length === 3) break;
+      if (i % 6 === 0) pad.tap(PRESS.attack);
+      pad.aimAt(p, e.x, e.y);
+      for (const ev of run(w, 1, pad)) if (ev.type === 'hit') hits.push(ev.amount);
     }
-    expect(hits).toEqual([ROD.damage[0], ROD.damage[1], ROD.damage[2]]);
-    steps(w, 40);
-    expect(e.x - x0).toBeGreaterThan(ROD.knockback[2] * 0.6);
+    expect(hits).toEqual([SWORD.damage[0], SWORD.damage[1], SWORD.damage[2]]);
+    run(w, 40, pad);
+    expect(e.x - x0).toBeGreaterThan(SWORD.knockback[2] * 0.6);
   });
 
-  it('a full combo takes about as long as its three swings', () => {
-    const w = world();
-    const e = dummy(w, 8, 6.5);
-    e.hp = e.maxHp = 1000;
-    let third = -1;
-    let n = 0;
-    for (let i = 0; i < 120 && third < 0; i++) {
-      stepWorld(w, inp({ attackPressed: i % 3 === 0, aimX: e.x, aimY: e.y }));
-      for (const ev of w.events) if (ev.type === 'hit' && ++n === 3) third = w.time;
-      w.events.length = 0;
-    }
-    expect(third).toBeGreaterThan(0.3);
-    expect(third).toBeLessThan(1.0);
-  });
-
-  it('freezes the world briefly on a hit', () => {
-    const w = world();
-    dummy(w, 8, 6.5);
-    stepWorld(w, inp({ attackPressed: true }));
-    let froze = false;
+  it('freezes the striker and the struck for a moment, and nobody else', () => {
+    const w = openWorld(2);
+    const [a, b] = w.players;
+    b.x = b.px = 2;
+    b.y = b.py = 2;
+    const e = dummy(w, a.x + 1.5, a.y);
+    const bystander = dummy(w, 11, 10);
+    const padA = new Pad();
+    const padB = new Pad().move(1, 0);
+    run(w, 1, padA, padB);
+    padA.tap(PRESS.attack);
+    let frozenTogether = false;
     for (let i = 0; i < 20; i++) {
-      stepWorld(w, inp());
-      if (w.hitstop > 0) froze = true;
+      const bx = b.x;
+      run(w, 1, padA, padB);
+      if (a.freeze > 0 && e.freeze > 0) {
+        frozenTogether = true;
+        expect(bystander.freeze).toBe(0);
+        expect(b.freeze).toBe(0);
+      }
+      // the other player never stops walking
+      expect(b.x).toBeGreaterThan(bx);
     }
-    expect(froze).toBe(true);
+    expect(frozenTogether).toBe(true);
+    expect(w.freeze).toBe(0);
   });
 
-  it('a dash cancels a swing at once', () => {
-    const w = world();
-    stepWorld(w, inp({ attackPressed: true }));
-    stepWorld(w, inp());
-    stepWorld(w, inp({ dashPressed: true, moveX: 1 }));
-    expect(w.player.state).toBe('dash');
-  });
-
-  it('destroys light enemy projectiles in its arc', () => {
-    const w = world();
-    w.projectiles.push({
-      id: w.nextId++, kind: 'quill', faction: 'enemy', owner: 0,
-      x: 7.6, y: 6.5, px: 7.6, py: 6.5, vx: 0, vy: 0, radius: 0.14, damage: 8, life: 5, range: 50, light: true, targetStake: -1, dead: false,
-    });
-    const ev = steps(w, 12, inp({ attackPressed: true }));
+  it('knocks light shots out of the air', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const pad = new Pad();
+    run(w, 1, pad);
+    spawnProjectile(w, { kind: 'bolt', faction: 'enemy', owner: 99, x: p.x + 1.4, y: p.y, vx: -1, vy: 0, radius: 0.16, damage: 8, range: 10, light: true });
+    const ev = run(w, 12, pad.tap(PRESS.attack));
     expect(ev.some((x) => x.type === 'deflect')).toBe(true);
-    expect(w.projectiles).toHaveLength(0);
+    expect(p.hp).toBe(p.maxHp);
   });
 });
 
-describe('damage rules', () => {
-  it('kills, counts and removes an enemy, and reports it', () => {
-    const w = world();
-    const e = dummy(w, 9, 6.5);
-    damageEnemy(w, e, 999, { kind: 'rod', dx: 1, dy: 0 });
-    expect(e.dead).toBe(true);
-    expect(w.events.some((x) => x.type === 'enemyDeath')).toBe(true);
-    // the kill's hit-stop holds the world for a few ticks; the body is swept on the next live tick
-    steps(w, 8);
-    expect(w.enemies).toHaveLength(0);
-    expect(w.stats.kills).toBe(1);
-  });
-
-  it('cannot hurt an enemy that is still spawning', () => {
-    const w = world();
-    const e = spawnEnemy(w, SMUDGE, 9, 6.5);
-    damageEnemy(w, e, 10, { kind: 'rod', dx: 1, dy: 0 });
+describe('enemies', () => {
+  it('cannot act or be hurt while they are appearing', () => {
+    const w = openWorld();
+    const e = spawnEnemy(w, THRUM, 10, 6.5);
+    expect(damageEnemy(w, e, 20, { kind: 'direct', by: 0, dx: 1, dy: 0 })).toBe(false);
     expect(e.hp).toBe(e.maxHp);
-    steps(w, Math.ceil(SPAWN_TIME / DT) + 1);
+    run(w, Math.ceil(SPAWN_TIME / DT) + 2, new Pad());
     expect(e.state).not.toBe('spawn');
   });
 
-  it('hit-stop requests do not add up', () => {
-    const w = world();
-    hitStop(w, 0.05);
-    hitStop(w, 0.03);
-    hitStop(w, 0.05);
-    expect(w.hitstop).toBeCloseTo(0.05);
-    hitStop(w, 5);
-    expect(w.hitstop).toBeLessThan(0.2);
-  });
-
-  it('the player is invulnerable for a moment after being hurt, and can die', () => {
-    const w = world();
-    expect(damagePlayer(w, 10, 0, 6.5, 2)).toBe(true);
-    expect(w.player.hp).toBe(PLAYER.maxHp - 10);
-    expect(damagePlayer(w, 10, 0, 6.5, 2)).toBe(false);
-    w.player.iframes = 0;
-    damagePlayer(w, 9999, 0, 6.5, 0);
-    expect(w.player.state).toBe('dead');
-    expect(w.events.some((x) => x.type === 'playerDeath')).toBe(true);
-    const x = w.player.x;
-    steps(w, 30, inp({ moveX: 1 }));
-    expect(w.player.x).toBe(x);
-  });
-
-  it('a stun cancels a wind-up and grants immunity afterwards', () => {
-    const w = world();
-    const e = spawnEnemy(w, SMUDGE, 8.5, 6.5, { instant: true });
+  it('warn with a lane that covers where the lunge will hit, then hurt whoever stands in it', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const e = spawnEnemy(w, THRUM, p.x + 2.4, p.y, { instant: true });
     e.cooldowns.fill(0);
-    let wound = false;
-    for (let i = 0; i < 60 && !wound; i++) {
-      steps(w, 1);
-      wound = e.state === 'windup';
+    const pad = new Pad();
+    let sawTelegraph = false;
+    let hurt = false;
+    for (let i = 0; i < 240 && !hurt; i++) {
+      const ev = run(w, 1, pad);
+      for (const t of w.telegraphs) {
+        if (t.owner === e.id && t.t < t.dur && telegraphCovers(t, p.x, p.y, p.radius)) sawTelegraph = true;
+      }
+      if (ev.some((x) => x.type === 'playerHurt' && x.player === 0)) hurt = true;
     }
-    expect(wound).toBe(true);
-    expect(w.telegraphs.length).toBe(1);
+    expect(sawTelegraph).toBe(true);
+    expect(hurt).toBe(true);
+    expect(p.hp).toBeLessThan(p.maxHp);
+  });
+
+  it('are cancelled by a stun, and cannot be stunned again at once', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const e = spawnEnemy(w, THRUM, p.x + 2.4, p.y, { instant: true });
+    e.cooldowns.fill(0);
+    const pad = new Pad();
+    for (let i = 0; i < 120 && e.state !== 'windup'; i++) run(w, 1, pad);
+    expect(e.state).toBe('windup');
     expect(stunEnemy(w, e, 0.5)).toBe(true);
     expect(e.state).toBe('stun');
-    steps(w, 1);
-    expect(w.telegraphs.filter((t) => !t.dead && t.owner === e.id)).toHaveLength(0);
+    expect(w.telegraphs.every((t) => t.owner !== e.id || t.dead)).toBe(true);
+    run(w, 40, pad);
     expect(stunEnemy(w, e, 0.5)).toBe(false);
   });
-});
 
-describe('the Smudge', () => {
-  it('telegraphs its lunge for the full wind-up before anything can hit', () => {
-    const w = world();
-    const e = spawnEnemy(w, SMUDGE, 8.6, 6.5, { instant: true });
-    e.cooldowns.fill(0);
-    let windupAt = -1;
-    let hurtAt = -1;
-    for (let i = 0; i < 200 && hurtAt < 0; i++) {
-      stepWorld(w, inp());
-      for (const ev of w.events) {
-        if (ev.type === 'enemyWindup' && windupAt < 0) windupAt = w.time;
-        if (ev.type === 'playerHurt') hurtAt = w.time;
-      }
-      w.events.length = 0;
-    }
-    expect(windupAt).toBeGreaterThanOrEqual(0);
-    expect(hurtAt).toBeGreaterThan(0);
-    expect(hurtAt - windupAt).toBeGreaterThanOrEqual(SMUDGE.moves[0].windup - 1e-6);
-    expect(w.player.hp).toBe(PLAYER.maxHp - 10);
+  it('go for the nearest player, and for another when that one is down', () => {
+    const w = openWorld(2);
+    const [a, b] = w.players;
+    a.x = a.px = 3;
+    b.x = b.px = 11;
+    const e = spawnEnemy(w, THRUM, 9.5, 6.5, { instant: true });
+    e.cooldowns.fill(999);
+    run(w, 20, new Pad(), new Pad());
+    expect(e.target).toBe(1);
+    damagePlayer(w, b, 999, e.x, e.y, 0);
+    expect(standing(b)).toBe(false);
+    run(w, 30, new Pad(), new Pad());
+    expect(e.target).toBe(0);
   });
 
-  it('the telegraph covers the path the lunge takes', () => {
-    const w = world();
-    const e = spawnEnemy(w, SMUDGE, 8.6, 6.5, { instant: true });
-    e.cooldowns.fill(0);
-    let lane = null as null | { x: number; y: number; angle: number; length: number; width: number };
-    const path: Array<[number, number]> = [];
-    w.player.iframes = 99;
-    for (let i = 0; i < 160; i++) {
-      stepWorld(w, inp());
-      const t = w.telegraphs.find((tg) => tg.owner === e.id);
-      if (e.state === 'windup' && t) lane = { x: t.x, y: t.y, angle: t.angle, length: t.length, width: t.width };
-      if (e.state === 'attack') path.push([e.x, e.y]);
-      if (e.state === 'recover') break;
-      w.events.length = 0;
-    }
-    expect(lane).not.toBeNull();
-    expect(path.length).toBeGreaterThan(3);
-    const tg = { ...(lane as NonNullable<typeof lane>), id: 0, owner: 0, shape: 'lane' as const, radius: 0, halfArc: 0, t: 0, dur: 1, trackUntil: 0, dead: false };
-    for (const [x, y] of path) expect(telegraphCovers(tg, x, y, 0.05)).toBe(true);
-  });
-
-  it('can be dodged by dashing sideways late in the wind-up', () => {
-    const w = world();
-    const e = spawnEnemy(w, SMUDGE, 8.6, 6.5, { instant: true });
-    e.cooldowns.fill(0);
-    let dashed = false;
-    for (let i = 0; i < 200; i++) {
-      const late = e.state === 'windup' && e.stateTime > e.stateDur - 0.1;
-      const f = inp({ moveY: late ? 1 : 0, dashPressed: late && !dashed });
-      if (late) dashed = true;
-      stepWorld(w, f);
-      w.events.length = 0;
-      if (e.state === 'recover') break;
-    }
-    expect(dashed).toBe(true);
-    expect(w.player.hp).toBe(PLAYER.maxHp);
-  });
-
-  it('stays on the floor through lunges and knockback', () => {
-    const w = world(11);
-    const yard = createYard();
-    const bot = rodBot();
-    for (let i = 0; i < 6000; i++) {
-      stepYard(w, yard, SMUDGE, DT);
-      stepWorld(w, bot.think(w));
-      w.events.length = 0;
-      w.player.hp = w.player.maxHp;
-      if (w.player.state === 'dead') break;
-      for (const e of w.enemies) {
-        if (!isClear(w.room, e.x, e.y, e.radius * 0.9)) throw new Error(`enemy left the floor at tick ${i}: (${e.x}, ${e.y}) ${e.state}`);
-        expect(Number.isFinite(e.x + e.y)).toBe(true);
-      }
-    }
+  it('are tougher when more players are present', () => {
+    const solo = spawnEnemy(openWorld(1), THRUM, 10, 6.5);
+    const trio = spawnEnemy(openWorld(3), THRUM, 10, 6.5);
+    expect(trio.maxHp).toBe(Math.round(THRUM.hp * (1 + SCALING.coopHp * 2)));
+    expect(trio.maxHp).toBeGreaterThan(solo.maxHp);
   });
 });
 
-describe('Plumb Shot', () => {
-  it('hooks the first enemy on its path, damages it and drags it toward the player', () => {
-    const w = world();
-    const near = dummy(w, 11, 6.5);
-    const far = dummy(w, 12.5, 6.5);
-    near.hp = near.maxHp = 500;
-    const ev = steps(w, 40, inp({ specialPressed: true, aimX: 20, aimY: 6.5 }));
-    expect(ev.some((x) => x.type === 'plumbFire')).toBe(true);
-    expect(ev.some((x) => x.type === 'plumbHook')).toBe(true);
-    expect(near.hp).toBe(500 - PLUMB.damage);
-    expect(far.hp).toBe(far.maxHp);
-    expect(11 - near.x).toBeGreaterThan(PLUMB.drag * 0.8);
-    expect(11 - near.x).toBeLessThan(PLUMB.drag * 1.1);
+describe('getting hurt', () => {
+  it('grants a moment of invulnerability and knocks the player back', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    expect(damagePlayer(w, p, 10, p.x - 1, p.y, 2)).toBe(true);
+    expect(damagePlayer(w, p, 10, p.x - 1, p.y, 2)).toBe(false);
+    expect(p.hp).toBe(PLAYER.maxHp - 10);
+    const x0 = p.x;
+    run(w, 30, new Pad());
+    expect(p.x).toBeGreaterThan(x0 + 0.5);
   });
 
-  it('goes on cooldown and refuses a second cast', () => {
-    const w = world();
-    steps(w, 30, inp({ specialPressed: true }));
-    expect(w.player.plumbCooldown).toBeGreaterThan(PLUMB.cooldown - 1);
-    const ev = steps(w, 3, inp({ specialPressed: true }));
-    expect(ev.some((x) => x.type === 'refused')).toBe(true);
-    expect(ev.some((x) => x.type === 'plumbFire')).toBe(false);
-    steps(w, Math.ceil(PLUMB.cooldown / DT));
-    expect(w.player.plumbCooldown).toBe(0);
+  it('puts a player down at zero health and freezes the chamber for a beat', () => {
+    const w = openWorld(2);
+    const [a] = w.players;
+    const ev: SimEvent[] = [];
+    damagePlayer(w, a, 999, a.x - 1, a.y, 0);
+    ev.push(...w.events);
+    expect(a.state).toBe('down');
+    expect(ev.some((x) => x.type === 'playerDown' && x.player === 0)).toBe(true);
+    expect(w.freeze).toBe(FREEZE.playerDown);
+    // a downed player does not act
+    const pad = new Pad().move(1, 0);
+    const x0 = a.x;
+    run(w, 30, pad, new Pad());
+    expect(a.x).toBe(x0);
   });
 
-  it('expires at its range when it hits nothing', () => {
-    const w = world();
-    const ev = steps(w, 40, inp({ specialPressed: true, aimX: 6.5, aimY: 0 }));
-    expect(ev.some((x) => x.type === 'plumbMiss')).toBe(true);
+  it('hurts a player caught by an enemy shot, once', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    spawnProjectile(w, { kind: 'bolt', faction: 'enemy', owner: 99, x: p.x + 3, y: p.y, vx: -9, vy: 0, radius: 0.16, damage: 8, range: 12 });
+    run(w, 40, new Pad());
+    expect(p.hp).toBe(p.maxHp - 8);
     expect(w.projectiles).toHaveLength(0);
   });
 });
 
-function fight(bot: Bot, seed: number, waves: number, maxTicks: number): { won: boolean; dead: boolean; kills: number; ticks: number; hp: number } {
-  const w = createWorld(buildRoom(roomTemplate('bluefen-reedbed')), seed, CONTENT);
-  const yard = createYard(waves);
-  let t = 0;
-  for (; t < maxTicks; t++) {
-    stepYard(w, yard, SMUDGE, DT);
-    stepWorld(w, bot.think(w));
+describe('Chimes', () => {
+  it('are paid to every player when anyone picks them up', () => {
+    const w = openWorld(3);
+    const [a] = w.players;
+    dropChimes(w, a.x + 0.5, a.y, 7);
+    run(w, 120, new Pad(), new Pad(), new Pad());
+    for (const p of w.players) expect(p.chimes).toBe(7);
+    expect(w.flow.pickups).toHaveLength(0);
+  });
+});
+
+/** Play one chamber of waves with a bot in every seat. */
+function playChamber(players: number, makeBot: () => Bot, seed: number, maxSeconds = 120): { w: World; cleared: boolean; ticks: number } {
+  const entrants = Array.from({ length: players }, (_, slot) => ({ slot, classId: 'sword' }));
+  const w = createWorld(buildRoom(OPEN_ROOM), seed, CONTENT, { entrants, flow: createFlow(1, players) });
+  const bots = entrants.map(() => makeBot());
+  const idle = emptyInput();
+  let ticks = 0;
+  for (; ticks < maxSeconds * 60; ticks++) {
+    stepWorld(w, bots.map((b, slot) => b.think(w, slot)), idle);
     w.events.length = 0;
-    if (w.player.state === 'dead' || yard.done) break;
+    for (const p of w.players) {
+      if (!isClear(w.room, p.x, p.y, p.radius * 0.9)) throw new Error('a player left the floor');
+    }
+    if (w.flow.phase === 'cleared' || !w.players.some(standing)) break;
   }
-  return { won: yard.done && w.player.state !== 'dead', dead: w.player.state === 'dead', kills: w.stats.kills, ticks: t, hp: w.player.hp };
+  return { w, cleared: w.flow.phase === 'cleared', ticks };
 }
 
-describe('bots in the yard', () => {
-  it('an idle player loses to Smudges', () => {
-    const r = fight(idleBot(), 3, 6, 60 * 240);
-    expect(r.dead).toBe(true);
+describe('bots', () => {
+  it('an idle player loses', () => {
+    const r = playChamber(1, idleBot, 11);
+    expect(r.cleared).toBe(false);
+    expect(r.w.players[0].state).toBe('down');
   });
 
-  it('a rod-swinging bot that dodges clears three waves on several seeds', () => {
-    let wins = 0;
-    for (const seed of [1, 2, 3, 4, 5, 6]) {
-      const r = fight(rodBot({ reaction: 0.2, dashes: true }), seed, 3, 60 * 180);
-      if (r.won) wins++;
-    }
-    expect(wins).toBeGreaterThanOrEqual(4);
+  it('a sword bot clears a chamber of waves alone', () => {
+    let cleared = 0;
+    for (const seed of [1, 2, 3, 4, 5]) if (playChamber(1, () => swordBot(), seed).cleared) cleared++;
+    expect(cleared).toBeGreaterThanOrEqual(4);
   });
 
-  it('fights are deterministic for a seed', () => {
-    const a = fight(rodBot(), 9, 2, 60 * 120);
-    const b = fight(rodBot(), 9, 2, 60 * 120);
-    expect(a).toEqual(b);
+  it('three sword bots clear a chamber together, against a bigger wave', () => {
+    const solo = playChamber(1, () => swordBot(), 7);
+    const trio = playChamber(3, () => swordBot(), 7);
+    expect(trio.cleared).toBe(true);
+    expect(trio.w.stats.kills).toBeGreaterThan(solo.w.stats.kills);
   });
 });

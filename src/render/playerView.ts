@@ -1,18 +1,16 @@
-// The Chainman on screen: rig, ground shadow, trailing survey chain, dash afterimages.
-import { Graphics, GraphicsContext } from 'pixi.js';
+// A player on screen: rig, ground shadow, a ring in their own colour, dash afterimages.
+import { Graphics } from 'pixi.js';
 import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { damp, lerp } from '../core/math';
 import { DASH, PLAYER } from '../sim/tuning';
-import type { PlayerState } from '../sim/types';
-import type { SimEvent, World } from '../sim/types';
+import type { Player, SimEvent } from '../sim/types';
 import type { Sortable } from './depth';
-import { CHALK, DANGER_HOT, HERO } from './palette';
+import { DANGER_HOT, HERO, PLAYER_COLORS, RIM } from './palette';
 import { animInput } from './rig/def';
 import { CHAINMAN, chainmanAnimator } from './rig/chainman';
 import { RigView } from './rig/view';
 import type { Stage } from './stage';
 
-const CHAIN_LINKS = 7;
 const GHOSTS = 4;
 
 interface Ghost {
@@ -26,41 +24,33 @@ export class PlayerView {
   private readonly anim = animInput();
   private readonly sort: Sortable;
   private readonly shadow: Graphics;
-  private readonly links: Array<{ x: number; y: number; g: Graphics }> = [];
+  private readonly ring: Graphics;
   private readonly ghosts: Ghost[] = [];
   private facing = 1;
   private away = false;
   private ghostTimer = 0;
   private ghostsLeft = 0;
   private squash = 0;
-  /** A short gesture played over idle or run: planting a stake, hauling one in. */
-  private gesture: { state: 'plant' | 'whip'; t: number; dur: number } | null = null;
-  private lastState: PlayerState = 'idle';
   /** Interpolated world position this frame. */
   x = 0;
   y = 0;
-  /** The tip of the rod in camera-space pixels: the Plumb Shot's cord starts here. */
-  handX = 0;
-  handY = 0;
+  seen = 0;
 
-  constructor(private readonly stage: Stage) {
+  constructor(
+    private readonly stage: Stage,
+    readonly slot: number,
+  ) {
     this.sort = stage.depth.add(this.rig.root, 0, 0);
-
     this.shadow = new Graphics().circle(0, 0, PLAYER.radius * 1.15 * TILE).fill({ color: 0x000000, alpha: 0.34 });
-    stage.decals.addChild(this.shadow);
-
-    const linkCtx = new GraphicsContext().circle(0, 0, 0.075 * TILE).stroke({ width: 0.03 * TILE, color: 0xffffff });
-    for (let i = 0; i < CHAIN_LINKS; i++) {
-      const g = new Graphics(linkCtx);
-      g.tint = CHALK;
-      g.alpha = 0.55 - i * 0.05;
-      stage.decals.addChild(g);
-      this.links.push({ x: 0, y: 0, g });
-    }
+    // the ring says whose character this is, in co-op and alone
+    this.ring = new Graphics().circle(0, 0, PLAYER.radius * 1.5 * TILE).stroke({ width: 0.07 * TILE, color: 0xffffff });
+    this.ring.tint = PLAYER_COLORS[slot] ?? RIM;
+    this.ring.alpha = 0.85;
+    stage.decals.addChild(this.shadow, this.ring);
 
     for (let i = 0; i < GHOSTS; i++) {
       const rig = new RigView(CHAINMAN);
-      rig.setFlash(1, HERO.rim);
+      rig.setFlash(1, PLAYER_COLORS[slot] ?? HERO.rim);
       // Flattened to one texture so the afterimage fades as a single silhouette
       // instead of showing every overlapping part.
       rig.root.cacheAsTexture({ antialias: true, resolution: 1.5 });
@@ -69,40 +59,19 @@ export class PlayerView {
     }
   }
 
-  /** Place everything exactly, with no smoothing (room entry, teleports). */
-  snap(w: World): void {
-    const p = w.player;
-    this.x = p.x;
-    this.y = p.y;
-    for (const l of this.links) {
-      l.x = p.x;
-      l.y = p.y;
-    }
-  }
-
-  /** Play a short gesture over idle or run. */
-  playGesture(state: 'plant' | 'whip', dur: number): void {
-    this.gesture = { state, t: 0, dur };
-  }
-
-  get state(): PlayerState {
-    return this.lastState;
-  }
-
   handle(ev: SimEvent): void {
-    if (ev.type === 'dash') {
+    if (ev.type === 'dash' && ev.player === this.slot) {
       this.ghostsLeft = GHOSTS;
       this.ghostTimer = 0;
       this.squash = 1;
-    } else if (ev.type === 'dashEnd') {
+    } else if (ev.type === 'dashEnd' && ev.player === this.slot) {
       this.squash = -0.6;
-    } else if (ev.type === 'playerHurt') {
+    } else if (ev.type === 'playerHurt' && ev.player === this.slot) {
       this.squash = -0.8;
     }
   }
 
-  update(w: World, alpha: number, dt: number, time: number): void {
-    const p = w.player;
+  update(p: Player, alpha: number, dt: number, time: number): void {
     const x = lerp(p.px, p.x, alpha);
     const y = lerp(p.py, p.y, alpha);
     this.x = x;
@@ -112,14 +81,15 @@ export class PlayerView {
     this.rig.root.position.set(sx, sy);
     this.sort.depth = depthKey(x, y);
     this.shadow.position.set(x * TILE, y * TILE);
+    this.ring.position.set(x * TILE, y * TILE);
 
-    // Facing: toward the cursor, or along the dash while dashing.
+    // Facing: along the aim, or along the dash while dashing.
     let fx = Math.cos(p.aim);
     let fy = Math.sin(p.aim);
     if (p.state === 'dash') {
       fx = p.dashDirX;
       fy = p.dashDirY;
-    } else if (p.state === 'swing' || p.state === 'shot') {
+    } else if (p.state === 'swing') {
       fx = Math.cos(p.actAngle);
       fy = Math.sin(p.actAngle);
     }
@@ -141,12 +111,8 @@ export class PlayerView {
     a.aim = Math.atan2(scrY, scrX * this.facing);
     a.away = this.away;
     a.variant = 0;
-    if (this.gesture) {
-      this.gesture.t += dt;
-      if (this.gesture.t >= this.gesture.dur || p.state === 'swing' || p.state === 'shot' || p.state === 'dash' || p.state === 'dead') this.gesture = null;
-    }
     const flinching = p.hurtT < 0.22 && (p.state === 'idle' || p.state === 'run');
-    if (p.state === 'dead') {
+    if (p.state === 'down') {
       a.state = 'dead';
       a.t = p.stateTime;
       a.phase = Math.min(1, p.stateTime / 0.7);
@@ -154,8 +120,8 @@ export class PlayerView {
       a.state = 'hurt';
       a.t = p.hurtT;
       a.phase = Math.min(1, p.hurtT / 0.22);
-    } else if (p.state === 'swing' || p.state === 'shot') {
-      a.state = p.state;
+    } else if (p.state === 'swing') {
+      a.state = 'swing';
       a.t = p.stateTime;
       a.phase = p.actDur > 0 ? Math.min(1, p.stateTime / p.actDur) : 0;
       a.variant = p.combo;
@@ -163,16 +129,11 @@ export class PlayerView {
       a.state = 'dash';
       a.t = p.stateTime;
       a.phase = Math.min(1, p.stateTime / DASH.time);
-    } else if (this.gesture) {
-      a.state = this.gesture.state;
-      a.t = this.gesture.t;
-      a.phase = Math.min(1, this.gesture.t / this.gesture.dur);
     } else {
       a.state = p.state;
       a.t = p.stateTime;
       a.phase = 0;
     }
-    this.lastState = p.state;
     this.rig.beginPose();
     const rate = chainmanAnimator(this.rig, a);
     this.rig.applyPose(dt, rate);
@@ -180,26 +141,15 @@ export class PlayerView {
     // Hurt: a danger-coloured flash, then blink while invulnerable.
     const hurtFlash = Math.max(0, 1 - p.hurtT / 0.12);
     this.rig.setFlash(hurtFlash, DANGER_HOT);
-    const blinking = p.state !== 'dead' && p.hurtT < PLAYER.hurtIframes && p.hurtT > 0.12;
+    const blinking = p.state !== 'down' && p.hurtT < PLAYER.hurtIframes && p.hurtT > 0.12;
     this.rig.root.alpha = blinking && Math.floor(time * 22) % 2 === 0 ? 0.45 : 1;
-
-    // The tip of the rod, where the cord of the Plumb Shot starts.
-    const rod = this.rig.node('rod');
-    if (rod && this.rig.root.parent) {
-      const lp = this.rig.root.parent.toLocal(rod.toGlobal({ x: 0, y: -62 }));
-      this.handX = lp.x;
-      this.handY = lp.y;
-    } else {
-      this.handX = sx;
-      this.handY = sy - 60;
-    }
+    this.ring.alpha = p.state === 'down' ? 0.3 : 0.85;
 
     // Squash and stretch around the dash: stretch on launch, squash on landing.
     this.squash = damp(this.squash, 0, 12, dt);
     const st = this.squash;
     this.rig.setSquash(1 + st * 0.16, 1 - st * 0.12);
 
-    this.updateChain(x, y, dt);
     this.updateGhosts(sx, sy, x, y, dt, p.state === 'dash');
   }
 
@@ -207,35 +157,10 @@ export class PlayerView {
     this.stage.depth.remove(this.sort);
     this.rig.destroy();
     this.shadow.destroy();
-    for (const l of this.links) l.g.destroy();
+    this.ring.destroy();
     for (const g of this.ghosts) {
       this.stage.depth.remove(g.sort);
       g.rig.destroy();
-    }
-  }
-
-  private updateChain(x: number, y: number, dt: number): void {
-    // The first link trails the heels; each later link is dragged by the one before it.
-    let tx = x;
-    let ty = y;
-    const gap = 0.17;
-    for (let i = 0; i < this.links.length; i++) {
-      const l = this.links[i];
-      const dx = l.x - tx;
-      const dy = l.y - ty;
-      const d = Math.hypot(dx, dy);
-      const want = i === 0 ? 0.3 : gap;
-      if (d > want) {
-        const k = want / d;
-        // dragged taut, with a little lag so it snakes
-        const nx = tx + dx * k;
-        const ny = ty + dy * k;
-        l.x = damp(l.x, nx, 30, dt);
-        l.y = damp(l.y, ny, 30, dt);
-      }
-      l.g.position.set(l.x * TILE, l.y * TILE);
-      tx = l.x;
-      ty = l.y;
     }
   }
 
@@ -263,5 +188,44 @@ export class PlayerView {
       }
       g.rig.root.alpha = g.life * 0.42;
     }
+  }
+}
+
+/** One view per player in the world being watched; views come and go with the players. */
+export class PlayerViews {
+  private readonly views = new Map<number, PlayerView>();
+  private frame = 0;
+
+  constructor(private readonly stage: Stage) {}
+
+  get(slot: number): PlayerView | undefined {
+    return this.views.get(slot);
+  }
+
+  handle(ev: SimEvent): void {
+    for (const v of this.views.values()) v.handle(ev);
+  }
+
+  update(players: readonly Player[], alpha: number, dt: number, time: number): void {
+    this.frame++;
+    for (const p of players) {
+      let v = this.views.get(p.slot);
+      if (!v) {
+        v = new PlayerView(this.stage, p.slot);
+        this.views.set(p.slot, v);
+      }
+      v.seen = this.frame;
+      v.update(p, alpha, dt, time);
+    }
+    for (const [slot, v] of this.views) {
+      if (v.seen === this.frame) continue;
+      v.destroy();
+      this.views.delete(slot);
+    }
+  }
+
+  clear(): void {
+    for (const v of this.views.values()) v.destroy();
+    this.views.clear();
   }
 }

@@ -4,10 +4,8 @@
 import { CAIRN_RIG, cairnAnimator } from './cairn';
 import { CHAINMAN, chainmanAnimator } from './chainman';
 import type { Animator, RigDef } from './def';
-import { HACHURE_RIG, hachureAnimator } from './hachure';
-import { SHEARWING_RIG, shearwingAnimator } from './shearwing';
-import { SMUDGE_RIG, smudgeAnimator } from './smudge';
 import { ENEMY_STATES, PLAYER_STATES } from './states';
+import { THRUM_RIG, thrumAnimator } from './thrum';
 
 export interface RigEntry {
   def: RigDef;
@@ -31,21 +29,9 @@ export const RIGS: Record<string, RigEntry> = {
     required: ENEMY_STATES,
     variants: { windup: [0, 1], attack: [0, 1], recover: [0, 1] },
   },
-  smudge: {
-    def: SMUDGE_RIG,
-    animator: smudgeAnimator,
-    required: ENEMY_STATES,
-    variants: {},
-  },
-  shearwing: {
-    def: SHEARWING_RIG,
-    animator: shearwingAnimator,
-    required: ENEMY_STATES,
-    variants: {},
-  },
-  hachure: {
-    def: HACHURE_RIG,
-    animator: hachureAnimator,
+  thrum: {
+    def: THRUM_RIG,
+    animator: thrumAnimator,
     required: ENEMY_STATES,
     variants: {},
   },

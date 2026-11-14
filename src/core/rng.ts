@@ -76,7 +76,15 @@ export class Rng {
     return new Rng((this.s ^ hashString(label)) >>> 0);
   }
 
+  /** The whole of the generator's state: one unsigned 32-bit number. */
   get state(): number {
     return this.s;
+  }
+
+  /** A generator that continues exactly where a saved one stood. */
+  static fromState(state: number): Rng {
+    const r = new Rng(1);
+    r.s = state >>> 0;
+    return r;
   }
 }

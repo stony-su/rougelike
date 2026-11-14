@@ -1,17 +1,17 @@
-// Projectiles: enemy shots, and the player's plumb bob.
-import { circleTouchesSegment } from '../core/geom';
-import { damageEnemy, damagePlayer } from './combat';
-import { breakHostileNear, oldestPlanted, relocateStake } from './lines';
+// Projectiles: things in flight that hurt whoever is on the other side.
+import { dhypot } from '../core/dmath';
+import { circleTouchesSegment, closestT } from '../core/geom';
+import { damageEnemy, damagePlayer, standing } from './combat';
 import { isFloorTile } from './room';
-import { PLUMB } from './tuning';
-import type { Projectile, World } from './types';
+import type { Enemy, Projectile, World } from './types';
 
 export function spawnProjectile(
   w: World,
   o: {
     kind: string;
     faction: 'player' | 'enemy';
-    owner?: number;
+    /** An enemy id for enemy shots, a player slot for player shots. */
+    owner: number;
     x: number;
     y: number;
     vx: number;
@@ -20,15 +20,14 @@ export function spawnProjectile(
     damage: number;
     range: number;
     light?: boolean;
-    targetStake?: number;
   },
 ): Projectile {
-  const speed = Math.hypot(o.vx, o.vy) || 1;
+  const speed = dhypot(o.vx, o.vy) || 1;
   const p: Projectile = {
     id: w.nextId++,
     kind: o.kind,
     faction: o.faction,
-    owner: o.owner ?? 0,
+    owner: o.owner,
     x: o.x,
     y: o.y,
     px: o.x,
@@ -40,7 +39,6 @@ export function spawnProjectile(
     life: o.range / speed + 0.05,
     range: o.range,
     light: o.light ?? false,
-    targetStake: o.targetStake ?? -1,
     dead: false,
   };
   w.projectiles.push(p);
@@ -54,7 +52,7 @@ function end(w: World, p: Projectile, hit: boolean): void {
   w.events.push({ type: 'projectileEnd', id: p.id, kind: p.kind, x: p.x, y: p.y, hit });
 }
 
-/** Remove a projectile early (deflected by the Rod, reflected, blocked). */
+/** Remove a projectile early (struck out of the air, blocked). */
 export function destroyProjectile(w: World, p: Projectile): void {
   end(w, p, true);
 }
@@ -67,7 +65,6 @@ function hitsPillar(w: World, p: Projectile): boolean {
 }
 
 export function stepProjectiles(w: World, dt: number): void {
-  const pl = w.player;
   let anyDead = false;
   for (const p of w.projectiles) {
     if (p.dead) {
@@ -79,81 +76,33 @@ export function stepProjectiles(w: World, dt: number): void {
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.life -= dt;
-    p.range -= Math.hypot(p.vx, p.vy) * dt;
+    p.range -= dhypot(p.vx, p.vy) * dt;
 
     if (p.faction === 'enemy') {
-      // Swept test, so a fast shot cannot skip through the player between ticks.
-      if (pl.state !== 'dead' && circleTouchesSegment(pl.x, pl.y, pl.radius + p.radius, p.px, p.py, p.x, p.y)) {
-        if (pl.iframes <= 0) {
-          damagePlayer(w, p.damage, p.px, p.py, 1.2);
-          end(w, p, true);
-        }
-      }
-    } else if (p.kind !== 'plumb') {
-      // A shot turned back on its makers: it strikes the first enemy in its way.
-      for (const e of w.enemies) {
-        if (e.dead || e.state === 'spawn' || e.burrowed) continue;
-        if (!circleTouchesSegment(e.x, e.y, e.radius + p.radius, p.px, p.py, p.x, p.y)) continue;
-        const sp = Math.hypot(p.vx, p.vy) || 1;
-        damageEnemy(w, e, p.damage, { kind: 'other', dx: p.vx / sp, dy: p.vy / sp, knock: 0.4 });
+      // Swept test, so a fast shot cannot skip through a player between ticks.
+      for (const pl of w.players) {
+        if (!standing(pl) || pl.iframes > 0) continue;
+        if (!circleTouchesSegment(pl.x, pl.y, pl.radius + p.radius, p.px, p.py, p.x, p.y)) continue;
+        damagePlayer(w, pl, p.damage, p.px, p.py, 1.2);
         end(w, p, true);
         break;
       }
     } else {
-      // First enemy along the path is hooked.
-      let best = null as null | { e: (typeof w.enemies)[number]; d: number };
+      // The first enemy along the path is struck: nearest along the segment, lowest id on a tie.
+      let best: Enemy | null = null;
+      let bestT = Infinity;
       for (const e of w.enemies) {
         if (e.dead || e.state === 'spawn') continue;
         if (!circleTouchesSegment(e.x, e.y, e.radius + p.radius, p.px, p.py, p.x, p.y)) continue;
-        const d = Math.hypot(e.x - p.px, e.y - p.py);
-        if (!best || d < best.d) best = { e, d };
+        const t = closestT(e.x, e.y, p.px, p.py, p.x, p.y);
+        if (t < bestT || (t === bestT && best !== null && e.id < best.id)) {
+          best = e;
+          bestT = t;
+        }
       }
       if (best) {
-        const e = best.e;
-        const sp = Math.hypot(p.vx, p.vy) || 1;
-        p.x = e.x;
-        p.y = e.y;
-        w.events.push({ type: 'plumbHook', x: e.x, y: e.y, target: e.id });
-        const killed = damageEnemy(w, e, p.damage, { kind: 'plumb', dx: p.vx / sp, dy: p.vy / sp });
-        if (!killed && e.def.mass < 3) {
-          // Drag toward the player, stopping short of standing on top of them.
-          const dx = pl.x - e.x;
-          const dy = pl.y - e.y;
-          const dist = Math.hypot(dx, dy);
-          const pull = Math.max(0, Math.min((PLUMB.drag + w.mods.plumbDrag) / e.def.mass, dist - (pl.radius + e.radius + 0.35)));
-          if (pull > 0.05) {
-            e.dragT = PLUMB.dragTime;
-            e.dragVX = (dx / dist) * (pull / PLUMB.dragTime);
-            e.dragVY = (dy / dist) * (pull / PLUMB.dragTime);
-          }
-        }
-        end(w, p, true);
-      }
-      // Otherwise it may catch what it was cast at: one of the player's own stakes, yanked home.
-      if (!p.dead && p.targetStake >= 0) {
-        const st = w.lines.stakes[p.targetStake];
-        if (st && st.state === 'planted' && circleTouchesSegment(st.x, st.y, PLUMB.stakeCatchRadius, p.px, p.py, p.x, p.y)) {
-          p.x = st.x;
-          p.y = st.y;
-          w.events.push({ type: 'plumbHook', x: st.x, y: st.y, target: 0 });
-          if (w.mods.plumbSwap) {
-            // Backsight: change places with the stake. Its lines sweep to where the player stood.
-            const sx = st.x;
-            const sy = st.y;
-            relocateStake(w, st.id, pl.x, pl.y, 'swap');
-            pl.x = pl.px = sx;
-            pl.y = pl.py = sy;
-            pl.vx = pl.vy = 0;
-            w.events.push({ type: 'teleport', x: sx, y: sy });
-          } else {
-            relocateStake(w, st.id, pl.x, pl.y, 'yank');
-          }
-          end(w, p, true);
-        }
-      }
-      // It uproots hostile stakes it touches.
-      if (!p.dead && breakHostileNear(w, p.x, p.y, 0.45) > 0) {
-        w.events.push({ type: 'plumbHook', x: p.x, y: p.y, target: 0 });
+        const sp = dhypot(p.vx, p.vy) || 1;
+        damageEnemy(w, best, p.damage, { kind: 'return', by: p.owner, dx: p.vx / sp, dy: p.vy / sp, knock: 0.4, freeze: 2 });
         end(w, p, true);
       }
     }
@@ -163,23 +112,14 @@ export function stepProjectiles(w: World, dt: number): void {
       continue;
     }
     if (p.life <= 0 || p.range <= 0) {
-      if (p.kind === 'plumb') {
-        w.events.push({ type: 'plumbMiss', x: p.x, y: p.y });
-        // Offset: a cast that lands on open ground sends the oldest stake there.
-        if (w.mods.plumbOffset && p.targetStake < 0) {
-          const oldest = oldestPlanted(w.lines);
-          if (oldest && !w.lines.stakes.some((s) => s.state === 'flying')) relocateStake(w, oldest.id, p.x, p.y, 'offset');
-        }
-      }
       end(w, p, false);
     } else if (hitsPillar(w, p)) {
-      if (p.kind === 'plumb') w.events.push({ type: 'plumbMiss', x: p.x, y: p.y });
       end(w, p, true);
-    } else if (p.faction === 'enemy' && !isFloorTile(w.room, Math.floor(p.x), Math.floor(p.y))) {
-      // Enemy shots die a little way past the edge of the sheet.
+    } else if (!isFloorTile(w.room, Math.floor(p.x), Math.floor(p.y))) {
+      // Shots die a little way past the edge of the floor.
       const cx = Math.max(0, Math.min(w.room.w, p.x));
       const cy = Math.max(0, Math.min(w.room.h, p.y));
-      if (Math.hypot(p.x - cx, p.y - cy) > 1.5) end(w, p, false);
+      if (dhypot(p.x - cx, p.y - cy) > 1.5) end(w, p, false);
     }
     if (p.dead) anyDead = true;
   }
