@@ -8,6 +8,7 @@ import { animInput } from '../../render/rig/def';
 import { HERO_RIG, rigEntry } from '../../render/rig/registry';
 import type { RigEntry } from '../../render/rig/registry';
 import { RigView } from '../../render/rig/view';
+import { CLASS_HP } from '../../sim/tuning';
 import type { ClassId } from '../../sim/types';
 import { Label } from '../label';
 import { uiSound } from '../sfx';
@@ -36,7 +37,7 @@ const CLASSES: readonly ClassWords[] = [
     name: 'The Edge',
     weapon: 'Sword',
     attack: 'Every swing turns enemy shots back where you aim, and bats away an Echo caught in its own attack. Three cuts; the third launches.',
-    special: 'Riposte. A guard: whatever lands in it goes back, harder.',
+    special: 'Riposte. A guard: whatever lands in it goes back, harder, and a shield that struck it is thrown down.',
     plays: 'Stand in the fire and aim your returns.',
   },
   {
@@ -51,8 +52,8 @@ const CLASSES: readonly ClassWords[] = [
     id: 'fist',
     name: 'The Hand',
     weapon: 'Fist',
-    attack: 'Jabs on the press. Keep the button held to draw back a Haymaker that throws its target into walls and into its friends.',
-    special: 'Break. A slam that pops everything near you outward.',
+    attack: 'Jabs on the press, and a jab knocks a shot aside. Keep the button held to draw back a Haymaker that throws its target into walls and into its friends.',
+    special: 'Break. A slam that pops everything near you outward, and sends an orb home.',
     plays: 'Line up bodies and walls.',
   },
 ];
@@ -107,8 +108,11 @@ class ClassCard extends Container {
     const name = new Label(words.name, { size: 20, color: tone.pale, bold: true, tracking: 0.16 });
     name.position.set(pad, STAGE_H + 30);
     const weapon = new Label(words.weapon, { size: 9, color: tone.color, tracking: 0.4, align: 'right' });
-    weapon.position.set(CARD_W - pad, STAGE_H + 38);
-    this.addChild(name, weapon);
+    weapon.position.set(CARD_W - pad, STAGE_H + 30);
+    // they are not equally sturdy, and it is as well to know before walking in
+    const health = new Label(`Health ${CLASS_HP[words.id]}`, { size: 8, color: UI.inkSoft, tracking: 0.3, align: 'right' });
+    health.position.set(CARD_W - pad, STAGE_H + 50);
+    this.addChild(name, weapon, health);
     let y = STAGE_H + 76;
     for (const [head, text] of [
       ['Attack', words.attack],

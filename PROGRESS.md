@@ -4,18 +4,19 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 95% complete.** 35 of 40 tasks are done, 0 in progress, 5 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 83% complete.** 36 of 52 tasks are done, 0 in progress, 16 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
-| 0 | Foundation: deterministic simulation, sessions, snapshots | 7.2% | 100% |
-| 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 16.3% | 100% |
-| 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 10.9% | 100% |
-| 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 12.2% | 100% |
-| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 100% |
-| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 89% |
-| 6 | Menus, saving, sound | 4.5% | 60% |
-| 7 | Polish and balance | 3.6% | 75% |
+| 0 | Foundation: deterministic simulation, sessions, snapshots | 6.3% | 100% |
+| 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 14.2% | 100% |
+| 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 9.4% | 100% |
+| 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 10.6% | 100% |
+| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 21.7% | 100% |
+| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 17.7% | 89% |
+| 6 | Menus, saving, sound | 3.9% | 80% |
+| 7 | Polish and balance | 3.1% | 75% |
+| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 0% |
 
 ## In progress
 
@@ -23,11 +24,22 @@ Nothing at the moment.
 
 ## To do: ready to take
 
-- [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (0.9% of the game)
-- [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.4% of the game)
-- [T62](tasks/T62-title-shader.md) **Shader title screen and class cards** (0.9% of the game)
-- [T66](tasks/T66-music.md) **Music beds and sound levels** (0.9% of the game)
-- [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.9% of the game)
+- [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (0.8% of the game)
+- [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.2% of the game)
+- [T66](tasks/T66-music.md) **Music beds and sound levels** (0.8% of the game)
+- [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.8% of the game)
+- [T80](tasks/T80-boss-size.md) **Bosses arrive at their full size** (0.2% of the game)
+- [T81](tasks/T81-gong-guard-down.md) **A Gong's guard stays down longer after its bash** (0.2% of the game)
+- [T82](tasks/T82-card-layout.md) **Cards that fit their words; a wider camp and a wider between-runs screen** (0.8% of the game)
+- [T83](tasks/T83-cooldown-and-ability-text.md) **The special's cooldown under the hero, and what every upgrade does on Tab or on hover** (0.9% of the game)
+- [T84](tasks/T84-fist-stomp.md) **The Fist's stomp: safe through it, and a follow-up** (0.9% of the game)
+- [T85](tasks/T85-dash-chains.md) **Dash into attack for everyone; dash into heavy into jab for the Fist** (0.8% of the game)
+- [T86](tasks/T86-specials.md) **Three specials to choose from for the Sword and for the Bow** (2.4% of the game)
+- [T87](tasks/T87-camp-place.md) **The camp as a place: a merchant, and a pool to walk into** (1.6% of the game)
+- [T88](tasks/T88-terrain-and-traps.md) **More terrain and more traps** (1.6% of the game)
+- [T89](tasks/T89-plain-words.md) **Plain words through the whole game** (1.2% of the game)
+- [T90](tasks/T90-tutorial.md) **A tutorial at the start** (1.2% of the game)
+- [T91](tasks/T91-upgrade-looks.md) **Upgrades you can see working** (1.2% of the game)
 
 ## To do: waiting on other tasks
 
@@ -65,6 +77,7 @@ Nothing.
 - [T51](tasks/T51-wager.md) The Wager, and the Brittle Discord
 - [T60](tasks/T60-controls-page.md) Controls page: keyboard and controller
 - [T61](tasks/T61-settings-rumble.md) Settings and controller rumble
+- [T62](tasks/T62-title-shader.md) Shader title screen and class cards
 - [T63](tasks/T63-edge-markers.md) Edge markers for teammates and threats off screen
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 - [T65](tasks/T65-crater.md) The Crater: the third biome, for the last chamber
