@@ -124,7 +124,7 @@ describe('a run', () => {
         expect(s.worlds[0].chamber).toBe(stop.n);
         if (stop.kind === 'camp' && chimesAtCamp < 0) chimesAtCamp = s.worlds[0].players[0].chimes;
       }
-      // leave the party hurt as it walks into the first camp, to see the camp heal it
+      // leave the party hurt as it walks into the first camp, to see the Still Pool mend it
       const next = s.route[s.stop + 1];
       if (hurtBeforeCamp < 0 && next && next.kind === 'camp' && s.worlds[0].flow.phase === 'cleared') {
         for (const p of s.worlds[0].players) p.hp = Math.round(p.maxHp * 0.4);
@@ -132,10 +132,14 @@ describe('a run', () => {
       }
       tick(s, bots, hurtBeforeCamp !== 0.4);
       if (hurtBeforeCamp === 0.4 && stopOf(s)?.kind === 'camp') {
-        // 40% carried in, 35% given back by the camp
+        // 40% carried in; nothing is given until the Pool is asked, and then 35%
         const p = s.worlds[0].players[0];
-        expect(p.hp).toBe(Math.round(p.maxHp * 0.4) + Math.round(p.maxHp * 0.35));
-        hurtBeforeCamp = 1;
+        const carried = Math.round(p.maxHp * 0.4);
+        if (!s.camps[0].rested) expect(p.hp).toBe(carried);
+        else {
+          expect(p.hp).toBe(carried + Math.round(p.maxHp * 0.35));
+          hurtBeforeCamp = 1;
+        }
       }
     }
     expect(s.phase).toBe('won');

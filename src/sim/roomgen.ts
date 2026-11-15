@@ -27,11 +27,16 @@ export interface RoomSpec {
    * four bumpers toward its corners to bank off.
    */
   arena?: boolean;
+  /** A camp's floor: nothing on it but the post the Tuner's stall stands round. */
+  quiet?: boolean;
   /** How many traps to lay in the floor (each with its mirror image): rows of spike plates, knells, thorn pipes. */
   traps?: number;
 }
 
 type Grid = string[][];
+
+/** How many tiles beyond the focus of a camp (up the screen) the Tuner's stall stands. */
+export const CAMP_STALL = 4;
 
 const at = (g: Grid, x: number, y: number): string => (y < 0 || y >= g.length || x < 0 || x >= g[0].length ? ' ' : g[y][x]);
 const isFloor = (g: Grid, x: number, y: number): boolean => at(g, x, y) === '.';
@@ -214,8 +219,9 @@ function attempt(seed: string, spec: RoomSpec, shape: RoomShape): RoomTemplate {
       }
     }
   }
-  const mode = spec.arena ? 3 : rng.pick([1, 2, 3, 3, 4]);
-  const pits = shape === 'ring' || spec.arena ? 0 : rng.int(0, 2);
+  const bare = !!spec.arena || !!spec.quiet;
+  const mode = bare ? 3 : rng.pick([1, 2, 3, 3, 4]);
+  const pits = shape === 'ring' || bare ? 0 : rng.int(0, 2);
   for (let i = 0, tries = 0; i < pits && tries < 60; tries++) {
     const x = rng.int(4, gw - 5);
     const y = rng.int(4, gh - 5);
@@ -235,8 +241,8 @@ function attempt(seed: string, spec: RoomSpec, shape: RoomShape): RoomTemplate {
   }
   // Posts and bumpers: enough that nowhere on a big floor is far from something to bounce off.
   const area = m.reduce((n, row) => n + row.filter(Boolean).length, 0);
-  const posts = spec.arena ? 0 : Math.max(2, Math.round(area / rng.float(70, 110)));
-  const bumpers = spec.arena ? 0 : Math.max(1, Math.round(area / rng.float(170, 260)));
+  const posts = bare ? 0 : Math.max(2, Math.round(area / rng.float(70, 110)));
+  const bumpers = bare ? 0 : Math.max(1, Math.round(area / rng.float(170, 260)));
   if (spec.arena) {
     // one bumper toward each corner, mirrored both ways: the nearest spot to the corner that has room
     for (let inset = 3; inset < Math.min(cx, cy) - 2; inset++) if (mirrored(2 + inset, 2 + inset, 'B', 2, 3)) break;
@@ -269,6 +275,8 @@ function attempt(seed: string, spec: RoomSpec, shape: RoomShape): RoomTemplate {
   g[start[1]][start[0]] = 'P';
   const focus = pickBy((x, y) => -((x - cx) * (x - cx) + (y - cy) * (y - cy)));
   g[focus[1]][focus[0]] = 'r';
+  // a camp: the Still Pool lies at the focus, and the Tuner's stall stands round a post beyond it
+  if (spec.quiet) for (let d = CAMP_STALL; d > 1; d--) if (mirrored(focus[0] - d, focus[1] - d, 'o', 1, 0)) break;
 
   // Spawn marks: spread round the floor, well away from the start and from each other.
   const marks: Array<[number, number]> = [];

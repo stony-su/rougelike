@@ -27,21 +27,22 @@ import { Stage } from '../render/stage';
 import { TelegraphViews } from '../render/telegraphView';
 import { Textures } from '../render/textures';
 import { Trails } from '../render/trails';
-import { EXPERT, NOVICE, botPick, classBot } from '../sim/bots';
+import { EXPERT, NOVICE, botCamp, botPick, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
-import { DRAFT_TICKS, completes } from '../sim/draft';
+import { DRAFT_TICKS } from '../sim/draft';
 import { activeHarmonies } from '../sim/mods';
 import { aimAngleOf } from '../sim/input';
 import { runSoFar, stopOf, worldOf } from '../sim/session';
 import type { Session } from '../sim/session';
 import { hashSession } from '../sim/snapshot';
-import type { ClassId, Player, SimEvent, World } from '../sim/types';
-import type { CardInfo } from '../ui/cards';
+import type { ClassId, SimEvent, World } from '../sim/types';
 import { BossBar } from '../ui/bossBar';
 import { DraftScreen } from '../ui/draftScreen';
 import { Hud } from '../ui/hud';
 import { Label } from '../ui/label';
 import { TuningRow } from '../ui/tuningRow';
+import { CampFlow } from './campFlow';
+import { cardInfo } from './cardInfo';
 import type { Driver } from './driver';
 import { Input } from './input';
 
@@ -65,8 +66,6 @@ const CLASS_KEYS: ReadonlyArray<readonly [string, ClassId]> = [
   ['Digit3', 'fist'],
 ];
 
-/** Whose a Tuning is, as its card says it. */
-const OWNER_NAMES: Readonly<Record<string, string>> = { sword: 'The Edge', bow: 'The String', fist: 'The Hand', common: 'Anyone' };
 const CARD_KEYS = ['Digit1', 'Digit2', 'Digit3'];
 
 function makeBot(name: string, classId: ClassId): Bot | null {
@@ -121,6 +120,9 @@ export class Game {
   /** What this laptop's player has built, as emblems along the bottom of the screen. */
   private readonly held = new TuningRow();
   private readonly draft = new DraftScreen();
+  /** The camp: its list, and the hint that says how to bring the list back. */
+  private readonly camp = new CampFlow();
+  private readonly campHint: Label;
   private draftKey = '';
   private pickSent = '';
   private lastMouseX = -1;
@@ -188,8 +190,9 @@ export class Game {
     this.endHead = new Label('', { size: 30, color: PAPER, bold: true, tracking: 0.25, align: 'center' });
     this.endNote = new Label('', { size: 11, color: PAPER, tracking: 0.2, align: 'center' });
     this.endHint = new Label('Enter or A: go again', { size: 11, color: CHIME, tracking: 0.2, align: 'center' });
-    for (const l of [this.endHead, this.endNote, this.endHint]) l.visible = false;
-    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.draft.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
+    this.campHint = new Label('', { size: 10, color: CHIME, tracking: 0.24, align: 'center' });
+    for (const l of [this.endHead, this.endNote, this.endHint, this.campHint]) l.visible = false;
+    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.campHint, this.draft.root, this.camp.screen.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
 
     if (opts.debug) {
       BitmapFont.install({
@@ -232,6 +235,7 @@ export class Game {
     this.numbers.destroy();
     this.hud.destroy();
     this.draft.destroy();
+    this.camp.destroy();
     this.bossBar.destroy();
     this.held.destroy();
     this.textures.destroy();
@@ -261,6 +265,7 @@ export class Game {
       draft: s.drafts[this.localSlot]
         ? { offers: s.drafts[this.localSlot].offers, timer: s.drafts[this.localSlot].timer, made: s.drafts[this.localSlot].made, open: this.draft.open, choice: this.draft.choice }
         : null,
+      camp: s.camps[this.localSlot] ? { ...s.camps[this.localSlot], open: this.camp.screen.open, choice: this.camp.screen.choice, wait: s.campFor } : null,
       players: w.players.map((p) => ({
         slot: p.slot,
         class: p.classId,
@@ -323,6 +328,8 @@ export class Game {
     for (const x of this.extras) x.resize?.(this.viewW, this.viewH);
     this.hud.layout(this.viewW, this.viewH);
     this.draft.layout(this.viewW, this.viewH);
+    this.camp.screen.layout(this.viewW, this.viewH);
+    this.campHint.position.set(this.viewW / 2, this.viewH - 118);
     this.bossBar.layout(this.viewW);
     // to the right of the health panel, along the bottom
     this.held.root.position.set(372, this.viewH - 70);
@@ -387,34 +394,6 @@ export class Game {
     }
   }
 
-  /** What a Tuning on offer says on its card, for the player it is offered to. */
-  private cardOf(id: string, me: Player, w: World): CardInfo {
-    const content = w.content;
-    const t = content.tunings[id];
-    const rank = Math.min(t.maxRank, (me.tunings[id] ?? 0) + 1);
-    const done = completes(id, me.tunings, content);
-    const half = done ?? content.harmonies.find((h) => h.parents.includes(id)) ?? null;
-    let harmony = '';
-    if (half) {
-      const other = content.tunings[half.parents[0] === id ? half.parents[1] : half.parents[0]];
-      harmony = done || !other ? half.name : `With ${other.name}: ${half.name}`;
-    }
-    return {
-      name: t.name,
-      owner: OWNER_NAMES[t.owner] ?? '',
-      build: t.build,
-      rarity: t.rarity,
-      rank,
-      maxRank: t.maxRank,
-      text: t.text[Math.min(rank, t.text.length) - 1] ?? '',
-      harmony,
-      harmonyText: half ? half.text : '',
-      completes: !!done,
-      icon: t.icon,
-      tone: t.tone,
-    };
-  }
-
   /**
    * Show this laptop's player their cards for as long as the session offers any, and send the
    * card they take. Returns true while the cards have the keys.
@@ -440,7 +419,7 @@ export class Game {
     if (key !== this.draftKey) {
       this.draftKey = key;
       this.draft.show(
-        d.offers.map((id) => this.cardOf(id, me, w)),
+        d.offers.map((id) => cardInfo(id, me.tunings, w.content)),
         this.input.device === 'pad',
         d.rerolls,
       );
@@ -546,9 +525,21 @@ export class Game {
     // 1. This laptop's input goes to the relay: a person's hands, or a bot's.
     const here = worldOf(this.session, slot);
     const choosing = this.stepDraft(here, dt);
+    const camping = this.camp.step(
+      this.session,
+      slot,
+      here.players.find((q) => q.slot === slot),
+      here.content,
+      this.driver,
+      this.input,
+      this.autopilot ? (seat, p) => botCamp(seat, p, here.content) : null,
+      dt,
+    );
+    this.campHint.visible = this.camp.away;
+    if (this.camp.away) this.campHint.text = this.input.device === 'pad' ? 'X   The camp' : 'F   The camp';
     if (this.autopilot) {
       this.driver.input(this.autopilot.think(here, slot), now);
-    } else if (choosing) {
+    } else if (choosing || camping) {
       // the cards have the keys: the character stands still, and nothing is pressed for them
       this.driver.input(this.input.quiet(), now);
     } else {

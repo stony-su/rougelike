@@ -24,10 +24,18 @@ export const BINDINGS = {
   restart: ['KeyR'],
   mute: ['KeyM'],
   confirm: ['Enter', 'Space', 'KeyF'],
+  back: ['Escape', 'Backspace'],
 } as const;
 
 export type Action = keyof typeof BINDINGS;
 export type Device = 'keys' | 'pad';
+
+export interface MenuKeys {
+  dx: number;
+  dy: number;
+  confirm: boolean;
+  back: boolean;
+}
 
 /** Keys the browser must not act on while the game has focus. */
 const SWALLOW = new Set(['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backquote']);
@@ -209,6 +217,19 @@ export class Input {
   menuStep(): number {
     this.pollPad();
     return this.pads.stepX;
+  }
+
+  /**
+   * What a menu is being told, from either device: a step along each axis (-1, 0 or 1, once for
+   * each press of a key or push of a stick), yes, and back. The presses are consumed.
+   */
+  menuKeys(out: MenuKeys = { dx: 0, dy: 0, confirm: false, back: false }): MenuKeys {
+    this.pollPad();
+    out.dx = (this.take('right') ? 1 : 0) - (this.take('left') ? 1 : 0) || this.pads.stepX;
+    out.dy = (this.take('down') ? 1 : 0) - (this.take('up') ? 1 : 0) || this.pads.stepY;
+    out.back = this.take('back');
+    out.confirm = this.take('confirm');
+    return out;
   }
 
   private trackMouse(e: PointerEvent): void {

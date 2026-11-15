@@ -4,6 +4,8 @@
 // sees, and may be given a human-like reaction delay.
 import { TAU, dcos, dhypot, dsin } from '../core/dmath';
 import type { Vec2 } from '../core/exact';
+import { BUY_RATION, CAMP, REST_HEAL, atCamp, priceOf, raisable } from './camp';
+import type { CampSeat } from './camp';
 import { hittable, onGuard, standing } from './combat';
 import type { ContentRegistry } from './defs';
 import { DRAFT_TICKS, completes } from './draft';
@@ -532,14 +534,18 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
 }
 
 /** The standard bot for a class. */
-/** Which of the cards on offer a bot takes: the missing half of a Harmony first, then a rank of something held, then the rarest. */
+/** What a Tuning is worth to a bot: the missing half of a Harmony first, then a rank of something held, then the rarest. */
+function worth(id: string, held: Readonly<Record<string, number>>, content: ContentRegistry): number {
+  const t = content.tunings[id];
+  return t ? (completes(id, held, content) ? 100 : 0) + ((held[id] ?? 0) > 0 ? 10 : 0) + t.rarity : -1;
+}
+
+/** Which of the cards on offer a bot takes. */
 export function botPick(offers: readonly string[], held: Readonly<Record<string, number>>, content: ContentRegistry): number {
   let best = 0;
   let bestScore = -1;
   offers.forEach((id, i) => {
-    const t = content.tunings[id];
-    if (!t) return;
-    const score = (completes(id, held, content) ? 100 : 0) + ((held[id] ?? 0) > 0 ? 10 : 0) + t.rarity;
+    const score = worth(id, held, content);
     if (score > bestScore) {
       bestScore = score;
       best = i;
@@ -548,20 +554,55 @@ export function botPick(offers: readonly string[], held: Readonly<Record<string,
   return best;
 }
 
+/**
+ * What a bot at a camp asks for next, or null when it has nothing left to ask. It takes the
+ * Pool's one thing (health if it is hurt, else a rank), eats if it is still hurt, buys the best
+ * Tuning it can pay for, and then says it is ready.
+ */
+export function botCamp(seat: CampSeat | undefined, me: Player, content: ContentRegistry): { kind: 'buy' | 'rest' | 'ready'; a: number } | null {
+  if (!atCamp(seat) || seat.ready) return null;
+  if (!seat.rested) {
+    const ids = raisable(me, content);
+    if (me.hp < me.maxHp * 0.65 || (ids.length === 0 && me.hp < me.maxHp)) return { kind: 'rest', a: REST_HEAL };
+    let best = 0;
+    ids.forEach((id, i) => {
+      if (worth(id, me.tunings, content) > worth(ids[best], me.tunings, content)) best = i;
+    });
+    return { kind: 'rest', a: 1 + best };
+  }
+  if (seat.ration && me.chimes >= CAMP.ration && me.hp < me.maxHp * 0.6) return { kind: 'buy', a: BUY_RATION };
+  let pick = -1;
+  seat.shelf.forEach((id, i) => {
+    const t = content.tunings[id];
+    if (!t || priceOf(t) > me.chimes || (me.tunings[id] ?? 0) >= t.maxRank) return;
+    if (pick < 0 || worth(id, me.tunings, content) > worth(seat.shelf[pick], me.tunings, content)) pick = i;
+  });
+  if (pick >= 0) return { kind: 'buy', a: pick };
+  return { kind: 'ready', a: 1 };
+}
+
 /** How long a bot looks at its cards before taking one, in ticks. */
 export const BOT_THINKS = 40;
 
 /**
- * The commands bots in the given seats send this tick (every seat, if none are named). Bots only
- * ever decide one thing outside their hands: which card to take.
+ * The commands bots in the given seats send this tick (every seat, if none are named): at most
+ * one from each. Bots decide two things outside their hands: which card to take, and what to do
+ * at a camp.
  */
 export function botCommands(s: Session, content: ContentRegistry, seats?: readonly number[]): Command[] {
   const out: Command[] = [];
-  s.drafts.forEach((d, slot) => {
+  s.config.players.forEach((_, slot) => {
     if (seats && !seats.includes(slot)) return;
-    if (d.offers.length === 0 || d.timer > DRAFT_TICKS - BOT_THINKS) return;
     const me = s.worlds[s.where[slot] ?? 0]?.players.find((p) => p.slot === slot);
-    if (me) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'pick', a: botPick(d.offers, me.tunings, content) });
+    if (!me) return;
+    const d = s.drafts[slot];
+    if (d && d.offers.length > 0) {
+      if (d.timer <= DRAFT_TICKS - BOT_THINKS) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'pick', a: botPick(d.offers, me.tunings, content) });
+      return;
+    }
+    // a bot looks round a camp for a moment before it does anything there
+    const c = s.clearFor >= BOT_THINKS ? botCamp(s.camps[slot], me, content) : null;
+    if (c) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: c.kind, a: c.a });
   });
   return out;
 }

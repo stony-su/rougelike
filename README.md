@@ -10,19 +10,23 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 ## Where the build stands
 
-**Milestones 1 (the Rebound) and 2 (playing together) are done, and the run has its road.** The signature mechanic is in and playable, alone or with up to three laptops on one network, with keyboard and mouse or a controller:
+**A whole run can be played from the first chamber to the Bell**, alone or with up to three laptops on one network, with keyboard and mouse or a controller:
 
 - **Three classes.** The Sword turns enemy shots back with every swing, bats a lunging enemy away, and has a guard (Riposte) that returns whatever lands in it. The Bow's arrows ricochet off walls and skip between enemies, with an aim preview that shows the exact path, and it throws a Ringstone that redirects shots and bodies. The Fist jabs on the press, and if you keep the button held it draws back for a Haymaker that launches its target; its Break pops everything nearby outward.
 - **Everything bounces.** Launched enemies slam into walls, carom into each other, ring off bumpers and fall into pits. Bombs can be batted back or shot where they sit. Hits from anything sent back are *Returns*: they build Rally, and Rally makes Returns hit harder.
-- **Three Echoes** to bounce: the Thrum lunges, the Piper plays three bolts down three drawn lines, the Burr lobs bombs.
+- **Five Echoes** to bounce: the Thrum lunges, the Piper plays three bolts down three drawn lines, the Burr lobs bombs, the Gong hides behind a shield that only a Return or a blow from behind gets past, and the Cairn slams the floor and throws its own top stone. They do not simply walk at you: they surround, cut off, keep their distance and change ground. The hardest chambers carry **elites** (Resonant, Tethered, Hasty, Plated, Splitting).
+- **Traps in the floor** from the second chamber on: plates of spikes, knells that toll in a ring, and pipes that spit thorns down a drawn line. They hurt Echoes too, so a body can be knocked onto them.
+- **Two bosses.** The Carillon, a walking frame of bells, holds the sixth chamber; the Toll, the Bell itself, holds the twelfth, in the Crater, and has three phases. Each stands about twice the height of anything else and is seldom doing nothing: the floor fills with warned patterns to read and move through, and every class can send its orbs home.
 
 - **Together.** One laptop hosts; the others open its address. Everyone sees exactly the same game. A downed player crawls and is helped up by a teammate who stands close; an arrow that crosses a teammate's sword swing is banked off the blade, and a body one player launches can be struck again in flight by another (Duets).
 
-- **A run of twelve chambers.** The road is planned from the seed: the Outer Ring, then the Inner Ring, each ending in a camp and its hardest fight. Every chamber is generated (courts, crossings, twin halls, rings round a pit, hollows; two looks; posts, bumpers and pits), and the camera follows you through the big ones. Health and Chimes come along from chamber to chamber, a camp gives some health back, clearing the twelfth wins the run, and the whole party going down loses it. Enter (or A on a controller) starts the next.
+- **A run of twelve chambers.** The road is planned from the seed: the Outer Ring, then the Inner Ring, each ending in a camp and its hardest fight. Every chamber is generated (courts, crossings, twin halls, rings round a pit, hollows; two looks; posts, bumpers and pits), and the camera follows you through the big ones. Health, Chimes and Tunings come along from chamber to chamber, clearing the twelfth wins the run, and the whole party going down loses it. Enter (or A on a controller) starts the next.
+
+- **Camps.** Before each boss the road stops at a camp. The **Tuner** sells three Tunings from your own pools, a ration and a fresh shelf, for Chimes; the **Still Pool** gives each player one thing: a third of their health back, or a rank of a Tuning they hold. Everyone shops on their own screen (W S and Enter, the mouse, or a controller), Esc puts the list away to look round and F brings it back, and the party walks on when everyone is ready.
 
 - **Tunings.** After every fight each player is dealt three cards on their own screen and takes one (1, 2 or 3, the arrow keys and Enter, the mouse, or a controller). The twelve Tunings anyone can take are in: more dashes, a dash that rams, Rally that steps down instead of breaking, rings that burst and heal as Rally climbs, Returns that burn, chill or call lightning, more health, a ward against a downing blow. Three pairs of them switch on a Harmony when held together.
 
-What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), the camp's shop, the Wager, the two bosses (their chambers are the hardest fights of their zones for now), menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
+What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), the Wager, menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 

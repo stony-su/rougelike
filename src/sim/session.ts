@@ -8,6 +8,8 @@
 // holds one world per place the players are. When the last chamber is cleared the run is won;
 // when the whole party is down it is lost; either way it waits for someone to start again.
 import { spawnEnemy } from './ai';
+import { CAMP, atCamp, buy, noCamp, openCamp, rest } from './camp';
+import type { CampSeat } from './camp';
 import { standing } from './combat';
 import type { ContentRegistry } from './defs';
 import { DRAFT_TICKS, newDraft, rollOffers } from './draft';
@@ -15,7 +17,7 @@ import type { Draft } from './draft';
 import { grantTuning } from './player';
 import { buildRoom, randomFloorPoint } from './room';
 import { generateRoom } from './roomgen';
-import { CAMP_HEAL, flowFor, planRoute, roomSpec } from './run';
+import { flowFor, planRoute, roomSpec } from './run';
 import type { Stop } from './run';
 import { REVIVE, SIM_HZ } from './tuning';
 import { emptyInput } from './types';
@@ -50,10 +52,13 @@ export interface SessionConfig {
 }
 
 /**
- * 'pick' takes card `a` (0, 1 or 2) of the player's draft; 'reroll' deals their cards again, if
- * they have a reroll left.
+ * Everything a player can decide outside their hands. 'pick' takes card `a` (0, 1 or 2) of the
+ * player's draft; 'reroll' deals their cards again, if they have a reroll left. At a camp
+ * (camp.ts): 'buy' takes thing `a` from the Tuner, 'rest' takes thing `a` from the Still Pool,
+ * and 'ready' says whether the player is ready to leave (`a` 1 or 0).
  */
-export type CommandKind = 'pause' | 'restart' | 'pick' | 'reroll';
+export const COMMAND_KINDS = ['pause', 'restart', 'pick', 'reroll', 'buy', 'rest', 'ready'] as const;
+export type CommandKind = (typeof COMMAND_KINDS)[number];
 
 /** Something a player decided, outside moment-to-moment input. Applied in the order the bundle lists them. */
 export interface Command {
@@ -115,6 +120,10 @@ export interface Session {
   clearFor: number;
   /** For each slot, the Tunings that player is being offered (draft.ts). */
   drafts: Draft[];
+  /** For each slot, what that player has in front of them at a camp (camp.ts). */
+  camps: CampSeat[];
+  /** Ticks since the first of the party said they were ready to leave a camp, or -1. */
+  campFor: number;
 }
 
 /** Ticks the world plays on after the whole party is down, before the run is called lost. */
@@ -155,6 +164,18 @@ function begin(s: Session, content: ContentRegistry): void {
   s.drafts = s.config.players.map(() => newDraft());
   s.worlds = [s.config.practice ? openPractice(s, content, 1, fresh(s)) : openStop(s, content, fresh(s))];
   s.where = s.config.players.map(() => 0);
+  arrive(s, content);
+}
+
+/** The party has walked into a chamber. If it is a camp, the Tuner sets out a shelf for each of them. */
+function arrive(s: Session, content: ContentRegistry): void {
+  const w = s.worlds[0];
+  const camp = w.flow.kind === 'camp';
+  s.campFor = -1;
+  s.camps = s.config.players.map((_, slot) => {
+    const p = w.players.find((q) => q.slot === slot);
+    return camp && p ? openCamp(`${s.config.seed}/${s.attempt}/camp/${s.stop}/${slot}`, p, content) : noCamp();
+  });
 }
 
 export function createSession(config: SessionConfig, content: ContentRegistry): Session {
@@ -175,6 +196,8 @@ export function createSession(config: SessionConfig, content: ContentRegistry): 
     downFor: -1,
     clearFor: -1,
     drafts: [],
+    camps: [],
+    campFor: -1,
   };
   begin(s, content);
   return s;
@@ -221,6 +244,15 @@ function applyCommand(s: Session, c: Command, content: ContentRegistry): void {
       d.rolled++;
       deal(s, content, c.slot);
     }
+  } else {
+    // the rest are asked of a camp, and mean nothing anywhere else
+    const seat = s.camps[c.slot];
+    const w = worldOf(s, c.slot);
+    const p = w.players.find((q) => q.slot === c.slot);
+    if (!p || s.phase !== 'run' || !atCamp(seat)) return;
+    if (c.kind === 'buy') buy(w, p, seat, c.a, `${s.config.seed}/${s.attempt}/camp/${s.stop}/${c.slot}`);
+    else if (c.kind === 'rest') rest(w, p, seat, c.a);
+    else if (c.kind === 'ready') seat.ready = c.a !== 0;
   }
 }
 
@@ -267,14 +299,14 @@ function restart(s: Session, content: ContentRegistry): void {
 }
 
 /**
- * What everyone walks into the next chamber with. The fallen stand up again, Chimes still lying
- * on the floor come along, and `heal` is the share of their health a camp gives back.
+ * What everyone walks into the next chamber with. The fallen stand up again, and Chimes still
+ * lying on the floor come along.
  */
-function carry(w: World, heal: number): Entrant[] {
+function carry(w: World): Entrant[] {
   const lying = w.flow.pickups.reduce((sum, c) => sum + c.value, 0);
   return w.players.map((p) => {
     const hp = standing(p) ? p.hp : Math.max(1, Math.round(p.maxHp * REVIVE.hp));
-    return { slot: p.slot, classId: p.classId, maxHp: p.maxHp, hp: Math.min(p.maxHp, hp + Math.round(p.maxHp * heal)), chimes: p.chimes + lying, tunings: p.tunings };
+    return { slot: p.slot, classId: p.classId, maxHp: p.maxHp, hp, chimes: p.chimes + lying, tunings: p.tunings };
   });
 }
 
@@ -288,7 +320,8 @@ function advance(s: Session, content: ContentRegistry): void {
     return;
   }
   s.stop++;
-  s.worlds[0] = openStop(s, content, carry(w, s.route[s.stop].kind === 'camp' ? CAMP_HEAL : 0));
+  s.worlds[0] = openStop(s, content, carry(w));
+  arrive(s, content);
 }
 
 /** Advance the whole session by exactly one tick. */
@@ -332,11 +365,18 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
       d.timer--;
       if (d.timer <= 0) pick(s, s.drafts.indexOf(d), 0);
     }
+    // A camp is left when everyone is ready; once the first is, the others have a while and no longer.
+    let stay = false;
+    if (s.camps.some(atCamp)) {
+      if (s.campFor >= 0) s.campFor++;
+      else if (s.camps.some((c) => c.ready)) s.campFor = 0;
+      stay = !s.camps.every((c) => c.ready) && s.campFor < CAMP.wait;
+    }
     // the party walks on once the quiet is over and everyone has chosen
-    if (s.clearFor >= CLEAR_BEAT && s.drafts.every((d) => d.offers.length === 0)) {
+    if (s.clearFor >= CLEAR_BEAT && !stay && s.drafts.every((d) => d.offers.length === 0)) {
       s.clearFor = -1;
       // Everyone walks on with what they have, and the fallen stand up again.
-      if (s.config.practice) s.worlds[0] = openPractice(s, content, w.chamber + 1, carry(w, 0));
+      if (s.config.practice) s.worlds[0] = openPractice(s, content, w.chamber + 1, carry(w));
       else advance(s, content);
     }
   }

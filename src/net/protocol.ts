@@ -4,6 +4,7 @@
 // shapes below is dropped, and every number in an input is forced into its range before it goes
 // into a bundle, so a confused or hostile page can neither crash the host nor make two laptops
 // disagree: the host sends everyone the same cleaned bundle.
+import { COMMAND_KINDS } from '../sim/session';
 import type { Bundle, Command, CommandKind, SessionConfig } from '../sim/session';
 import { AIM_STEPS, MOVE_MAG_MAX, MOVE_STEPS, PRESS_COUNT, emptyInput } from '../sim/types';
 import type { ClassId, InputFrame } from '../sim/types';
@@ -58,7 +59,7 @@ export type HostMsg =
   | { t: 'bye'; why: string };
 
 const CLASSES: readonly string[] = ['sword', 'bow', 'fist'];
-const KINDS: readonly string[] = ['pause', 'restart', 'pick', 'reroll'];
+const KINDS: readonly string[] = COMMAND_KINDS;
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
 const clampInt = (v: unknown, lo: number, hi: number): number => (isInt(v) ? (v < lo ? lo : v > hi ? hi : v) : lo);

@@ -51,7 +51,7 @@ export class Card extends Container {
 
   constructor(
     info: CardInfo,
-    /** The number key that takes this card. */
+    /** The number key that takes this card, or 0 for a card that is only shown. */
     key: number,
   ) {
     super();
@@ -139,11 +139,13 @@ export class Card extends Container {
       this.addChild(box, head, what);
     }
 
-    // the key that takes it
-    const cap = new Graphics().roundRect(CARD_W / 2 - 15, CARD_H - 38, 30, 24, 4).stroke({ width: 1.5, color: UI.brass, alpha: 0.8 });
-    const digit = new Label(String(key), { size: 10, color: UI.brass, bold: true, align: 'center' });
-    digit.position.set(CARD_W / 2, CARD_H - 31);
-    this.addChild(cap, digit);
+    if (key > 0) {
+      // the key that takes it
+      const cap = new Graphics().roundRect(CARD_W / 2 - 15, CARD_H - 38, 30, 24, 4).stroke({ width: 1.5, color: UI.brass, alpha: 0.8 });
+      const digit = new Label(String(key), { size: 10, color: UI.brass, bold: true, align: 'center' });
+      digit.position.set(CARD_W / 2, CARD_H - 31);
+      this.addChild(cap, digit);
+    }
 
     if (this.rare) {
       // glints that come and go along the frame

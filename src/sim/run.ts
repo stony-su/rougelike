@@ -13,8 +13,8 @@ import type { RoomShape, RoomSpec } from './roomgen';
  *
  * 'fight' and 'elite' are waves. A 'solo' chamber is a short fight; the party shares it until
  * each player has a world of their own there. A 'wager' is a fight like any other until the
- * Wager itself is offered in it. A 'camp' has no enemies: everyone gets some health back. The
- * 'miniboss' and the 'boss' are the hardest fights of their zones.
+ * Wager itself is offered in it. A 'camp' has no enemies: the Tuner and the Still Pool are there
+ * (camp.ts). The 'miniboss' and the 'boss' are the hardest fights of their zones.
  */
 export type StopKind = 'fight' | 'elite' | 'solo' | 'camp' | 'wager' | 'miniboss' | 'boss';
 
@@ -34,8 +34,6 @@ export const RUN_LENGTH = 12;
 /** The Echoes that hold the last chamber of each zone, by id. Until one exists, its chamber is the hardest fight of the zone instead. */
 export const MINIBOSS = 'carillon';
 export const BOSS = 'toll';
-/** The share of their health everyone gets back on walking into a camp. */
-export const CAMP_HEAL = 0.35;
 
 const ZONE_NAMES: Record<ZoneId, string> = { outer: 'Reedwater', inner: 'Stormshelf', crater: 'The Crater' };
 const SHAPE_NAMES: Record<RoomShape, string> = { court: 'Court', cross: 'Crossing', lobes: 'Twin Halls', ring: 'Ring', cavern: 'Hollow' };
@@ -117,7 +115,7 @@ export function trapsFor(stop: Stop): number {
 /** What the generator is asked to build for a stop. */
 export function roomSpec(stop: Stop): RoomSpec {
   const boss = stop.kind === 'miniboss' || stop.kind === 'boss';
-  return { zone: stop.zone, kind: boss ? 'arena' : 'combat', look: stop.look, size: stop.size, shape: stop.shape, name: stop.name, arena: boss, traps: trapsFor(stop) };
+  return { zone: stop.zone, kind: boss ? 'arena' : 'combat', look: stop.look, size: stop.size, shape: stop.shape, name: stop.name, arena: boss, quiet: stop.kind === 'camp', traps: trapsFor(stop) };
 }
 
 /** How a stop's chamber runs: its waves, how much each may spend, and what clearing it pays. */
