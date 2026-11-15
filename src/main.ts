@@ -1,11 +1,8 @@
 import { Application } from 'pixi.js';
 import { CONTENT } from './content';
-import { BUILD_ID } from './buildId';
+import { App } from './game/app';
 import { findHost } from './game/connection';
-import { CoopShell } from './game/coop';
-import { SoloDriver } from './game/driver';
 import { Gallery } from './game/gallery';
-import { Game } from './game/game';
 import { selftestHashes, selftestMath } from './sim/selftest';
 
 const params = new URLSearchParams(window.location.search);
@@ -28,8 +25,8 @@ if (params.has('selftest')) {
   pre.textContent = JSON.stringify(result, null, 2);
   document.body.appendChild(pre);
 } else {
-  const app = new Application();
-  await app.init({
+  const pixi = new Application();
+  await pixi.init({
     background: '#061426',
     resizeTo: window,
     antialias: true,
@@ -41,53 +38,49 @@ if (params.has('selftest')) {
   });
   const mount = document.getElementById('app');
   if (!mount) throw new Error('Missing #app element');
-  mount.appendChild(app.canvas);
+  mount.appendChild(pixi.canvas);
 
   const galleryRig = params.get('gallery');
   if (galleryRig !== null) {
     // Development tool: every animation state of a rig as a filmstrip.
-    hooks.gallery = new Gallery(app, {
+    hooks.gallery = new Gallery(pixi, {
       rig: galleryRig || 'all',
       away: params.has('away'),
       silhouette: params.has('silhouette'),
       live: params.has('live'),
     });
   } else {
-    const opts = {
+    // ?class=bow plays one class alone; ?team=sword,bow,fist adds bot companions in the other seats
+    const classes = (params.get('team') ?? params.get('class') ?? 'sword')
+      .split(',')
+      .map((c) => c.trim())
+      .filter((c): c is 'sword' | 'bow' | 'fist' => c === 'sword' || c === 'bow' || c === 'fist');
+    if (classes.length === 0) classes.push('sword');
+    // A page served by the host program can join its lobby. Anything else (the dev server, a
+    // plain preview, or ?solo on a hosted page) is a game alone.
+    const host = params.has('solo') ? null : await findHost();
+    // An address that names a class, a team, a chamber or a bot skips the title: it begins a run
+    // alone at once, or on a hosted page sits down in the lobby. Otherwise the game opens on its title.
+    const direct = ['class', 'team', 'autopilot', 'practice', 'stop', 'stress', 'seats'].some((k) => params.has(k));
+    const app = new App(pixi, {
       debug: params.has('debug'),
       seed: params.get('seed') ?? String(Math.floor(Math.random() * 1e9)),
+      fixedSeed: params.has('seed'),
       autopilot: params.get('autopilot') ?? '',
-      // ?class=bow plays one class alone; ?team=sword,bow,fist adds bot companions in the other seats
-      classes: (params.get('team') ?? params.get('class') ?? 'sword')
-        .split(',')
-        .map((c) => c.trim())
-        .filter((c): c is 'sword' | 'bow' | 'fist' => c === 'sword' || c === 'bow' || c === 'fist'),
+      classes,
       stress: Number(params.get('stress') ?? 0) || 0,
       backdrop: !params.has('nobackdrop'),
-    };
-    if (opts.classes.length === 0) opts.classes.push('sword');
-    // A page served by the host program joins its lobby. Anything else (the dev server, a plain
-    // preview, or ?solo on a hosted page) is a game alone.
-    const host = params.has('solo') ? null : await findHost();
-    if (host) {
-      const shell = new CoopShell(app, { ...opts, name: params.get('name') ?? '', addresses: host.addresses, autoStart: Number(params.get('seats') ?? 0) || 0 });
-      hooks.coop = shell;
-      hooks.state = () => {
-        const core = shell.driver.core;
-        return shell.game ? shell.game.debugState() : { lobby: true, phase: core.phase, slot: core.slot, seats: core.seats, reason: core.reason };
-      };
-      hooks.toScreen = (x: number, y: number) => (shell.game ? shell.game.worldToScreen(x, y) : [0, 0]);
-    } else {
-      const players = opts.classes.slice(0, 3).map((classId, slot) => ({ name: `Player ${slot + 1}`, classId }));
-      const game = new Game(
-        app,
-        new SoloDriver({ seed: opts.seed, players, buildId: BUILD_ID, inputDelay: 0, stress: opts.stress, practice: params.has('practice'), startAt: Number(params.get('stop') ?? 1) || 1 }),
-        opts,
-      );
-      hooks.game = game;
-      hooks.state = () => game.debugState();
-      hooks.toScreen = (x: number, y: number) => game.worldToScreen(x, y);
-    }
+      host: host ? { addresses: host.addresses } : null,
+      name: params.get('name') ?? '',
+      autoStart: Number(params.get('seats') ?? 0) || 0,
+      direct,
+      practice: params.has('practice'),
+      startAt: Number(params.get('stop') ?? 1) || 1,
+    });
+    hooks.app = app;
+    Object.defineProperty(hooks, 'game', { get: () => app.game, enumerable: true });
+    hooks.state = () => app.debugState();
+    hooks.toScreen = (x: number, y: number) => app.worldToScreen(x, y);
   }
   // Test and tooling hooks. Only present with ?debug or ?gallery in the URL.
   if (params.has('debug') || galleryRig !== null) expose();

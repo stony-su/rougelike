@@ -1,8 +1,8 @@
 ---
 id: T23
 title: App shell: title, class select, pause, results, instant restart
-status: open
-owner:
+status: done
+owner: stony-su
 milestone: 4
 weight: 3
 needs: [T10]
@@ -35,6 +35,15 @@ The game from the first screen to the last (DESIGN.md section 12).
 - Every screen works with keyboard, mouse and controller, and shows the prompts of the device last used.
 - Esc opens your own menu. In co-op that does not stop the game; "pause for everyone" is a separate item that names who paused and that anyone can lift.
 - The HUD carries no controls legend.
+
+## As built
+
+- `src/game/app.ts` owns the screens, the game and the lobby. What a screen is, and the panel most of them share, is `src/ui/screen.ts`; the screens are `title`, `classSelect`, `pause`, `results` and `hosting` (how to host, for a page with no lobby) in `src/ui/screens/`, and `src/ui/menuList.ts` is the list they are made of.
+- The title and the pause menu list Attunement, Controls and Settings only once those screens exist (T24, T60, T61).
+- Alone, a menu over the game stops it (`pause` with 1 or 2 asks outright); together it does not, and "Pause for everyone" is a row of its own.
+- When a run is over, `ready` says who is ready for the next; it begins when everyone is. Alone that is at once.
+- An address that names a class, a team, a chamber or a bot skips the title, as the checks need.
+- Checked in the browser by keyboard and by a scripted controller: title, class, run, menu and back, a run lost, go again, back to the title. **Not re-run in a browser after this change: the hosted lobby and a game on three pages** (`npm run coop-check` against `npm run host`); the pretend-network tests pass.
 
 ## Done when
 

@@ -6,7 +6,8 @@ import type { Player } from '../sim/types';
 import { uiSound } from '../ui/sfx';
 import { WagerScreen } from '../ui/wagerScreen';
 import type { Driver } from './driver';
-import type { Input, MenuKeys } from './input';
+import { noKeys } from './input';
+import type { Input } from './input';
 
 const WORDS = {
   risk: `Brittle. Everyone's health is cut by ${Math.round(WAGER.brittle * 100)}% for as long as the fight lasts.`,
@@ -15,7 +16,7 @@ const WORDS = {
 
 export class WagerFlow {
   readonly screen = new WagerScreen();
-  private readonly keys: MenuKeys = { dx: 0, dy: 0, confirm: false, back: false };
+  private readonly keys = noKeys();
   private lastMouseX = -1;
   private lastMouseY = -1;
   /** The table a bot in this seat has answered, and the one this laptop last saw open. */
@@ -61,8 +62,8 @@ export class WagerFlow {
     let over = -1;
     if (input.hasMouse && (moved || input.isDown('attack'))) over = this.screen.pointAt(input.mouseX, input.mouseY);
     if (input.take('attack') && over >= 0) take = over;
-    if (input.takeCode('Digit1')) take = 0;
-    if (input.takeCode('Digit2')) take = 1;
+    if (k.digit === 1) take = 0;
+    if (k.digit === 2) take = 1;
     if (k.confirm) take = this.screen.choice;
     if (take >= 0) {
       const say = take === 0 ? VOTE_TAKE : VOTE_WALK;

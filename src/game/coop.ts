@@ -7,8 +7,7 @@ import type { ClassId } from '../sim/types';
 import { LobbyView } from '../ui/lobby';
 import { CoopDriver } from './connection';
 import { PadReader } from './gamepad';
-import { Game } from './game';
-import type { GameOptions } from './game';
+import type { Game, GameOptions } from './game';
 
 const CLASSES: ClassId[] = ['sword', 'bow', 'fist'];
 
@@ -18,6 +17,12 @@ export interface CoopOptions extends GameOptions {
   addresses: string[];
   /** For automated checks: say ready at once, and start when this many seats are filled and ready. */
   autoStart: number;
+  /** The host has begun a game: the app makes its shell round this connection. */
+  makeGame: (driver: CoopDriver) => Game;
+  /** The game is over and the lobby is up again. */
+  onGameOver: () => void;
+  /** The player left the lobby. */
+  onLeave: () => void;
 }
 
 export class CoopShell {
@@ -62,6 +67,7 @@ export class CoopShell {
       else if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.cycle(-1);
       else if (e.code === 'ArrowRight' || e.code === 'KeyD') this.cycle(1);
       else if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyF') this.confirm();
+      else if (e.code === 'Escape') this.opts.onLeave();
       else return;
       e.preventDefault();
     };
@@ -98,7 +104,7 @@ export class CoopShell {
     if (this.game) return;
     this.lobby.root.visible = false;
     this.status = '';
-    this.game = new Game(this.app, this.driver, this.opts);
+    this.game = this.opts.makeGame(this.driver);
   }
 
   private endGame(): void {
@@ -107,6 +113,7 @@ export class CoopShell {
     this.game = null;
     this.lobby.root.visible = true;
     this.asked = false;
+    this.opts.onGameOver();
   }
 
   /** A controller in the lobby: left and right choose a class, A is Enter. */
@@ -114,6 +121,7 @@ export class CoopShell {
     this.pads.poll(navigator.getGamepads ? navigator.getGamepads() : []);
     if (this.pads.stepX !== 0) this.cycle(this.pads.stepX);
     if (this.pads.pressed.has('confirm')) this.confirm();
+    else if (this.pads.pressed.has('back')) this.opts.onLeave();
   }
 
   private frame(): void {

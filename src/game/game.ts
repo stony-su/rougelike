@@ -4,7 +4,7 @@
 // any other way: pausing and starting over are commands that travel with the inputs.
 import { BitmapFont, BitmapText, UPDATE_PRIORITY } from 'pixi.js';
 import type { Application, Ticker } from 'pixi.js';
-import { GameAudio } from '../audio';
+import type { GameAudio } from '../audio';
 import { AimPreview } from '../render/aimPreview';
 import { Ambient } from '../render/ambient';
 import { Backdrop } from '../render/backdrop';
@@ -44,7 +44,7 @@ import { TuningRow } from '../ui/tuningRow';
 import { CampFlow } from './campFlow';
 import { cardInfo } from './cardInfo';
 import type { Driver } from './driver';
-import { Input } from './input';
+import type { Input } from './input';
 import { WagerFlow } from './wagerFlow';
 
 export interface GameOptions {
@@ -58,6 +58,14 @@ export interface GameOptions {
   stress: number;
   /** Draw the shader backdrop. Off (?nobackdrop) to measure what it costs. */
   backdrop: boolean;
+}
+
+/** What the app lends a game for as long as it is played: the keys, the sound, and the way to the menu. */
+export interface GameDeps {
+  input: Input;
+  audio: GameAudio;
+  /** The player asked for their menu. */
+  onMenu: () => void;
 }
 
 /** In the practice court the number keys change class: the page starts again with the new one. */
@@ -79,6 +87,8 @@ export class Game {
   readonly stage = new Stage();
   readonly camera = new Camera();
   readonly input: Input;
+  /** A menu is over the game: it has the keys, and this laptop's character stands still. */
+  menuUp = false;
   readonly textures: Textures;
   /** A bot playing this laptop's own seat (automated checks), or null for a person. */
   private readonly autopilot: Bot | null;
@@ -109,13 +119,8 @@ export class Game {
   private readonly backdrop: Backdrop;
   /** Presentation that lives in one file each (src/render/extras). */
   private readonly extras: Extra[];
-  private readonly audio = new GameAudio();
+  private readonly audio: GameAudio;
   private readonly pausedLabel: Label;
-  /** How the run ended, what it added up to, and how to go again. */
-  private readonly endHead: Label;
-  private readonly endNote: Label;
-  private readonly endHint: Label;
-  private endShown = '';
   /** The cards this laptop's player is choosing from; the offer on screen, and the one already answered. */
   private readonly bossBar = new BossBar();
   /** What this laptop's player has built, as emblems along the bottom of the screen. */
@@ -155,10 +160,12 @@ export class Game {
     private readonly app: Application,
     private readonly driver: Driver,
     private readonly opts: GameOptions,
+    private readonly deps: GameDeps,
   ) {
     app.stage.addChild(this.stage.root);
     this.textures = new Textures(app.renderer);
-    this.input = new Input(app.canvas);
+    this.input = deps.input;
+    this.audio = deps.audio;
     const mine = this.session.config.players[this.localSlot];
     this.autopilot = makeBot(opts.autopilot, mine ? mine.classId : 'sword');
 
@@ -189,24 +196,9 @@ export class Game {
     this.hud = new Hud();
     this.pausedLabel = new Label('Paused', { size: 22, color: PAPER, bold: true, tracking: 0.3, align: 'center' });
     this.pausedLabel.visible = false;
-    this.endHead = new Label('', { size: 30, color: PAPER, bold: true, tracking: 0.25, align: 'center' });
-    this.endNote = new Label('', { size: 11, color: PAPER, tracking: 0.2, align: 'center' });
-    this.endHint = new Label('Enter or A: go again', { size: 11, color: CHIME, tracking: 0.2, align: 'center' });
     this.campHint = new Label('', { size: 10, color: CHIME, tracking: 0.24, align: 'center' });
-    for (const l of [this.endHead, this.endNote, this.endHint, this.campHint]) l.visible = false;
-    this.stage.ui.addChild(
-      this.hud.root,
-      this.held.root,
-      this.bossBar.root,
-      this.campHint,
-      this.draft.root,
-      this.camp.screen.root,
-      this.wager.screen.root,
-      this.pausedLabel,
-      this.endHead,
-      this.endNote,
-      this.endHint,
-    );
+    this.campHint.visible = false;
+    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.campHint, this.draft.root, this.camp.screen.root, this.wager.screen.root, this.pausedLabel);
 
     if (opts.debug) {
       BitmapFont.install({
@@ -220,7 +212,7 @@ export class Game {
 
     this.onResize();
     this.camera.frameRoom(room, true);
-    if (!this.autopilot && !driver.coop) this.hud.banner('1 Sword   2 Bow   3 Fist', PAPER, 4.5);
+    if (!this.autopilot && this.session.config.practice) this.hud.banner('1 Sword   2 Bow   3 Fist', PAPER, 4.5);
     app.ticker.add(this.frame, this);
     // Bracket Pixi's own render call (which runs at LOW priority) to time it.
     app.ticker.add(this.beforeRender, this, UPDATE_PRIORITY.LOW + 1);
@@ -231,7 +223,6 @@ export class Game {
     this.app.ticker.remove(this.frame, this);
     this.app.ticker.remove(this.beforeRender, this);
     this.app.ticker.remove(this.afterRender, this);
-    this.input.destroy();
     this.playerViews.clear();
     this.enemyViews.clear();
     this.projectileViews.clear();
@@ -244,7 +235,6 @@ export class Game {
     this.ambient.destroy();
     for (const x of this.extras) x.destroy();
     this.backdrop.destroy();
-    this.audio.destroy();
     this.particles.destroy();
     this.numbers.destroy();
     this.hud.destroy();
@@ -351,10 +341,7 @@ export class Game {
     this.bossBar.layout(this.viewW);
     // to the right of the health panel, along the bottom
     this.held.root.position.set(372, this.viewH - 70);
-    this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.4);
-    this.endHead.position.set(this.viewW / 2, this.viewH * 0.3);
-    this.endNote.position.set(this.viewW / 2, this.viewH * 0.3 + 78);
-    this.endHint.position.set(this.viewW / 2, this.viewH * 0.3 + 122);
+    this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.22);
     this.debugText?.position.set(14, this.viewH - 190);
   }
 
@@ -543,35 +530,41 @@ export class Game {
 
     // 1. This laptop's input goes to the relay: a person's hands, or a bot's.
     const here = worldOf(this.session, slot);
-    const choosing = this.stepDraft(here, dt);
-    const camping = this.camp.step(
-      this.session,
-      slot,
-      here.players.find((q) => q.slot === slot),
-      here.content,
-      this.driver,
-      this.input,
-      this.autopilot ? (seat, p) => botCamp(seat, p, here.content) : null,
-      dt,
-    );
+    // with a menu over the game, nothing under it listens
+    const held = this.menuUp;
+    const choosing = !held && this.stepDraft(here, dt);
+    const camping =
+      !held &&
+      this.camp.step(
+        this.session,
+        slot,
+        here.players.find((q) => q.slot === slot),
+        here.content,
+        this.driver,
+        this.input,
+        this.autopilot ? (seat, p) => botCamp(seat, p, here.content) : null,
+        dt,
+      );
     this.campHint.visible = this.camp.away;
     if (this.camp.away) this.campHint.text = this.input.device === 'pad' ? 'X   The camp' : 'F   The camp';
-    const wagering = this.wager.step(
-      this.session,
-      slot,
-      here.players.find((q) => q.slot === slot),
-      this.driver,
-      this.input,
-      !!this.autopilot,
-      dt,
-    );
+    const wagering =
+      !held &&
+      this.wager.step(
+        this.session,
+        slot,
+        here.players.find((q) => q.slot === slot),
+        this.driver,
+        this.input,
+        !!this.autopilot,
+        dt,
+      );
     if (this.wager.result) {
       this.hud.banner(this.wager.result === 'on' ? 'The Wager is taken' : 'The party walks on', this.wager.result === 'on' ? DANGER : PAPER, 2);
       this.wager.result = '';
     }
     if (this.autopilot) {
       this.driver.input(this.autopilot.think(here, slot), now);
-    } else if (choosing || camping || wagering) {
+    } else if (held || choosing || camping || wagering) {
       // the cards have the keys: the character stands still, and nothing is pressed for them
       this.driver.input(this.input.quiet(), now);
     } else {
@@ -583,22 +576,21 @@ export class Game {
       this.aimSent = aimAngleOf(frame);
       this.driver.input(frame, now);
     }
-    if (!this.driver.coop) {
+    if (!held && this.session.config.practice && !this.driver.coop) {
       for (const [code, classId] of CLASS_KEYS) {
         if (!this.input.takeCode(code)) continue;
         const mine = this.session.config.players[slot];
         if (mine && mine.classId !== classId) this.changeClass(classId);
       }
     }
-    // Browsers keep sound off until the page has been touched; any key, click or button will do.
-    if (this.input.touched) this.audio.unlock();
-    if (this.input.take('mute')) this.hud.banner(this.audio.toggleMute() ? 'Sound off' : 'Sound on', PAPER, 1.1);
-    if (this.input.take('pause')) this.driver.command('pause');
-    if (this.opts.debug && this.input.take('restart')) this.driver.command('restart');
-    // a run that has ended waits for anyone to start the next
-    if (this.session.phase !== 'run' && this.session.endedFor > 45 && (this.input.take('confirm') || this.input.take('restart'))) this.driver.command('restart');
-    // presses nothing asked for do not wait around
-    this.input.clearPresses();
+    if (!held) {
+      if (this.input.take('mute')) this.hud.banner(this.audio.toggleMute() ? 'Sound off' : 'Sound on', PAPER, 1.1);
+      // Esc or Start: this player's own menu
+      if (this.input.take('pause')) this.deps.onMenu();
+      if (this.opts.debug && this.input.take('restart')) this.driver.command('restart');
+      // presses nothing asked for do not wait around
+      this.input.clearPresses();
+    }
 
     // 2. Step every tick that is due. Ticks stepped in a run to catch up are old news: no effects for those.
     this.driver.step(now, (session, muted) => {
@@ -664,15 +656,9 @@ export class Game {
     this.hud.setRun(s.route.length);
     this.hud.update(w, me, dt);
     this.hud.setNet(this.driver.net());
-    this.pausedLabel.visible = paused && !ended;
-    if (ended && this.endShown !== `${s.attempt}/${s.phase}`) {
-      this.endShown = `${s.attempt}/${s.phase}`;
-      const t = runSoFar(s);
-      this.endHead.text = s.phase === 'won' ? 'The Bell is still' : 'The party is down';
-      this.endHead.setColor(s.phase === 'won' ? CHIME : DANGER);
-      this.endNote.text = `Chambers ${t.chambers} of ${s.route.length}    Echoes stilled ${t.kills}    Returns ${t.returns}    Best Rally ${t.bestRally}`;
-    }
-    for (const l of [this.endHead, this.endNote, this.endHint]) l.visible = ended;
+    // together, a stopped game says who stopped it; alone, the menu that stopped it says so itself
+    this.pausedLabel.visible = paused && !ended && this.driver.coop && !this.menuUp;
+    if (this.pausedLabel.visible) this.pausedLabel.text = `Paused by ${s.config.players[s.pausedBy]?.name ?? 'someone'}`;
     this.stage.depth.sort();
 
     this.workTimes.push(performance.now() - now);

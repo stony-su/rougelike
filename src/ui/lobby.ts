@@ -122,7 +122,7 @@ export class LobbyView {
     else if (!my) this.hint.text = 'Connecting to the host';
     else if (everyone) this.hint.text = 'Everyone is ready.   Enter starts the game';
     else if (my.ready) this.hint.text = 'Waiting for the others.   Enter if you want to change class';
-    else this.hint.text = '1  2  3  choose a class        Enter when you are ready';
+    else this.hint.text = '1  2  3  choose a class        Enter when you are ready        Esc  title';
     this.status.text = status;
   }
 

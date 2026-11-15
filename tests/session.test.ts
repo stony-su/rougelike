@@ -144,6 +144,65 @@ describe('commands', () => {
     expect(s.worlds[0].tick).toBe(t0 + 1);
   });
 
+  it('a pause can be asked for outright, and lifted outright, however often it is asked', () => {
+    const s = createSession(config(2), CONTENT);
+    const ask = (slot: number, a: number): void => stepSession(s, { tick: s.tick + 1, inputs: [], cmds: [{ slot, seq: s.lastSeq[slot] + 1, kind: 'pause', a }] }, CONTENT);
+    // 1 stops the game; asked again by anyone, it stays stopped by whoever stopped it
+    ask(1, 1);
+    ask(0, 1);
+    ask(1, 1);
+    expect(s.pausedBy).toBe(1);
+    // 2 lets it go on, and asking again changes nothing
+    ask(0, 2);
+    ask(0, 2);
+    expect(s.pausedBy).toBe(-1);
+  });
+
+  it('counts the time a run is played: not its pauses, and not what comes after its end', () => {
+    const s = createSession(config(1), CONTENT);
+    const step = (cmds: Bundle['cmds'] = []): void => stepSession(s, { tick: s.tick + 1, inputs: [], cmds }, CONTENT);
+    for (let i = 0; i < 30; i++) step();
+    expect(s.played).toBe(30);
+    step([{ slot: 0, seq: 1, kind: 'pause', a: 1 }]);
+    for (let i = 0; i < 50; i++) step();
+    expect(s.played).toBe(30);
+    step([{ slot: 0, seq: 2, kind: 'pause', a: 2 }]);
+    expect(s.played).toBe(31);
+    // nobody at the controls: the run is lost, and its clock stops there
+    for (let i = 0; i < 60 * 240 && s.phase === 'run'; i++) step();
+    expect(s.phase).toBe('lost');
+    const at = s.played;
+    for (let i = 0; i < 100; i++) step();
+    expect(s.played).toBe(at);
+  });
+
+  it('once a run is over, the next begins when everyone has said they are ready', () => {
+    const s = createSession(config(3), CONTENT);
+    const step = (cmds: Bundle['cmds'] = []): void => stepSession(s, { tick: s.tick + 1, inputs: [], cmds }, CONTENT);
+    const ready = (slot: number, a: number): Bundle['cmds'] => [{ slot, seq: s.lastSeq[slot] + 1, kind: 'ready', a }];
+    // during a run, away from a camp, it means nothing
+    step(ready(0, 1));
+    expect(s.again).toEqual([false, false, false]);
+    for (let i = 0; i < 60 * 240 && s.phase === 'run'; i++) step();
+    expect(s.phase).toBe('lost');
+    step(ready(0, 1));
+    step(ready(2, 1));
+    for (let i = 0; i < 200; i++) step();
+    expect([s.phase, s.attempt]).toEqual(['lost', 0]);
+    expect(s.again).toEqual([true, false, true]);
+    // a mind can be changed
+    step(ready(2, 0));
+    step(ready(1, 1));
+    step();
+    expect([s.phase, s.attempt]).toEqual(['lost', 0]);
+    step(ready(2, 1));
+    step();
+    expect([s.phase, s.attempt]).toEqual(['run', 1]);
+    expect(s.again).toEqual([false, false, false]);
+    expect(s.played).toBeLessThanOrEqual(1);
+    expect(s.worlds[0].chamber).toBe(1);
+  });
+
   it('a command delivered twice is applied once', () => {
     const s = createSession(config(1), CONTENT);
     const cmd = { slot: 0, seq: 1, kind: 'pause' as const, a: 0 };

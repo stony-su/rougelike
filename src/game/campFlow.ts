@@ -12,7 +12,8 @@ import type { CampRow } from '../ui/campScreen';
 import { uiSound } from '../ui/sfx';
 import { RARITY_NAMES, cardInfo } from './cardInfo';
 import type { Driver } from './driver';
-import type { Input, MenuKeys } from './input';
+import { noKeys } from './input';
+import type { Input } from './input';
 
 type Ask = { kind: 'buy' | 'rest' | 'ready'; a: number };
 
@@ -143,7 +144,7 @@ export class CampFlow {
   /** The camp this laptop has seen, and whether its list is out. */
   private seen = '';
   private out = false;
-  private readonly keys: MenuKeys = { dx: 0, dy: 0, confirm: false, back: false };
+  private readonly keys = noKeys();
   private lastMouseX = -1;
   private lastMouseY = -1;
   /** The tick before which a bot in this seat asks for nothing more. */

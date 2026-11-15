@@ -28,7 +28,7 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **The Wager.** When the chamber before the Inner Ring's elite is cleared, the party is asked whether it will carry a Discord into the elite's chamber: Brittle, which cuts everyone's health by 30% for the fight. More than half must say yes (1 or 2, the arrow keys and Enter, the mouse, or a controller; ten seconds). Win it and the chamber pays double Chimes and a second card, a rare one.
 
-What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
+What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), the controls and settings pages, and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 
@@ -39,7 +39,9 @@ npm install        # once
 npm run dev        # start the dev server, then open the printed URL (http://localhost:5173)
 ```
 
-Alone, press **1**, **2** or **3** to play as the Sword, the Bow or the Fist (the run starts again). The class can also be given in the address: `http://localhost:5173/?class=bow`, and `?team=fist,sword,bow` puts you in the first seat with bots in the others.
+The game opens on its title. **Play alone**, then choose the Sword, the Bow or the Fist (each card shows how that class fights). In a run, **Esc** (or Start on a controller) opens your menu, which stops the game while you are alone; when a run ends, its numbers come up and **Enter** starts the next at once. Every screen works with the keyboard, the mouse or a controller.
+
+An address can skip the title: `http://localhost:5173/?class=bow` begins a run as the Bow, and `?team=fist,sword,bow` puts you in the first seat with bots in the others.
 
 ```bash
 npm run build      # production build into dist/
@@ -56,7 +58,7 @@ npm run host       # builds the game, starts the host, and prints two addresses
 
 - On the host laptop, open the first address it prints (`http://localhost:5180`).
 - On each other laptop, open the second (`http://<the host's address>:5180`) in Chrome or Edge. Nothing needs installing there.
-- In the lobby, press **1**, **2** or **3** to choose a class and **Enter** when ready. When everyone is ready, **Enter** starts the game.
+- On the title, choose **Co-op lobby**. In the lobby, press **1**, **2** or **3** to choose a class and **Enter** when ready. When everyone is ready, **Enter** starts the game. When a run ends, the next begins once everyone has chosen **Go again**.
 
 If the other laptops cannot connect: Windows asks once whether to allow Node.js on your network, and the answer must be yes for private networks; and guest or public Wi-Fi often keeps laptops from seeing each other (a home network or a phone hotspot does not). Leave the host's window open while you play: closing it ends the game for everyone. A laptop that drops out keeps its seat and rejoins by reloading the page. `npm run host -- --port 5200` uses another port.
 

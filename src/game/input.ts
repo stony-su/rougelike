@@ -35,7 +35,11 @@ export interface MenuKeys {
   dy: number;
   confirm: boolean;
   back: boolean;
+  /** A number key pressed this frame (1 to 9), or 0. */
+  digit: number;
 }
+
+export const noKeys = (): MenuKeys => ({ dx: 0, dy: 0, confirm: false, back: false, digit: 0 });
 
 /** Keys the browser must not act on while the game has focus. */
 const SWALLOW = new Set(['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backquote']);
@@ -223,12 +227,14 @@ export class Input {
    * What a menu is being told, from either device: a step along each axis (-1, 0 or 1, once for
    * each press of a key or push of a stick), yes, and back. The presses are consumed.
    */
-  menuKeys(out: MenuKeys = { dx: 0, dy: 0, confirm: false, back: false }): MenuKeys {
+  menuKeys(out: MenuKeys = noKeys()): MenuKeys {
     this.pollPad();
     out.dx = (this.take('right') ? 1 : 0) - (this.take('left') ? 1 : 0) || this.pads.stepX;
     out.dy = (this.take('down') ? 1 : 0) - (this.take('up') ? 1 : 0) || this.pads.stepY;
     out.back = this.take('back');
     out.confirm = this.take('confirm');
+    out.digit = 0;
+    for (let n = 1; n <= 9; n++) if (this.takeCode(`Digit${n}`)) out.digit = n;
     return out;
   }
 

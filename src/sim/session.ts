@@ -54,11 +54,14 @@ export interface SessionConfig {
 }
 
 /**
- * Everything a player can decide outside their hands. 'pick' takes card `a` (0, 1 or 2) of the
+ * Everything a player can decide outside their hands. 'pause' stops the game for everyone or
+ * lets it go on (`a` 1 stops it, 2 lets it go on, 0 changes whichever it is); 'restart' begins a
+ * new run at once. 'pick' takes card `a` (0, 1 or 2) of the
  * player's draft; 'reroll' deals their cards again, if they have a reroll left. At a camp
  * (camp.ts): 'buy' takes thing `a` from the Tuner, 'rest' takes thing `a` from the Still Pool,
- * and 'ready' says whether the player is ready to leave (`a` 1 or 0). 'wager' answers the Wager
- * (wager.ts): `a` 1 takes it, 0 walks on.
+ * and 'ready' says whether the player is ready to leave (`a` 1 or 0). Once a run is over, 'ready'
+ * says instead whether the player is ready for the next: it begins when everyone is. 'wager'
+ * answers the Wager (wager.ts): `a` 1 takes it, 0 walks on.
  */
 export const COMMAND_KINDS = ['pause', 'restart', 'pick', 'reroll', 'buy', 'rest', 'ready', 'wager'] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
@@ -109,6 +112,10 @@ export interface Session {
   phase: RunPhase;
   /** Ticks since the run was won or lost. */
   endedFor: number;
+  /** Ticks this attempt has been played: pauses and the time after its end are not counted. */
+  played: number;
+  /** Once the run is over: for each slot, whether that player is ready for the next. */
+  again: boolean[];
   /** What the chambers already left added up to. The chamber being played is added when it is left. */
   totals: RunStats;
   /** One world per place the players are. */
@@ -162,6 +169,8 @@ function begin(s: Session, content: ContentRegistry): void {
   s.stop = Math.max(0, Math.min(s.route.length - 1, Math.round(s.config.startAt ?? 1) - 1));
   s.phase = 'run';
   s.endedFor = 0;
+  s.played = 0;
+  s.again = s.config.players.map(() => false);
   s.totals = noStats();
   s.downFor = -1;
   s.clearFor = -1;
@@ -198,6 +207,8 @@ export function createSession(config: SessionConfig, content: ContentRegistry): 
     stop: 0,
     phase: 'run',
     endedFor: 0,
+    played: 0,
+    again: [],
     totals: noStats(),
     worlds: [],
     where: [],
@@ -242,7 +253,10 @@ function applyCommand(s: Session, c: Command, content: ContentRegistry): void {
   s.lastSeq[c.slot] = c.seq;
   if (c.kind === 'pause') {
     // anyone can pause for everyone, and anyone can lift it
-    s.pausedBy = s.pausedBy >= 0 ? -1 : c.slot;
+    if (c.a === 1) {
+      if (s.pausedBy < 0) s.pausedBy = c.slot;
+    } else if (c.a === 2) s.pausedBy = -1;
+    else s.pausedBy = s.pausedBy >= 0 ? -1 : c.slot;
   } else if (c.kind === 'restart') {
     restart(s, content);
   } else if (c.kind === 'pick') {
@@ -256,6 +270,9 @@ function applyCommand(s: Session, c: Command, content: ContentRegistry): void {
     }
   } else if (c.kind === 'wager') {
     if (s.phase === 'run') vote(s.wager, c.slot, c.a);
+  } else if (c.kind === 'ready' && s.phase !== 'run') {
+    // the run is over: this is who is ready for the next
+    s.again[c.slot] = c.a !== 0;
   } else {
     // the rest are asked of a camp, and mean nothing anywhere else
     const seat = s.camps[c.slot];
@@ -350,11 +367,13 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
   s.tick++;
   for (const c of bundle.cmds) applyCommand(s, c, content);
   if (s.pausedBy >= 0) return;
-  // a run that has ended stands still until someone starts again
+  // a run that has ended stands still until everyone is ready for the next (or someone starts it outright)
   if (s.phase !== 'run') {
     s.endedFor++;
+    if (s.again.length > 0 && s.again.every((ready) => ready)) restart(s, content);
     return;
   }
+  s.played++;
 
   const idle = emptyInput();
   for (const w of s.worlds) {
