@@ -104,9 +104,11 @@ export interface EnemyDef {
   /**
    * A shield held in front. While the Echo is on guard (not attacking, recovering, stunned or
    * staggered), blows and shots that meet it within `arc` radians either side of where it faces
-   * do nothing. A blow that breaks guards (a full Haymaker) opens it for `open` seconds.
+   * do nothing. A blow that breaks guards (a full Haymaker) opens it for `open` seconds. After a
+   * blow of its own the shield hangs at its side through the recovery, and for `after` seconds
+   * more: that is the opening a player without a way through it waits for.
    */
-  shield?: { arc: number; open: number };
+  shield?: { arc: number; open: number; after?: number };
   /**
    * It flies. Ground blows pass under it, except while it swoops in its own attack; anything
    * shot or sent back at it knocks it out of the air for `grounded` seconds.

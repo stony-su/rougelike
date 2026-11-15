@@ -11,8 +11,8 @@ import { drawIcon, drawPattern } from './icons';
 import { Label } from './label';
 import { rankPips } from './widgets';
 
-export const CARD_W = 300;
-export const CARD_H = 430;
+export const CARD_W = 320;
+export const CARD_H = 470;
 
 export interface CardInfo {
   name: string;
@@ -38,7 +38,15 @@ export interface CardInfo {
 const RARITY_NAMES = ['Common', 'Uncommon', 'Rare'];
 const PAD = 22;
 /** The height of the coloured band the emblem sits in. */
-const BAND = 124;
+const BAND = 116;
+/** The sizes the rules are tried at, largest first, each with the size of the Harmony's lines under them. */
+const FITS: ReadonlyArray<readonly [number, number]> = [
+  [10, 8],
+  [9.5, 8],
+  [9, 7.5],
+  [8.5, 7.5],
+  [8, 7],
+];
 
 export class Card extends Container {
   private readonly glow = new Graphics();
@@ -95,48 +103,79 @@ export class Card extends Container {
     const medal = new Graphics();
     const mx = CARD_W / 2;
     const my = 8 + BAND / 2;
-    medal.circle(mx, my, 46).fill({ color: UI.glass, alpha: 0.9 });
-    medal.circle(mx, my, 46).stroke({ width: 2.5, color: tone.color, alpha: 0.95 });
-    medal.circle(mx, my, 40).stroke({ width: 1, color: tone.pale, alpha: 0.35 });
+    medal.circle(mx, my, 44).fill({ color: UI.glass, alpha: 0.9 });
+    medal.circle(mx, my, 44).stroke({ width: 2.5, color: tone.color, alpha: 0.95 });
+    medal.circle(mx, my, 38).stroke({ width: 1, color: tone.pale, alpha: 0.35 });
     const emblem = new Graphics();
-    drawIcon(emblem, info.icon, 27, tone.color, tone.pale);
+    drawIcon(emblem, info.icon, 26, tone.color, tone.pale);
     emblem.position.set(mx, my);
     this.addChild(medal, emblem);
 
-    // how rare, as gems and a word; whose and which build
+    // Below the band everything flows downward from one line to the next, so that a long name or
+    // a long line of rules pushes what follows instead of running over it.
+    const inner = CARD_W - PAD * 2;
+    let y = BAND + 22;
+    // how rare, as gems and a word; and the rank on offer, at the right
     const gems = new Graphics();
-    for (let i = 0; i <= info.rarity; i++) gems.poly([PAD + 5 + i * 13, BAND + 20, PAD + 10 + i * 13, BAND + 25, PAD + 5 + i * 13, BAND + 30, PAD + i * 13, BAND + 25]).fill(edge);
+    for (let i = 0; i <= info.rarity; i++) gems.poly([PAD + 5 + i * 13, y - 1, PAD + 10 + i * 13, y + 4, PAD + 5 + i * 13, y + 9, PAD + i * 13, y + 4]).fill(edge);
     const rarity = new Label(RARITY_NAMES[info.rarity] ?? '', { size: 8, color: edge, tracking: 0.25 });
-    rarity.position.set(PAD + (info.rarity + 1) * 13 + 6, BAND + 21);
-    const whose = new Label(`${info.owner} / ${info.build}`, { size: 8, color: tone.color, tracking: 0.15, align: 'right' });
-    whose.position.set(CARD_W - PAD, BAND + 21);
-    const name = new Label(info.name, { size: 16, color: tone.pale, bold: true, tracking: 0.12, maxWidth: CARD_W - PAD * 2, lineHeight: 1.5 });
-    name.position.set(PAD, BAND + 46);
+    rarity.position.set(PAD + (info.rarity + 1) * 13 + 6, y);
+    const rank = new Label(info.rank <= 1 ? 'New' : `Rank ${info.rank} of ${info.maxRank}`, { size: 8, color: UI.inkSoft, tracking: 0.2, align: 'right' });
+    rank.position.set(CARD_W - PAD, y);
+    y += 20;
+    // whose it is and which build, on a line of its own: beside the rarity the two ran into each other
+    const whose = new Label(`${info.owner} / ${info.build}`, { size: 8, color: tone.color, tracking: 0.15, maxWidth: inner });
+    whose.position.set(PAD, y);
+    y += whose.textHeight + 16;
+    const name = new Label(info.name, { size: 16, color: tone.pale, bold: true, tracking: 0.12, maxWidth: inner, lineHeight: 1.45 });
+    name.position.set(PAD, y);
+    y += name.textHeight + 14;
     const pips = rankPips(info.rank, info.maxRank, tone.color);
-    pips.position.set(PAD, BAND + 82);
-    const rank = new Label(info.rank <= 1 ? 'New' : `Rank ${info.rank} of ${info.maxRank}`, { size: 8, color: UI.inkSoft, tracking: 0.2 });
-    rank.position.set(PAD + info.maxRank * 16 + 8, BAND + 84);
-    const text = new Label(info.text, { size: 10, color: PAPER, maxWidth: CARD_W - PAD * 2, lineHeight: 1.9, tracking: 0.05 });
-    text.position.set(PAD, BAND + 112);
-    this.addChild(gems, rarity, whose, name, pips, rank, text);
+    pips.position.set(PAD, y);
+    y += 24;
+    this.addChild(gems, rarity, rank, whose, name, pips);
 
-    if (info.harmony) {
-      // the Harmony it is half of: bright if this card completes it
-      const y = CARD_H - 126;
-      const box = new Graphics().roundRect(PAD - 8, y, CARD_W - (PAD - 8) * 2, 80, 6);
-      if (info.completes) box.fill({ color: CHIME, alpha: 0.12 });
-      box.stroke({ width: 1, color: info.completes ? CHIME : UI.inkSoft, alpha: info.completes ? 0.9 : 0.45 });
-      const head = new Label(info.completes ? `Completes ${info.harmony}` : info.harmony, {
-        size: 9,
-        color: info.completes ? CHIME : UI.inkSoft,
-        bold: info.completes,
-        tracking: 0.15,
-        maxWidth: CARD_W - PAD * 2,
-      });
-      head.position.set(PAD, y + 12);
-      const what = new Label(info.harmonyText, { size: 8, color: info.completes ? PAPER : UI.inkSoft, maxWidth: CARD_W - PAD * 2, lineHeight: 1.8 });
-      what.position.set(PAD, y + 34);
-      this.addChild(box, head, what);
+    // What it does, and under it the Harmony it is half of. The lettering steps down a size at a
+    // time until both fit above the foot of the card.
+    const foot = CARD_H - (key > 0 ? 50 : 18);
+    for (const [size, small] of FITS) {
+      const text = new Label(info.text, { size, color: PAPER, maxWidth: inner, lineHeight: 1.85, tracking: 0.05 });
+      text.position.set(PAD, y);
+      let end = y + text.textHeight;
+      let box: Graphics | null = null;
+      let head: Label | null = null;
+      let what: Label | null = null;
+      if (info.harmony) {
+        // the Harmony: bright if this card completes it
+        head = new Label(info.completes ? `Completes ${info.harmony}` : info.harmony, {
+          size: small + 1,
+          color: info.completes ? CHIME : UI.inkSoft,
+          bold: info.completes,
+          tracking: 0.15,
+          maxWidth: inner - 12,
+          lineHeight: 1.6,
+        });
+        what = new Label(info.harmonyText, { size: small, color: info.completes ? PAPER : UI.inkSoft, maxWidth: inner - 12, lineHeight: 1.75 });
+        const tall = 12 + head.textHeight + 10 + what.textHeight + 12;
+        // at the foot of the card when there is room, and otherwise straight after the text
+        const top = Math.max(end + 16, foot - tall);
+        box = new Graphics().roundRect(PAD - 6, top, inner + 12, tall, 6);
+        if (info.completes) box.fill({ color: CHIME, alpha: 0.12 });
+        box.stroke({ width: 1, color: info.completes ? CHIME : UI.inkSoft, alpha: info.completes ? 0.9 : 0.45 });
+        head.position.set(PAD + 6, top + 12);
+        what.position.set(PAD + 6, top + 12 + head.textHeight + 10);
+        end = top + tall;
+      }
+      const last = size === FITS[FITS.length - 1][0];
+      if (end <= foot || last) {
+        this.addChild(text);
+        if (box && head && what) this.addChild(box, head, what);
+        break;
+      }
+      text.destroy({ children: true });
+      box?.destroy();
+      head?.destroy({ children: true });
+      what?.destroy({ children: true });
     }
 
     if (key > 0) {

@@ -1,8 +1,8 @@
 ---
 id: T80
 title: Bosses arrive at their full size
-status: open
-owner:
+status: done
+owner: stony-su
 milestone: 8
 weight: 0.3
 needs: []

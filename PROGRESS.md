@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 83% complete.** 36 of 52 tasks are done, 0 in progress, 16 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 84% complete.** 38 of 52 tasks are done, 0 in progress, 14 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 17.7% | 89% |
 | 6 | Menus, saving, sound | 3.9% | 80% |
 | 7 | Polish and balance | 3.1% | 75% |
-| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 0% |
+| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 4% |
 
 ## In progress
 
@@ -28,8 +28,6 @@ Nothing at the moment.
 - [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.2% of the game)
 - [T66](tasks/T66-music.md) **Music beds and sound levels** (0.8% of the game)
 - [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.8% of the game)
-- [T80](tasks/T80-boss-size.md) **Bosses arrive at their full size** (0.2% of the game)
-- [T81](tasks/T81-gong-guard-down.md) **A Gong's guard stays down longer after its bash** (0.2% of the game)
 - [T82](tasks/T82-card-layout.md) **Cards that fit their words; a wider camp and a wider between-runs screen** (0.8% of the game)
 - [T83](tasks/T83-cooldown-and-ability-text.md) **The special's cooldown under the hero, and what every upgrade does on Tab or on hover** (0.9% of the game)
 - [T84](tasks/T84-fist-stomp.md) **The Fist's stomp: safe through it, and a follow-up** (0.9% of the game)
@@ -83,6 +81,8 @@ Nothing.
 - [T65](tasks/T65-crater.md) The Crater: the third biome, for the last chamber
 - [T70](tasks/T70-balance.md) Balance, by bots playing whole runs
 - [T71](tasks/T71-performance.md) Performance pass
+- [T80](tasks/T80-boss-size.md) Bosses arrive at their full size
+- [T81](tasks/T81-gong-guard-down.md) A Gong's guard stays down longer after its bash
 
 ## Future plans: designed, kept for later
 

@@ -116,6 +116,8 @@ class EnemyView {
     this.halo = new Graphics(halo());
     this.halo.tint = RIM;
     this.size = e.def.scale ?? 1;
+    // its own size from the first frame: a boss that arrived at the size of an Echo and then jumped to its own was plainly wrong
+    this.rig.root.scale.set(this.size);
     this.halo.scale.set(this.entry.def.footprint * this.size * 1.25);
     this.halo.alpha = 0;
     this.mark = new Graphics(spawnMark());
@@ -182,6 +184,7 @@ class EnemyView {
     if (e.state === 'spawn') {
       const k = a.phase;
       this.rig.root.alpha = Math.min(1, k * 1.6);
+      this.rig.root.scale.set(this.size);
       this.mark.visible = true;
       this.mark.alpha = (1 - k) * 0.9;
       this.mark.scale.set(this.entry.def.footprint * this.size * (1.9 - 0.9 * k));

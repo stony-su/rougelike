@@ -18,11 +18,16 @@ import { PanelScreen } from '../screen';
 import type { Pointer, ScreenFactory, ScreenHost } from '../screen';
 import { uiSound } from '../sfx';
 
-const W = 920;
+// Across the screen rather than down it: three columns of what can be bought, and the records of
+// the three classes in a row beneath. As one tall column, with everything on offer, the panel was
+// taller than most screens and was shrunk to fit, lettering and all.
+const W = 1240;
 const PAD = 36;
-const LIST_W = 540;
+const COLS = 3;
+const LIST_W = W - PAD * 2;
 const TOP = 132;
-const SIDE_X = PAD + LIST_W + 34;
+/** How tall the strip of records under the list is. */
+const RECORDS = 128;
 
 const RANKS = ['', 'I', 'II', 'III', 'IV'];
 const CLASSES: ReadonlyArray<readonly [ClassId, string]> = [
@@ -42,7 +47,9 @@ class Attunement extends PanelScreen {
   private readonly glass = new Graphics();
   private readonly ring = new Graphics();
   private readonly purse: Label;
-  private readonly list = new MenuList(LIST_W, 46);
+  private readonly list = new MenuList(LIST_W, 58, COLS);
+  private readonly recordHeads: Label[] = [];
+  private readonly recordHead: Label;
   private readonly records: Label[] = [];
   private readonly status: Label;
   private readonly hint: Label;
@@ -66,14 +73,12 @@ class Attunement extends PanelScreen {
     how.position.set(PAD, 86);
     this.list.position.set(PAD, TOP);
     this.panel.addChild(this.glass, title, this.ring, this.purse, how, this.list);
-    const head = new Label('Records', { size: 10, color: UI.brass, bold: true, tracking: 0.34 });
-    head.position.set(SIDE_X, TOP + 4);
-    this.panel.addChild(head);
-    CLASSES.forEach(([id, name], i) => {
+    this.recordHead = new Label('Records', { size: 10, color: UI.brass, bold: true, tracking: 0.34 });
+    this.panel.addChild(this.recordHead);
+    CLASSES.forEach(([id, name]) => {
       const who = new Label(name, { size: 12, color: TONES[id].pale, bold: true, tracking: 0.14 });
-      who.position.set(SIDE_X, TOP + 40 + i * 104);
-      const what = new Label('', { size: 9, color: UI.text, tracking: 0.06, maxWidth: W - PAD - SIDE_X, lineHeight: 1.9 });
-      what.position.set(SIDE_X, TOP + 64 + i * 104);
+      const what = new Label('', { size: 9, color: UI.text, tracking: 0.06, maxWidth: LIST_W / 3 - 30, lineHeight: 1.9 });
+      this.recordHeads.push(who);
       this.records.push(what);
       this.panel.addChild(who, what);
     });
@@ -100,7 +105,7 @@ class Attunement extends PanelScreen {
         // bought: the row now chooses which Tuning that class begins with
         const id = save.issued[issues];
         const t = this.content.tunings[id];
-        entries.push({ label: def.name, note: 'Left and right choose the Tuning', value: t ? t.name : 'None', adjust: true });
+        entries.push({ label: def.name, note: 'Enter changes the Tuning', value: t ? t.name : 'None' });
         this.acts.push({ kind: 'issue', classId: issues });
         continue;
       }
@@ -129,7 +134,15 @@ class Attunement extends PanelScreen {
           : `${r.runs} ${r.runs === 1 ? 'run' : 'runs'}, ${r.wins} won.\nFurthest: chamber ${r.best} of 12.
 Best Rally: ${r.rally}.${r.fastest > 0 ? `\nQuickest win: ${clock(r.fastest)}.` : ''}`;
     });
-    const h = TOP + Math.max(this.list.tall, 350) + 70;
+    // the records, in a row under the list
+    const ry = TOP + this.list.tall + 30;
+    this.recordHead.position.set(PAD, ry);
+    CLASSES.forEach((_, i) => {
+      const x = PAD + (LIST_W / 3) * i;
+      this.recordHeads[i].position.set(x, ry + 28);
+      this.records[i].position.set(x, ry + 52);
+    });
+    const h = ry + RECORDS + 56;
     if (h !== this.h) {
       this.h = h;
       this.place();
@@ -144,8 +157,8 @@ Best Rally: ${r.rally}.${r.fastest > 0 ? `\nQuickest win: ${clock(r.fastest)}.` 
       .lineTo(W - PAD, 74)
       .stroke({ width: 1, color: UI.brass, alpha: 0.45 });
     this.status.text = this.host.state.note;
-    this.status.position.set(SIDE_X, this.h - 36);
-    this.hint.text = this.host.state.pad ? 'Up and down      A  take      B  back' : 'W S  choose      Enter  take      Esc  back';
+    this.status.position.set(PAD + LIST_W / 2, this.h - 36);
+    this.hint.text = this.host.state.pad ? 'The stick  choose      A  take      B  back' : 'W A S D  choose      Enter  take      Esc  back';
     this.hint.position.set(PAD, this.h - 36);
   }
 
@@ -186,7 +199,7 @@ Best Rally: ${r.rally}.${r.fastest > 0 ? `\nQuickest win: ${clock(r.fastest)}.` 
     this.fade(dt);
     this.build();
     if (keys.dy !== 0) this.list.move(keys.dy);
-    if (keys.dx !== 0) this.take(this.list.choice, keys.dx);
+    if (keys.dx !== 0) this.list.across(keys.dx);
     let take = keys.confirm ? this.list.choice : -1;
     if (pointer.moved || pointer.click) {
       const over = this.list.hit(this.px(pointer), this.py(pointer));

@@ -1,8 +1,8 @@
 ---
 id: T81
 title: A Gong's guard stays down longer after its bash
-status: open
-owner:
+status: done
+owner: stony-su
 milestone: 8
 weight: 0.3
 needs: []

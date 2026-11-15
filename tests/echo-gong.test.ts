@@ -70,25 +70,38 @@ describe('the Gong', () => {
     expect(full.open).toBeGreaterThan(0);
   });
 
-  it('bashes whoever stands in its cone, and its guard is down while it recovers', () => {
+  it('bashes whoever stands in its cone, and its guard is down while it recovers and for a while after', () => {
     const w = openWorld(['sword']);
     const p = w.players[0];
     const e = spawnEnemy(w, GONG, p.x + 1.6, p.y, { instant: true });
     e.cooldowns.fill(0);
     let recovering = 0;
     let hurt = 0;
+    /** Ticks in a row, from the blow on, with the shield down. */
+    let open = 0;
+    let struck = false;
+    let closed = false;
     const idle = emptyInput();
     for (let i = 0; i < 4 * SIM_HZ; i++) {
       stepWorld(w, [new Pad().f], idle);
       hurt += eventsOf(w.events, 'playerHurt').length;
+      if (eventsOf(w.events, 'enemyAttack').length > 0) struck = true;
       w.events.length = 0;
       if (e.state === 'recover') {
         recovering++;
         expect(onGuard(e)).toBe(false);
       }
+      if (struck && !closed) {
+        if (onGuard(e)) closed = true;
+        else open++;
+      }
     }
     expect(hurt).toBeGreaterThanOrEqual(1);
     expect(recovering).toBeGreaterThan(20);
+    // the opening is the recovery and the time its shield takes to come back up: two seconds, not under one
+    expect(closed).toBe(true);
+    expect(open / SIM_HZ).toBeGreaterThan(1.8);
+    expect(open / SIM_HZ).toBeLessThan(2.4);
   });
 
   it('every class can beat a Gong and its company', () => {

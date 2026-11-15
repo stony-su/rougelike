@@ -1,6 +1,7 @@
 import { Application } from 'pixi.js';
 import { CONTENT } from './content';
 import { App } from './game/app';
+import { CardSheet } from './game/cardSheet';
 import { findHost } from './game/connection';
 import { Gallery } from './game/gallery';
 import { selftestHashes, selftestMath } from './sim/selftest';
@@ -44,7 +45,11 @@ if (params.has('selftest')) {
   mount.appendChild(pixi.canvas);
 
   const galleryRig = params.get('gallery');
-  if (galleryRig !== null) {
+  const cards = params.get('cards');
+  if (cards !== null) {
+    // Development tool: every upgrade's card on one sheet.
+    hooks.cards = new CardSheet(pixi, cards || 'all', Number(params.get('rank') ?? 0) || 0);
+  } else if (galleryRig !== null) {
     // Development tool: every animation state of a rig as a filmstrip.
     hooks.gallery = new Gallery(pixi, {
       rig: galleryRig || 'all',

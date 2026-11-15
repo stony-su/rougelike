@@ -593,6 +593,8 @@ export function stepEnemies(w: World, dt: number): void {
           e.move = -1;
           // one that skirmishes does not stay where it struck from
           e.spotT = 0;
+          // a shield is slow to come back up after a blow of its bearer's own
+          if (e.def.shield?.after) e.guardOpen = Math.max(e.guardOpen, e.def.shield.after);
           setState(e, 'idle');
         }
         break;

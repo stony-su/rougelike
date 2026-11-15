@@ -32,13 +32,15 @@ export const GONG: EnemyDef = {
       // the cone follows its target for a moment, then locks; everyone inside it is struck
       telegraph: { shape: 'cone', radius: 2.2, halfArc: deg(50), track: 0.3 },
       action: { kind: 'strike', damage: 14, knock: 7 },
-      // guard down: this is when to hit it
+      // guard down: this is when to hit it (and for a while after, see `shield.after`)
       recovery: 0.8,
     },
   ],
   rig: 'gong',
   chimes: [4, 7],
-  shield: { arc: deg(70), open: 2.5 },
+  // The opening after a bash is the recovery and `after` more: two seconds in all. At 0.8 it was
+  // over before most players had turned round to use it.
+  shield: { arc: deg(70), open: 2.5, after: 1.2 },
 };
 
 export default GONG;
