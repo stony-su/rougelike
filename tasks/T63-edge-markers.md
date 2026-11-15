@@ -1,8 +1,8 @@
 ---
 id: T63
 title: Edge markers for teammates and threats off screen
-status: open
-owner:
+status: claimed
+owner: June Lee
 milestone: 5
 weight: 0.5
 needs: [T11]
