@@ -66,6 +66,7 @@ export class Hud {
 
   // --- title, purse, teammates, banner, frame
   private readonly title = new Container();
+  private runLength = 0;
   private readonly titleHead: Label;
   private readonly titleNote: Label;
   private readonly purse = new Container();
@@ -221,6 +222,11 @@ export class Hud {
   }
 
   /** Stamp a short message across the top of the screen for a moment. */
+  /** How many chambers the run has (0 on the practice ladder, which has no end). */
+  setRun(length: number): void {
+    this.runLength = length;
+  }
+
   banner(text: string, color: number, seconds = 1.7): void {
     this.bannerBox.removeChildren().forEach((c) => c.destroy({ children: true }));
     this.bannerBox.addChild(stamp(text, color, 16));
@@ -245,8 +251,8 @@ export class Hud {
 
     // what is happening in this chamber
     const f = w.flow;
-    this.titleHead.text = `Chamber ${w.chamber}`;
-    this.titleNote.text = f.phase === 'fight' ? `Wave ${Math.max(1, f.wave)} of ${f.waves}` : 'Cleared';
+    this.titleHead.text = this.runLength > 0 ? `Chamber ${w.chamber} of ${this.runLength}` : `Chamber ${w.chamber}`;
+    this.titleNote.text = f.kind === 'camp' ? 'Camp' : f.phase === 'fight' ? `Wave ${Math.max(1, f.wave)} of ${f.waves}` : 'Cleared';
 
     // teammates
     let n = 0;

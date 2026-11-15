@@ -1,7 +1,7 @@
 ---
 id: T11
 title: Camera that follows your own player
-status: claimed
+status: done
 owner: stony-su
 milestone: 3
 weight: 2

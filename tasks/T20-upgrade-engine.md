@@ -1,8 +1,8 @@
 ---
 id: T20
 title: Upgrade engine: Tunings on players, a draft after every fight
-status: open
-owner:
+status: claimed
+owner: stony-su
 milestone: 4
 weight: 4
 needs: [T10]

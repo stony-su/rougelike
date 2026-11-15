@@ -10,7 +10,7 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 ## Where the build stands
 
-**Milestones 1 (the Rebound) and 2 (playing together) are done.** The signature mechanic is in and playable, alone or with up to three laptops on one network, with keyboard and mouse or a controller:
+**Milestones 1 (the Rebound) and 2 (playing together) are done, and the run has its road.** The signature mechanic is in and playable, alone or with up to three laptops on one network, with keyboard and mouse or a controller:
 
 - **Three classes.** The Sword turns enemy shots back with every swing, bats a lunging enemy away, and has a guard (Riposte) that returns whatever lands in it. The Bow's arrows ricochet off walls and skip between enemies, with an aim preview that shows the exact path, and it throws a Ringstone that redirects shots and bodies. The Fist jabs on the press, and if you keep the button held it draws back for a Haymaker that launches its target; its Break pops everything nearby outward.
 - **Everything bounces.** Launched enemies slam into walls, carom into each other, ring off bumpers and fall into pits. Bombs can be batted back or shot where they sit. Hits from anything sent back are *Returns*: they build Rally, and Rally makes Returns hit harder.
@@ -18,7 +18,9 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **Together.** One laptop hosts; the others open its address. Everyone sees exactly the same game. A downed player crawls and is helped up by a teammate who stands close; an arrow that crosses a teammate's sword swing is banked off the blade, and a body one player launches can be struck again in flight by another (Duets).
 
-Waves get deeper each time a chamber is cleared, and the chambers alternate between two looks (a checkered court with round posts, and a survey ground of contour rings and hexagon pillars). What is not here yet: generated chambers, the run with its upgrades, bosses, menus and saving.
+- **A run of twelve chambers.** The road is planned from the seed: the Outer Ring, then the Inner Ring, each ending in a camp and its hardest fight. Every chamber is generated (courts, crossings, twin halls, rings round a pit, hollows; two looks; posts, bumpers and pits), and the camera follows you through the big ones. Health and Chimes come along from chamber to chamber, a camp gives some health back, clearing the twelfth wins the run, and the whole party going down loses it. Enter (or A on a controller) starts the next.
+
+What is not here yet: upgrades, the solo side-chambers (a side-chamber is a short shared fight for now), the camp's shop, the Wager, the two bosses (their chambers are the hardest fights of their zones for now), menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 
@@ -29,7 +31,7 @@ npm install        # once
 npm run dev        # start the dev server, then open the printed URL (http://localhost:5173)
 ```
 
-In the practice court, press **1**, **2** or **3** to play as the Sword, the Bow or the Fist (the court starts again). The class can also be given in the address: `http://localhost:5173/?class=bow`, and `?team=fist,sword,bow` puts you in the first seat with bots in the others.
+Alone, press **1**, **2** or **3** to play as the Sword, the Bow or the Fist (the run starts again). The class can also be given in the address: `http://localhost:5173/?class=bow`, and `?team=fist,sword,bow` puts you in the first seat with bots in the others.
 
 ```bash
 npm run build      # production build into dist/
@@ -113,6 +115,7 @@ Two more that are worth knowing when reading the code:
 - `?class=bow` chooses your class; `?team=sword,bow,fist` fills up to three seats (yours first, bots in the rest).
 - `?autopilot=expert` (or `novice`) lets a bot play your seat.
 - `?stress=40` keeps forty enemies alive and nobody can be hurt (for frame-time checks).
+- `?practice` plays the endless practice ladder in the two hand-built rooms instead of a run.
 - `?gallery=edge` (or any rig id, or `all`) shows every animation state of a rig as a filmstrip; add `&away`, `&silhouette` or `&live`.
 - `?selftest` plays a pinned three-player game headless in the page and prints its hashes.
 - `npm run coop-check -- --port 5180` (with `npm run host` running and nobody in the lobby): three browser pages join through the network address, fight, one is frozen and one reloaded, and the host must not have had to repair anyone.

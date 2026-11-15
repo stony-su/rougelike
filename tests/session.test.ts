@@ -166,7 +166,7 @@ describe('commands', () => {
 
 describe('the practice ladder', () => {
   it('goes deeper after each cleared chamber, and starts over when everyone is down', () => {
-    const s = createSession(config(2, 'ladder'), CONTENT);
+    const s = createSession({ ...config(2, 'ladder'), practice: true }, CONTENT);
     let deepest = 1;
     let restarted = false;
     const pair = bots(2);

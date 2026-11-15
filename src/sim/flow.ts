@@ -6,6 +6,7 @@ import { nearestPlayer, spawnEnemy } from './ai';
 import { standing } from './combat';
 import type { EnemyDef } from './defs';
 import { isClear, randomFloorPoint } from './room';
+import type { StopKind } from './run';
 import { SCALING } from './tuning';
 import type { Enemy, World } from './types';
 
@@ -26,6 +27,8 @@ export interface Pickup {
 export type FlowPhase = 'fight' | 'cleared';
 
 export interface RoomFlow {
+  /** What the chamber is for (run.ts). An ordinary fight unless the route says otherwise. */
+  kind: StopKind;
   phase: FlowPhase;
   /** Waves sent so far, and in total. */
   wave: number;
@@ -46,6 +49,7 @@ const SPAWN_MIN_DIST = 4;
 
 export function createFlow(chamber: number, players: number): RoomFlow {
   return {
+    kind: 'fight',
     phase: 'fight',
     wave: 0,
     waves: chamber >= 5 ? 3 : 2,
@@ -221,7 +225,8 @@ export function stepFlow(w: World, dt: number): void {
       f.phase = 'cleared';
       f.clearedFor = 0;
       dropChimes(w, w.room.rewardSpot.x, w.room.rewardSpot.y, f.clearBonus);
-      w.events.push({ type: 'roomClear', x: w.room.rewardSpot.x, y: w.room.rewardSpot.y });
+      // a chamber with no waves (a camp) was never a fight, so there is nothing to announce
+      if (f.waves > 0) w.events.push({ type: 'roomClear', x: w.room.rewardSpot.x, y: w.room.rewardSpot.y });
     } else {
       f.waveTimer -= dt;
       if (f.waveTimer <= 0) {

@@ -183,7 +183,9 @@ function config(v: unknown): SessionConfig | null {
     if (!isClassId(q.classId)) return null;
     players.push({ name: cleanName(q.name, 'Returner'), classId: q.classId });
   }
-  return { seed: r.seed, players, buildId: r.buildId, inputDelay: clampInt(r.inputDelay, 0, 30), stress: clampInt(r.stress, 0, 200) };
+  const out: SessionConfig = { seed: r.seed, players, buildId: r.buildId, inputDelay: clampInt(r.inputDelay, 0, 30), stress: clampInt(r.stress, 0, 200) };
+  if (r.practice === true) out.practice = true;
+  return out;
 }
 
 function bundles(v: unknown): PackedBundle[] | null {

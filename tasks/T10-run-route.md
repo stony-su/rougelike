@@ -1,7 +1,7 @@
 ---
 id: T10
 title: Run route: twelve generated chambers over two zones
-status: claimed
+status: done
 owner: stony-su
 milestone: 3
 weight: 4

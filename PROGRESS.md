@@ -4,14 +4,14 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 46% complete.** 6 of 35 tasks are done, 2 in progress, 1 ready to take, 26 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 52% complete.** 8 of 35 tasks are done, 1 in progress, 7 ready to take, 19 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
 | 0 | Foundation: deterministic simulation, sessions, snapshots | 8% | 100% |
 | 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 18% | 100% |
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 12% | 100% |
-| 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 13.5% | 56% |
+| 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 13.5% | 100% |
 | 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 0% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 14.5% | 0% |
 | 6 | Menus, saving, sound | 5% | 0% |
@@ -19,19 +19,20 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 
 ## In progress
 
-- [T10](tasks/T10-run-route.md) **Run route: twelve generated chambers over two zones**: stony-su
-- [T11](tasks/T11-follow-camera.md) **Camera that follows your own player**: stony-su
+- [T20](tasks/T20-upgrade-engine.md) **Upgrade engine: Tunings on players, a draft after every fight**: stony-su
 
 ## To do: ready to take
 
+- [T21](tasks/T21-side-chambers.md) **Solo side-chambers: each player their own way, then together again** (3% of the game)
+- [T22](tasks/T22-boss-framework.md) **Boss framework and Echo traits** (2% of the game)
+- [T23](tasks/T23-app-shell.md) **App shell: title, class select, pause, results, instant restart** (3% of the game)
+- [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5% of the game)
+- [T65](tasks/T65-crater.md) **The Crater: the third biome, for the last chamber** (1% of the game)
 - [T66](tasks/T66-music.md) **Music beds and sound levels** (1% of the game)
+- [T71](tasks/T71-performance.md) **Performance pass** (1% of the game)
 
 ## To do: waiting on other tasks
 
-- [T20](tasks/T20-upgrade-engine.md) **Upgrade engine: Tunings on players, a draft after every fight** (4%): needs T10
-- [T21](tasks/T21-side-chambers.md) **Solo side-chambers: each player their own way, then together again** (3%): needs T10
-- [T22](tasks/T22-boss-framework.md) **Boss framework and Echo traits** (2%): needs T10
-- [T23](tasks/T23-app-shell.md) **App shell: title, class select, pause, results, instant restart** (3%): needs T10
 - [T24](tasks/T24-saving-attunement.md) **Saving and the Attunement (permanent progression)** (2%): needs T20, T23
 - [T30](tasks/T30-tunings-sword.md) **Tunings: the Sword (ten, and three Harmonies)** (2.5%): needs T20
 - [T31](tasks/T31-tunings-bow.md) **Tunings: the Bow (ten, and three Harmonies)** (2.5%): needs T20
@@ -49,10 +50,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T60](tasks/T60-controls-page.md) **Controls page: keyboard and controller** (1%): needs T23
 - [T61](tasks/T61-settings-rumble.md) **Settings and controller rumble** (1%): needs T23
 - [T62](tasks/T62-title-shader.md) **Shader title screen and class cards** (1%): needs T23
-- [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5%): needs T11
-- [T65](tasks/T65-crater.md) **The Crater: the third biome, for the last chamber** (1%): needs T10
 - [T70](tasks/T70-balance.md) **Balance, by bots playing whole runs** (2%): needs T30, T31, T32, T33, T44, T45, T50
-- [T71](tasks/T71-performance.md) **Performance pass** (1%): needs T11
 - [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (1%): needs T23, T24, T70, T71
 
 ## Done
@@ -62,6 +60,8 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T02](tasks/T02-together.md) Together: host program, lobby, staying in step
 - [T03](tasks/T03-room-generator.md) Room generator: five shapes with terrain
 - [T04](tasks/T04-shader-backdrop.md) Shader backdrop under the floating chamber
+- [T10](tasks/T10-run-route.md) Run route: twelve generated chambers over two zones
+- [T11](tasks/T11-follow-camera.md) Camera that follows your own player
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 
 ## Future plans: designed, kept for later

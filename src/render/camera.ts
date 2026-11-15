@@ -1,8 +1,21 @@
-// Camera: frames the room, leans toward the player and the cursor, and shakes.
+// Camera. A chamber that fits on the screen is framed whole; a bigger one is followed: the view
+// stays on this laptop's player, leads a little toward where they aim, and stops at the chamber's
+// edges. When following, every screen shows the same height of world whatever its size, so no
+// laptop of a co-op game sees further than another.
 import { clamp, damp } from '../core/math';
 import type { Vec2 } from '../core/math';
 import { ISO_COS, ISO_SIN, TILE, projX, projY, unproject } from '../core/iso';
 import type { Room } from '../sim/types';
+
+/** The height of world on screen while following, measured in tiles of art. */
+export const VIEW_TILES = 17.5;
+/** A chamber is framed whole if that takes no more zooming out than this, compared with following. */
+const FIT_SLACK = 0.68;
+/** How far past the chamber's edge the view may look, in tiles of art: enough to show the walls whole. */
+const EDGE = 2.2;
+/** The view leads toward the aim by this share of the way to the aimed point, up to LEAD_MAX tiles. */
+const LEAD = 0.28;
+const LEAD_MAX = 1.6;
 
 /** Smooth 1D value noise for shake, so the camera rolls rather than jitters. */
 function noise1(t: number, seed: number): number {
@@ -16,6 +29,12 @@ function noise1(t: number, seed: number): number {
   return h(i) * (1 - u) + h(i + 1) * u;
 }
 
+/** Keep a view of half-width `half` inside [lo, hi]; if the span is narrower than the view, sit in its middle. */
+function bound(v: number, lo: number, hi: number, half: number): number {
+  if (hi - lo <= half * 2) return (lo + hi) / 2;
+  return clamp(v, lo + half, hi - half);
+}
+
 export class Camera {
   /** World-space focus point. */
   x = 0;
@@ -24,6 +43,8 @@ export class Camera {
   /** Pixels added to every camera-space layer's position (includes shake). */
   offsetX = 0;
   offsetY = 0;
+  /** True while the chamber is too big for the screen and the view follows the player. */
+  following = false;
 
   private viewW = 1;
   private viewH = 1;
@@ -34,6 +55,13 @@ export class Camera {
   private shakeScale = 1;
   private anchorX = 0;
   private anchorY = 0;
+  /** The chamber's extent on the drawing plane, in art pixels. */
+  private minX = 0;
+  private maxX = 0;
+  private maxY = 0;
+  /** Jump to the target at the next update instead of gliding there (a new chamber). */
+  private snapPending = true;
+  private readonly tmp: Vec2 = { x: 0, y: 0 };
 
   setViewport(w: number, h: number): void {
     this.viewW = w;
@@ -44,17 +72,23 @@ export class Camera {
     this.shakeScale = s;
   }
 
-  /** Choose a zoom that fits the whole room on screen and centre on it. */
+  /** Decide how this chamber is shown: whole if it fits, followed if it does not. */
   frameRoom(room: Room, snap = true): void {
     // Projected extents of the room's bounding diamond.
     const spanX = (room.w + room.h) * ISO_COS * TILE;
     const spanY = (room.w + room.h) * ISO_SIN * TILE + TILE * 1.6;
-    const zx = (this.viewW * 0.94) / spanX;
-    const zy = (this.viewH * 0.9) / spanY;
-    this.baseZoom = clamp(Math.min(zx, zy), 0.45, 1.35);
+    const fit = Math.min((this.viewW * 0.94) / spanX, (this.viewH * 0.9) / spanY);
+    const followZoom = this.viewH / (VIEW_TILES * TILE);
+    this.following = fit < followZoom * FIT_SLACK;
+    // a small chamber is not blown up to fill the screen: its people stay the size they are elsewhere
+    this.baseZoom = this.following ? followZoom : clamp(fit, 0.45, Math.max(0.45, followZoom * 1.15));
     this.anchorX = room.w / 2;
     this.anchorY = room.h / 2;
+    this.minX = projX(0, room.h);
+    this.maxX = projX(room.w, 0);
+    this.maxY = projY(room.w, room.h);
     if (snap) {
+      this.snapPending = true;
       this.x = this.anchorX;
       this.y = this.anchorY;
       this.zoom = this.baseZoom;
@@ -73,11 +107,32 @@ export class Camera {
 
   update(dt: number, focusX: number, focusY: number, aimX: number, aimY: number): void {
     this.time += dt;
-    // Rooms fit on screen, so the camera only leans: mostly room centre, partly player, slightly cursor.
-    const tx = this.anchorX + (focusX - this.anchorX) * 0.3 + clamp(aimX - focusX, -6, 6) * 0.035;
-    const ty = this.anchorY + (focusY - this.anchorY) * 0.3 + clamp(aimY - focusY, -6, 6) * 0.035;
-    this.x = damp(this.x, tx, 5, dt);
-    this.y = damp(this.y, ty, 5, dt);
+    let tx: number;
+    let ty: number;
+    if (this.following) {
+      // on the player, leading toward the aim, and never further out than the chamber's edge
+      const wx = focusX + clamp((aimX - focusX) * LEAD, -LEAD_MAX, LEAD_MAX);
+      const wy = focusY + clamp((aimY - focusY) * LEAD, -LEAD_MAX, LEAD_MAX);
+      const pad = EDGE * TILE;
+      const px = bound(projX(wx, wy), this.minX - pad, this.maxX + pad, this.viewW / (2 * this.baseZoom));
+      const py = bound(projY(wx, wy), -pad, this.maxY + pad, this.viewH / (2 * this.baseZoom));
+      unproject(px, py, this.tmp);
+      tx = this.tmp.x;
+      ty = this.tmp.y;
+    } else {
+      // the chamber fits, so the camera only leans: mostly its centre, partly the player, slightly the aim
+      tx = this.anchorX + (focusX - this.anchorX) * 0.3 + clamp(aimX - focusX, -6, 6) * 0.035;
+      ty = this.anchorY + (focusY - this.anchorY) * 0.3 + clamp(aimY - focusY, -6, 6) * 0.035;
+    }
+    if (this.snapPending) {
+      this.snapPending = false;
+      this.x = tx;
+      this.y = ty;
+      this.zoom = this.baseZoom;
+    }
+    const pace = this.following ? 6.5 : 5;
+    this.x = damp(this.x, tx, pace, dt);
+    this.y = damp(this.y, ty, pace, dt);
     this.punch = damp(this.punch, 0, 9, dt);
     this.zoom = damp(this.zoom, this.baseZoom * (1 + this.punch), 10, dt);
     this.trauma = Math.max(0, this.trauma - dt * 1.9);

@@ -29,7 +29,7 @@ import { Trails } from '../render/trails';
 import { EXPERT, NOVICE, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
 import { aimAngleOf } from '../sim/input';
-import { worldOf } from '../sim/session';
+import { runSoFar, stopOf, worldOf } from '../sim/session';
 import type { Session } from '../sim/session';
 import { hashSession } from '../sim/snapshot';
 import type { ClassId, SimEvent, World } from '../sim/types';
@@ -100,6 +100,11 @@ export class Game {
   private readonly extras: Extra[];
   private readonly audio = new GameAudio();
   private readonly pausedLabel: Label;
+  /** How the run ended, what it added up to, and how to go again. */
+  private readonly endHead: Label;
+  private readonly endNote: Label;
+  private readonly endHint: Label;
+  private endShown = '';
   private time = 0;
   private viewW = 0;
   private viewH = 0;
@@ -160,7 +165,11 @@ export class Game {
     this.hud = new Hud();
     this.pausedLabel = new Label('Paused', { size: 22, color: PAPER, bold: true, tracking: 0.3, align: 'center' });
     this.pausedLabel.visible = false;
-    this.stage.ui.addChild(this.hud.root, this.pausedLabel);
+    this.endHead = new Label('', { size: 30, color: PAPER, bold: true, tracking: 0.25, align: 'center' });
+    this.endNote = new Label('', { size: 11, color: PAPER, tracking: 0.2, align: 'center' });
+    this.endHint = new Label('Enter or A: go again', { size: 11, color: CHIME, tracking: 0.2, align: 'center' });
+    for (const l of [this.endHead, this.endNote, this.endHint]) l.visible = false;
+    this.stage.ui.addChild(this.hud.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
 
     if (opts.debug) {
       BitmapFont.install({
@@ -220,6 +229,10 @@ export class Game {
       hash: hashSession(s),
       paused: s.pausedBy,
       attempt: s.attempt,
+      phase: s.phase,
+      stops: s.route.length,
+      kind: w.flow.kind,
+      run: runSoFar(s),
       chamber: w.chamber,
       room: { id: w.room.id, phase: w.flow.phase, wave: w.flow.wave, waves: w.flow.waves, pickups: w.flow.pickups.length },
       players: w.players.map((p) => ({
@@ -251,6 +264,11 @@ export class Game {
       views: this.enemyViews.count,
       view: [this.viewW, this.viewH],
       zoom: +this.camera.zoom.toFixed(3),
+      following: this.camera.following,
+      screen: (() => {
+        const me = w.players.find((p) => p.slot === this.localSlot);
+        return me ? this.worldToScreen(me.x, me.y).map((v) => Math.round(v)) : [0, 0];
+      })(),
       device: this.input.device,
       slot: this.localSlot,
       net: this.driver.net(),
@@ -277,6 +295,9 @@ export class Game {
     for (const x of this.extras) x.resize?.(this.viewW, this.viewH);
     this.hud.layout(this.viewW, this.viewH);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.4);
+    this.endHead.position.set(this.viewW / 2, this.viewH * 0.3);
+    this.endNote.position.set(this.viewW / 2, this.viewH * 0.3 + 78);
+    this.endHint.position.set(this.viewW / 2, this.viewH * 0.3 + 122);
     this.debugText?.position.set(14, this.viewH - 190);
   }
 
@@ -326,6 +347,12 @@ export class Game {
     this.backdrop.pulse(1);
     this.audio.setZone(room.zone);
     this.camera.frameRoom(room, true);
+    // the name of the chamber the party has walked into
+    const stop = stopOf(this.session);
+    if (stop) {
+      const hard = stop.kind === 'elite' || stop.kind === 'miniboss' || stop.kind === 'boss';
+      this.hud.banner(stop.kind === 'elite' ? `Elite: ${room.name}` : room.name, hard ? DANGER : PAPER, 2.4);
+    }
   }
 
   private onEvent(ev: SimEvent, w: World): void {
@@ -417,6 +444,8 @@ export class Game {
     if (this.input.take('mute')) this.hud.banner(this.audio.toggleMute() ? 'Sound off' : 'Sound on', PAPER, 1.1);
     if (this.input.take('pause')) this.driver.command('pause');
     if (this.opts.debug && this.input.take('restart')) this.driver.command('restart');
+    // a run that has ended waits for anyone to start the next
+    if (this.session.phase !== 'run' && this.session.endedFor > 45 && (this.input.take('confirm') || this.input.take('restart'))) this.driver.command('restart');
     // presses nothing asked for do not wait around
     this.input.clearPresses();
 
@@ -431,7 +460,9 @@ export class Game {
     const s = this.session;
     const w = this.viewed;
     const paused = s.pausedBy >= 0;
-    const alpha = paused || w.freeze > 0 ? 1 : this.driver.alpha(now);
+    const ended = s.phase !== 'run';
+    // nothing moves while the game is paused or over, so nothing is drawn between two ticks
+    const alpha = paused || ended || w.freeze > 0 ? 1 : this.driver.alpha(now);
     this.playerViews.update(w.players, alpha, dt, this.time);
     this.enemyViews.update(w, alpha, dt, this.time);
     this.projectileViews.update(w, alpha);
@@ -468,9 +499,18 @@ export class Game {
     if (this.opts.backdrop) this.backdrop.update(dt, this.camera, this.viewW, this.viewH);
     this.ambient.update(dt);
     for (const x of this.extras) x.update?.(dt, w, alpha, this.time);
+    this.hud.setRun(s.route.length);
     this.hud.update(w, me, dt);
     this.hud.setNet(this.driver.net());
-    this.pausedLabel.visible = paused;
+    this.pausedLabel.visible = paused && !ended;
+    if (ended && this.endShown !== `${s.attempt}/${s.phase}`) {
+      this.endShown = `${s.attempt}/${s.phase}`;
+      const t = runSoFar(s);
+      this.endHead.text = s.phase === 'won' ? 'The Bell is still' : 'The party is down';
+      this.endHead.setColor(s.phase === 'won' ? CHIME : DANGER);
+      this.endNote.text = `Chambers ${t.chambers} of ${s.route.length}    Echoes stilled ${t.kills}    Returns ${t.returns}    Best Rally ${t.bestRally}`;
+    }
+    for (const l of [this.endHead, this.endNote, this.endHint]) l.visible = ended;
     this.stage.depth.sort();
 
     this.workTimes.push(performance.now() - now);
