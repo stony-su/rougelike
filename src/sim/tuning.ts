@@ -151,17 +151,29 @@ export const SWORD = {
   freeze: [2, 2, 4] as const,
 };
 
-/** The Sword special: a short guard that sends back whatever lands in it. */
-export const RIPOSTE = {
-  cooldown: 5,
-  guardTime: 0.4,
-  moveMul: 0.4,
-  impulse: 16,
-  stun: 0.6,
-  /** Share of the cooldown given back when it lands. */
-  refund: 0.5,
-  iframes: 0.3,
-  whiff: 0.2,
+/**
+ * The Sword special: the Whirlwind. One turn on the spot: everything within `radius` is cut for
+ * `damage` and thrown outward with `impulse`, a shield in the way is knocked open, and every
+ * enemy shot in the circle goes back at whoever fired it. The blade is going round for `spin`
+ * seconds after a `windup`, and for all of that nothing hurts the Sword; shots that arrive in the
+ * circle meanwhile are sent back too.
+ */
+export const WHIRL = {
+  cooldown: 6,
+  windup: 0.08,
+  spin: 0.28,
+  recovery: 0.16,
+  radius: 2.6,
+  damage: 16,
+  impulse: 10,
+  /** How fast the Sword may walk while it turns, as a share of its running speed. */
+  moveMul: 0.5,
+  /** How hard a shot it has turned comes round on whoever fired it, in radians a second. */
+  turn: 6,
+  /** Second Spin: how much wider the second turn reaches than the first. */
+  second: 1.6,
+  /** Encore: how many things one Whirlwind must cut or send back to be ready again at once. */
+  encoreAt: 3,
 };
 
 /** The Bow: arrows that ricochet and skip. */
@@ -279,7 +291,7 @@ export const BREAK = {
 };
 
 /** How long each class's special takes to come back, for whoever draws it coming back. */
-export const SPECIAL_COOLDOWN: Readonly<Record<'sword' | 'bow' | 'fist', number>> = { sword: RIPOSTE.cooldown, bow: RINGSTONE.cooldown, fist: BREAK.cooldown };
+export const SPECIAL_COOLDOWN: Readonly<Record<'sword' | 'bow' | 'fist', number>> = { sword: WHIRL.cooldown, bow: RINGSTONE.cooldown, fist: BREAK.cooldown };
 
 /** A bomb a player has struck. */
 export const BOMB = {
@@ -388,10 +400,6 @@ export const EDGE = {
   /** Chorus: the Ring Cut. */
   ringReach: 2.6,
   ringDamage: 16,
-  /** Answer in Kind: the burst of a landed Riposte. */
-  answerRadius: 2.5,
-  answerDamage: 12,
-  answerImpulse: 10,
 };
 
 /** Duets: bounces two players make between them. Each counts as a Return for both. */

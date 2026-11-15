@@ -5,8 +5,6 @@
  * jabs, told apart by variant), the special, being hurt and going down.
  */
 export const HERO_STATES = ['idle', 'run', 'dash', 'attack', 'special', 'hurt', 'down'] as const;
-/** The Sword also holds a guard. */
-export const SWORD_STATES = [...HERO_STATES, 'guard'] as const;
 /** The Fist also draws the hand back and lets it go. */
 export const FIST_STATES = [...HERO_STATES, 'charge', 'release'] as const;
 

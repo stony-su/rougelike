@@ -1,16 +1,17 @@
 // A player on screen: the rig of their class in their own colour, a ground shadow, a ring that
 // says whose character this is, dash afterimages, and the things only a view can draw because
-// they join two moving parts (a drawn-back fist's glow, the shimmer of a raised guard).
+// they join two moving parts (a drawn-back fist's glow, the string of a bow).
 import { Graphics } from 'pixi.js';
 import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { damp, lerp } from '../core/math';
-import { DASH, HAYMAKER, PLAYER, REVIVE, SPECIAL_COOLDOWN } from '../sim/tuning';
+import { DASH, HAYMAKER, PLAYER, REVIVE, SPECIAL_COOLDOWN, WHIRL } from '../sim/tuning';
 import type { Player, SimEvent } from '../sim/types';
 import type { Sortable } from './depth';
 import { DANGER_HOT, PLAYER_COLORS, PLAYER_PALE, RIM } from './palette';
 import { animInput } from './rig/def';
 import { ARM_LENGTH } from './rig/hero';
 import { HERO_RIG, rigEntry } from './rig/registry';
+import { WHIRL_COILED, WHIRL_ROUND } from './rig/rigs/edge';
 import { STRING_ANCHORS, stringDraw } from './rig/rigs/string';
 import type { RigEntry } from './rig/registry';
 import { RigView } from './rig/view';
@@ -101,6 +102,8 @@ export class PlayerView {
       this.fullFor = 0;
     } else if (ev.type === 'haymaker' && ev.player === this.slot) {
       this.squash = 0.9;
+    } else if (ev.type === 'whirl' && ev.player === this.slot) {
+      this.squash = 0.7;
     }
   }
 
@@ -134,6 +137,14 @@ export class PlayerView {
       fx = p.dashDirX;
       fy = p.dashDirY;
     }
+    // The Whirlwind: the Sword turns all the way round with its blade, once for each turn of it.
+    const whirling = p.classId === 'sword' && p.state === 'special';
+    const turns = whirling ? Math.max(1, Math.round((p.actDur - WHIRL.windup - WHIRL.recovery) / WHIRL.spin)) : 0;
+    const round = whirling ? (p.stateTime - WHIRL.windup) / WHIRL.spin : -1;
+    if (round >= 0 && round < turns) {
+      fx = Math.cos(p.actAngle + round * Math.PI * 2);
+      fy = Math.sin(p.actAngle + round * Math.PI * 2);
+    }
     const scrX = (fx - fy) * ISO_COS;
     const scrY = (fx + fy) * ISO_SIN;
     if (Math.abs(scrX) > 0.08) this.facing = scrX < 0 ? -1 : 1;
@@ -161,6 +172,14 @@ export class PlayerView {
       a.state = 'hurt';
       a.t = p.hurtT;
       a.phase = Math.min(1, p.hurtT / 0.22);
+    } else if (whirling) {
+      // told to the rig in its three parts: coiling, going round (however many turns), settling
+      a.state = 'special';
+      const spun = WHIRL.spin * turns;
+      const t = p.stateTime;
+      if (t < WHIRL.windup) a.phase = (t / WHIRL.windup) * WHIRL_COILED;
+      else if (t < WHIRL.windup + spun) a.phase = WHIRL_COILED + ((t - WHIRL.windup) / spun) * (WHIRL_ROUND - WHIRL_COILED);
+      else a.phase = Math.min(1, WHIRL_ROUND + ((t - WHIRL.windup - spun) / WHIRL.recovery) * (1 - WHIRL_ROUND));
     } else if (p.state === 'attack' || p.state === 'release' || p.state === 'special') {
       a.state = p.state;
       a.phase = p.actDur > 0 ? Math.min(1, p.stateTime / p.actDur) : 0;
@@ -268,13 +287,6 @@ export class PlayerView {
       const mx = (tx + bx) / 2 + (top.x - (tx + bx) / 2) * d;
       const my = (ty + by) / 2 + (top.y - (ty + by) / 2) * d;
       g.moveTo(tx, ty).lineTo(mx, my).lineTo(bx, by).stroke({ width: 1.6, color: this.pale, alpha: 0.95, join: 'round' });
-    }
-    if (p.state === 'guard') {
-      // The raised blade throws a bright standing arc in front: anything that lands here goes back.
-      const k = Math.min(1, p.stateTime / 0.06);
-      const shimmer = 0.6 + 0.4 * Math.sin(time * 40);
-      g.ellipse(this.facing * 15, -42, 11 * k, 31 * k).stroke({ width: 3, color: this.pale, alpha: 0.9 * shimmer });
-      g.ellipse(this.facing * 15, -42, 16 * k, 37 * k).stroke({ width: 1.5, color: this.color, alpha: 0.6 });
     }
   }
 

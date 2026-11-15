@@ -8,7 +8,7 @@ import { BUY_RATION, CAMP, REST_HEAL, atCamp, priceOf, raisable } from './camp';
 import type { CampSeat } from './camp';
 import { castCircle, newHit } from './cast';
 import type { Hit } from './cast';
-import { hittable, onGuard, standing } from './combat';
+import { hittable, onGuard, outOfReach, standing } from './combat';
 import type { ContentRegistry } from './defs';
 import { DRAFT_TICKS, completes } from './draft';
 import { hold, moveInto, press, setAim, setMove } from './input';
@@ -19,7 +19,7 @@ import type { Command, Session } from './session';
 import { VOTE_NONE, VOTE_TAKE, VOTE_WALK, WAGER, onTable } from './wager';
 import { previewArrow } from './projectiles';
 import { telegraphCovers } from './telegraphs';
-import { BOW, BREAK, DASH, FIST, HAYMAKER, PLAYER, SIM_HZ, SWORD } from './tuning';
+import { BOW, BREAK, DASH, FIST, HAYMAKER, PLAYER, SIM_HZ, SWORD, WHIRL } from './tuning';
 import { BTN, PRESS, emptyInput } from './types';
 import type { ClassId, Enemy, InputFrame, Player, Projectile, Room, Telegraph, World } from './types';
 
@@ -88,6 +88,33 @@ function countNear(w: World, p: Player, range: number): number {
     if ((e.x - p.x) * (e.x - p.x) + (e.y - p.y) * (e.y - p.y) <= rr * rr) n++;
   }
   return n;
+}
+
+/** How many enemy shots are in flight within `range` of the player. */
+function shotsNear(w: World, p: Player, range: number): number {
+  let n = 0;
+  for (const pr of w.projectiles) {
+    if (pr.dead || pr.faction !== 'enemy') continue;
+    const rr = range + pr.radius;
+    if ((pr.x - p.x) * (pr.x - p.x) + (pr.y - p.y) * (pr.y - p.y) <= rr * rr) n++;
+  }
+  return n;
+}
+
+/**
+ * Is a Whirlwind worth its wait here? With two Echoes or more inside the blade's reach it is, and
+ * with one behind a raised shield, which nothing else the Sword has will open.
+ */
+function worthWhirl(w: World, p: Player): boolean {
+  let n = 0;
+  for (const e of w.enemies) {
+    if (!hittable(e) || outOfReach(e)) continue;
+    const rr = WHIRL.radius + e.radius - 0.3;
+    if ((e.x - p.x) * (e.x - p.x) + (e.y - p.y) * (e.y - p.y) > rr * rr) continue;
+    if (onGuard(e)) return true;
+    n++;
+  }
+  return n >= 2;
 }
 
 /**
@@ -526,9 +553,15 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
       }
       if (target) setAim(f, p.x, p.y, target.x, target.y);
 
-      // A shot on its way: face it and swing, so it goes back where it came from.
+      const whirl = o.special && p.specialCd <= 0 && p.state !== 'special';
+      // A shot on its way: face it and swing, so it goes back where it came from. Several at once
+      // are the Whirlwind's business: everything in the circle goes home.
       incoming(w, p, seen, o, inc);
       if (inc.shot && inc.eta < 0.3) {
+        if (whirl && shotsNear(w, p, WHIRL.radius) >= 3) {
+          press(f, PRESS.special);
+          return f;
+        }
         setAim(f, p.x, p.y, inc.shot.x, inc.shot.y);
         if (p.state !== 'attack') latch = tap(f, 3);
         return f;
@@ -536,14 +569,14 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
 
       const threat = threatTo(w, p, seen, o);
       if (threat) {
-        if (p.state === 'guard') return f;
-        // A lunge or a bash can be answered with a Riposte instead of a dodge. With one to hand it
-        // stands its ground and goes on fighting, and guards as the blow comes.
+        // Nothing gets through while the blade goes round, so a blow that lands all at once can be
+        // met standing. With the Whirlwind to hand the Sword goes on fighting, lets the cut in hand
+        // finish, and turns as the blow comes.
         const left = threat.dur - threat.t;
-        const answerable = (threat.shape === 'lane' && threat.count === 1) || threat.shape === 'cone';
-        if (o.special && answerable && p.specialCd <= Math.max(0, left - 0.25)) {
-          if (left < 0.2) {
-            press(f, PRESS.special);
+        const answerable = threat.shape === 'cone' || (threat.shape === 'lane' && threat.count === 1) || (threat.shape === 'circle' && threat.damage > 0);
+        if (o.special && answerable && p.state !== 'special' && p.specialCd <= Math.max(0, left - 0.4)) {
+          if (left < 0.35) {
+            if (left < 0.15) press(f, PRESS.special);
             return f;
           }
         } else if (mustGo(p, threat, wayClear(w, p, threat, esc), o, SWORD.windup[0] + SWORD.active[0] + SWORD.recovery[0])) {
@@ -555,18 +588,20 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
 
       if (rescue(w, p, f, way)) return f;
       if (!target) return f;
+      // a crowd inside the blade's reach, or a shield: turn
+      if (whirl && worthWhirl(w, p)) {
+        press(f, PRESS.special);
+        return f;
+      }
       const dx = target.x - p.x;
       const dy = target.y - p.y;
       const d = dhypot(dx, dy) || 1;
       const reach = SWORD.reach[0] + target.radius - 0.25;
       if (onGuard(target)) {
-        // Only shields are left. With the Riposte to hand, step in close enough to draw the bash and
-        // answer it; the gong is thrown down, and the blade goes in. While the Riposte is coming
-        // back, keep out of reach. Someone who never uses it has no answer but to draw the bash,
-        // step out of it, and strike while the gong hangs at its side.
-        if (!o.special || p.specialCd <= 0.3) {
-          if (d > 1.5 + target.radius) walkTo(w, p, f, target.x, target.y, way);
-        } else if (d < 3.2) setMove(f, -dx, -dy);
+        // Only shields are left. Step inside the Whirlwind's reach, and it knocks the gong open.
+        // While it is coming back the same step draws the bash: step out of that, and strike while
+        // the gong hangs at its side.
+        if (d > 1.5 + target.radius) walkTo(w, p, f, target.x, target.y, way);
       } else if (d > reach) walkTo(w, p, f, target.x, target.y, way, o.dashes ? reach : -1);
       else if (target.state !== 'spawn') latch = tap(f, latch);
       return f;

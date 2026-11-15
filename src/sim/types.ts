@@ -98,9 +98,8 @@ export type ClassId = 'sword' | 'bow' | 'fist';
 /**
  * What a player is doing. 'attack' is a swing, a jab or loosing an arrow; 'charge' and 'release'
  * are the held punch of the Fist; 'special' is a class special in progress (or its recovery);
- * 'guard' is the Riposte of the Sword.
  */
-export type PlayerState = 'idle' | 'run' | 'dash' | 'attack' | 'charge' | 'release' | 'special' | 'guard' | 'down';
+export type PlayerState = 'idle' | 'run' | 'dash' | 'attack' | 'charge' | 'release' | 'special' | 'down';
 
 export interface Player {
   /** Which seat of the session this is: 0, 1 or 2. */
@@ -175,9 +174,9 @@ export interface Player {
   fireT: number;
   /** Arrows loosed in the volley in hand; it starts again when the string has rested. */
   volley: number;
-  /** Sword: seconds of Riposte guard left, and whether something landed in it. */
-  guardT: number;
-  guardHit: boolean;
+  /** Sword: how many of its turns the Whirlwind in hand has made, and how many things it has cut or sent back so far. */
+  whirlN: number;
+  whirled: number;
   /** While down: seconds an ally has stood close enough to help this player up. */
   reviveT: number;
   /** The Tunings this player holds, id to rank, and the numbers they add up to (mods.ts). */
@@ -207,7 +206,7 @@ export interface Player {
   chorusAcc: number;
   ringReady: boolean;
   ringNow: boolean;
-  /** Tempered Riposte: swings still to be doubled after a landed Riposte. */
+  /** Tempered Spin: swings still to be doubled after a Whirlwind that struck something. */
   buffSwings: number;
   /** Bladesong: how much quicker than a plain one the swing in hand is. Its times are divided by this. */
   actHaste: number;
@@ -408,7 +407,7 @@ export interface Projectile {
   perfect: boolean;
   /** Extra damage (a fraction) its next hit deals, from a bumper or a Ringstone. */
   boost: number;
-  /** The enemy it is flying home to (a Riposte), or 0. */
+  /** The enemy it is flying home to (an orb, or a shot the Whirlwind turned), or 0. */
   homing: number;
   /** A second player who sent it on its way (an arrow banked off a blade), or -1: they share its Returns. */
   assist: number;
@@ -571,8 +570,7 @@ export type SimEvent =
   | { type: 'chargeFull'; player: number; x: number; y: number }
   | { type: 'haymaker'; player: number; x: number; y: number; angle: number; charge: number }
   | { type: 'breakSlam'; player: number; x: number; y: number; radius: number }
-  | { type: 'guard'; player: number; x: number; y: number }
-  | { type: 'riposte'; player: number; x: number; y: number }
+  | { type: 'whirl'; player: number; x: number; y: number; radius: number; n: number }
   | { type: 'specialReady'; player: number }
   | { type: 'reflect'; player: number; id: number; x: number; y: number; perfect: boolean }
   | { type: 'ricochet'; id: number; by: number; x: number; y: number; n: number; off: BounceKind; nx: number; ny: number }

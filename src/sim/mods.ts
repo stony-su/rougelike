@@ -43,15 +43,16 @@ export interface Mods {
   returnHoming: number;
   /** Extra shots each return splits into. */
   returnSplit: number;
-  riposteWindow: number;
-  /** Swings doubled after a landed Riposte. */
-  riposteBuff: number;
+  /** Tiles the Whirlwind reaches beyond its own radius. */
+  whirlReach: number;
+  /** Swings doubled after a Whirlwind that cut or sent back anything. */
+  whirlBuff: number;
+  /** Counterweight: seconds the Whirlwind and a perfect return stun what they strike, and how much more it then takes from everyone. */
   counterStun: number;
   counterMark: number;
-  /** Share of the Riposte's cooldown given back when it lands (0.5 with no Tuning). */
+  /** Encore: the share of the Whirlwind's wait given back when one strikes enough Echoes, the dash charges it gives, and the health. */
   encoreRefund: number;
   encoreDash: number;
-  /** Health a landed Riposte gives back. */
   encoreHeal: number;
   /** Damage of the crescent the third swing throws, and its bounces. 0 = none. */
   crescent: number;
@@ -117,7 +118,7 @@ export interface Mods {
 
   // ---- Harmonies (0 or 1)
   hallOfMirrors: number;
-  answerInKind: number;
+  secondSpin: number;
   standingWave: number;
   trickShot: number;
   chainReaction: number;
@@ -158,11 +159,11 @@ export function baseMods(): Mods {
     arc: 0,
     returnHoming: 0,
     returnSplit: 0,
-    riposteWindow: 0,
-    riposteBuff: 0,
+    whirlReach: 0,
+    whirlBuff: 0,
     counterStun: 0,
     counterMark: 0,
-    encoreRefund: 0.5,
+    encoreRefund: 0,
     encoreDash: 0,
     encoreHeal: 0,
     crescent: 0,
@@ -202,7 +203,7 @@ export function baseMods(): Mods {
     tremor: 0,
     heavyHands: 1,
     hallOfMirrors: 0,
-    answerInKind: 0,
+    secondSpin: 0,
     standingWave: 0,
     trickShot: 0,
     chainReaction: 0,

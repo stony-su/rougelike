@@ -9,18 +9,17 @@
 import { datan2, dcos, dhypot, dsin } from '../core/dmath';
 import { ddamp, ddampAngle } from '../core/exact';
 import type { Vec2 } from '../core/exact';
-import { climbOut, footOf, newBodyScratch, pushBody, stepBody } from './bodies';
+import { climbOut, footOf, newBodyScratch, stepBody } from './bodies';
 import type { BodyScratch } from './bodies';
 import { throwBomb } from './bombs';
 import { castCircle, pushOut } from './cast';
-import { HURT_GUARDED, damagePlayer, standing, stunEnemy } from './combat';
-import { applyMark } from './conditions';
+import { damagePlayer, standing } from './combat';
 import type { ActionSpec, EnemyDef, MoveSpec } from './defs';
 import { spawnProjectile } from './projectiles';
 import { steer } from './steer';
 import { newStatus, slowOf, stepStatus } from './status';
 import { addTelegraph, findTelegraph, laneAngle, telegraphCovers } from './telegraphs';
-import { EDGE, ELITE, RIPOSTE, SCALING } from './tuning';
+import { ELITE, SCALING } from './tuning';
 import type { Enemy, Player, World } from './types';
 
 export const SPAWN_TIME = 0.75;
@@ -51,30 +50,6 @@ const playerBySlot = (w: World, slot: number): Player | null => {
   for (const p of w.players) if (p.slot === slot) return p;
   return null;
 };
-
-/** A blow that landed in a Riposte comes back on whoever struck it: thrown clear, and dazed. */
-function answerRiposte(w: World, e: Enemy, p: Player): void {
-  let dx = e.x - p.x;
-  let dy = e.y - p.y;
-  const d = dhypot(dx, dy);
-  if (d > 1e-6) {
-    dx /= d;
-    dy /= d;
-  } else {
-    dx = dcos(p.aim);
-    dy = dsin(p.aim);
-  }
-  // Counterweight: a longer stun, and a mark that makes everyone's blows land harder
-  stunEnemy(w, e, Math.max(RIPOSTE.stun, p.mods.counterStun), true);
-  if (p.mods.counterMark > 0) applyMark(e, p.mods.counterMark, EDGE.markTime);
-  // A shield whose own blow has come back at it is down for as long as one that was broken open:
-  // this is the blade's way through a gong.
-  if (e.def.shield) {
-    e.guardOpen = e.def.shield.open;
-    w.events.push({ type: 'armorBreak', id: e.id, x: e.x, y: e.y });
-  }
-  pushBody(w, e, dx, dy, RIPOSTE.impulse, p.slot);
-}
 
 /** Keep the current target unless it is down or someone else is clearly closer. */
 export function chooseTarget(w: World, e: Enemy): Player | null {
@@ -312,7 +287,7 @@ function beginAction(w: World, e: Enemy, m: MoveSpec): void {
       if (t) {
         for (const p of w.players) {
           if (!standing(p) || !telegraphCovers(t, p.x, p.y, p.radius)) continue;
-          if (damagePlayer(w, p, a.damage * e.damageMul, e.x, e.y, a.knock) === HURT_GUARDED) answerRiposte(w, e, p);
+          damagePlayer(w, p, a.damage * e.damageMul, e.x, e.y, a.knock);
         }
         w.events.push({ type: 'slam', x: t.x, y: t.y, radius: t.shape === 'lane' ? t.length / 2 : t.radius });
       }
@@ -363,10 +338,7 @@ function stepAttack(w: World, e: Enemy, m: MoveSpec): void {
       if ((p.x - e.x) * (p.x - e.x) + (p.y - e.y) * (p.y - e.y) <= reach * reach) {
         // One chance per player per lunge: a dash through it is a clean dodge.
         e.hitDone |= bit;
-        if (damagePlayer(w, p, a.damage * e.damageMul, e.x - dcos(e.facing), e.y - dsin(e.facing), a.knock) === HURT_GUARDED) {
-          answerRiposte(w, e, p);
-          return;
-        }
+        damagePlayer(w, p, a.damage * e.damageMul, e.x - dcos(e.facing), e.y - dsin(e.facing), a.knock);
       }
     }
   }

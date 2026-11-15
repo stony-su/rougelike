@@ -194,14 +194,14 @@ export class Fx {
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 14);
         this.shake(ev.x, ev.y, 0.5);
         break;
-      case 'guard':
-        ps.ring(ev.x, ev.y, colorOf(ev.player), 0.9, 0.5, 0.16, 0.7);
-        break;
-      case 'riposte':
-        ps.ring(ev.x, ev.y, paleOf(ev.player), 0.3, 1.9, 0.3, 1);
-        ps.flash(ev.x, ev.y, 0.7, paleOf(ev.player), 150, 0.16);
-        this.shake(ev.x, ev.y, 0.35);
-        if (ev.player === this.localSlot) this.camera.kick(0.03);
+      case 'whirl':
+        // the cut lands all the way round at once: two rings thrown out to its reach, and the floor answers
+        ps.ring(ev.x, ev.y, colorOf(ev.player), ev.radius * 0.3, ev.radius, 0.24, 0.95);
+        ps.ring(ev.x, ev.y, paleOf(ev.player), ev.radius * 0.12, ev.radius * 0.9, 0.3, 0.7);
+        ps.flash(ev.x, ev.y, 0.3, paleOf(ev.player), 150, 0.14);
+        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 10);
+        this.shake(ev.x, ev.y, 0.3);
+        if (ev.player === this.localSlot) this.camera.kick(0.016);
         break;
       case 'reflect':
         ps.sparks(ev.x, ev.y, 0.5, 0, 0, paleOf(ev.player), ev.perfect ? 14 : 7, ev.perfect ? 1.5 : 0.9);

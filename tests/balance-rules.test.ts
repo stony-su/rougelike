@@ -27,19 +27,19 @@ const none = emptyInput();
 const SHARP = { ...EXPERT, lapse: 0 };
 
 describe('every class has its answer', () => {
-  it('a landed Riposte throws a gong down: the shield is open, and the blade goes in from the front', () => {
+  it('the Whirlwind meets a gong in its bash: the Sword is not hurt, the shield is open, and the blade goes in from the front', () => {
     const w = openWorld(['sword']);
     const p = w.players[0];
     const e = dummy(w, p.x + 1.6, p.y, 0, GONG);
     e.cooldowns.fill(0);
     const pad = new Pad().aimAt(p, e.x, e.y);
-    // it winds up its bash; the guard goes up in time to meet it
+    // it winds up its bash; the blade goes round as the blow comes
     let events = run(w, 1, pad);
-    for (let t = 0; t < 3 * SIM_HZ && !(e.state === 'windup' && e.stateTime >= 0.35); t++) events = events.concat(run(w, 1, pad));
+    for (let t = 0; t < 3 * SIM_HZ && !(e.state === 'windup' && e.stateTime >= 0.45); t++) events = events.concat(run(w, 1, pad));
     expect(e.state).toBe('windup');
     pad.tap(PRESS.special);
     events = events.concat(run(w, 30, pad));
-    expect(eventsOf(events, 'riposte').length).toBeGreaterThanOrEqual(1);
+    expect(eventsOf(events, 'whirl').length).toBe(1);
     expect(eventsOf(events, 'armorBreak').length).toBe(1);
     expect(p.hp).toBe(p.maxHp);
     expect(e.guardOpen).toBeGreaterThan(1);

@@ -184,11 +184,9 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
     case 'swing':
       here(out, at, SWINGS[ev.n] ?? 'swing1', ev.x, ev.y, whose(ev.player));
       break;
-    case 'guard':
-      here(out, at, 'guard', ev.x, ev.y, whose(ev.player));
-      break;
-    case 'riposte':
-      here(out, at, 'riposte', ev.x, ev.y, whose(ev.player));
+    case 'whirl':
+      // the second turn of two is the same blade a little higher, so the pair reads as one move
+      here(out, at, 'whirl', ev.x, ev.y, whose(ev.player), { pitch: ev.n > 0 ? 1.18 : 1 });
       break;
     case 'reflect':
       // the Fist's Break also turns shots, with an open hand and not an edge
@@ -408,7 +406,7 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       if (ev.player === at.slot) flat(out, at, 'pickupBig', 0.6);
       break;
     case 'ward':
-      here(out, at, 'riposte', ev.x, ev.y, whose(ev.player));
+      here(out, at, 'ward', ev.x, ev.y, whose(ev.player));
       break;
     case 'afterimage':
       here(out, at, 'dashReady', ev.x, ev.y, whose(ev.player));
@@ -416,7 +414,7 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
 
     // ---- traits and bosses
     case 'clang':
-      here(out, at, 'guard', ev.x, ev.y, whose(ev.by));
+      here(out, at, 'clang', ev.x, ev.y, whose(ev.by));
       break;
     case 'grounded':
       here(out, at, 'land', ev.x, ev.y, 1);
@@ -468,8 +466,7 @@ export const SAMPLE_EVENTS: { readonly [K in SimEvent['type']]: Extract<SimEvent
   chargeFull: { type: 'chargeFull', player: 0, x: 0, y: 0 },
   haymaker: { type: 'haymaker', player: 0, x: 0, y: 0, angle: 0, charge: 1 },
   breakSlam: { type: 'breakSlam', player: 0, x: 0, y: 0, radius: 2.6 },
-  guard: { type: 'guard', player: 0, x: 0, y: 0 },
-  riposte: { type: 'riposte', player: 0, x: 0, y: 0 },
+  whirl: { type: 'whirl', player: 0, x: 0, y: 0, radius: 2.6, n: 0 },
   specialReady: { type: 'specialReady', player: 0 },
   reflect: { type: 'reflect', player: 0, id: 1, x: 0, y: 0, perfect: false },
   ricochet: { type: 'ricochet', id: 1, by: 0, x: 0, y: 0, n: 1, off: 'wall', nx: 1, ny: 0 },

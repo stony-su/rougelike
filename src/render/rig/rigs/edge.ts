@@ -5,7 +5,7 @@ import { HERO, PLAYER_COLORS, RIM } from '../../palette';
 import { block, ell, flat, smooth, stroke } from '../def';
 import type { AnimInput, Animator, PartDef, PoseWriter, RigDef, RigEntry } from '../def';
 import { ARM_FAR_REST, ARM_LENGTH, ARM_NEAR_REST, HIPS_Y, armAngle, armPart, dashPose, downPose, ease, hurtPose, legPart, lerp, locomotion, pointArm } from '../hero';
-import { SWORD_STATES } from '../states';
+import { HERO_STATES } from '../states';
 
 const palette: Record<string, number> = {
   coat: HERO.coat,
@@ -107,7 +107,7 @@ export const EDGE_RIG: RigDef = {
   palette,
   footprint: 0.34,
   height: 96,
-  states: SWORD_STATES,
+  states: HERO_STATES,
 };
 
 /** Point the fork along `angle` in rig space, whatever the arm is doing. */
@@ -221,28 +221,35 @@ function swing(p: PoseWriter, a: AnimInput): void {
   p.part('tail').rot += 0.5 * step + 0.6 * airborne;
 }
 
-/** The Riposte: the fork upright in both hands, weight low, ringing. */
-function guard(p: PoseWriter, a: AnimInput): void {
-  const set = ease(Math.min(1, a.t / 0.06));
-  const ring = Math.sin(a.t * 60) * 0.02;
-  p.part('hips').y += 3 * set;
-  p.part('torso').rot += -0.1 * set;
-  pointArm(p, 'armNear', lerp(1.2, a.aim - 0.45, set));
-  pointBlade(p, lerp(0.42, -Math.PI / 2 + 0.12 + ring, set));
-  pointArm(p, 'armFar', lerp(1.6, a.aim - 0.15, set));
-  p.part('armFar').z = 6 * set;
-  p.part('legNear').rot += -0.3 * set;
-  p.part('legFar').rot += 0.3 * set;
-}
+/**
+ * The Whirlwind. The view turns the whole figure (it shows each side of the Sword in turn as the
+ * blade goes round); this is the shape the Sword holds while it does. The move is told in three
+ * parts of its phase: coiled with the blade drawn back across the body, flung wide with the fork
+ * level at arm's length and the coat flying, and settling back to the carry.
+ */
+export const WHIRL_COILED = 0.2;
+export const WHIRL_ROUND = 0.8;
 
-/** A guard that caught nothing: the fork drops, the shoulders with it. */
-function open(p: PoseWriter, a: AnimInput): void {
-  const k = 1 - ease(a.phase);
-  p.part('torso').rot += 0.22 * k;
-  p.part('head').rot += 0.2 * k;
-  pointArm(p, 'armNear', lerp(1.2, 1.45, k));
-  pointBlade(p, lerp(0.42, 1.2, k));
-  p.part('hips').y += 2 * k;
+function whirl(p: PoseWriter, a: AnimInput): void {
+  const t = a.phase;
+  const coil = t < WHIRL_COILED ? ease(t / WHIRL_COILED) : 0;
+  const wide = t < WHIRL_COILED ? 0 : t < WHIRL_ROUND ? 1 : 1 - ease((t - WHIRL_ROUND) / (1 - WHIRL_ROUND));
+  // the steel sings while it is out
+  const ring = Math.sin(a.t * 70) * 0.03 * wide;
+  p.part('hips').y += 4 * coil + 2.5 * wide;
+  p.part('torso').rot += -0.3 * coil + 0.2 * wide;
+  p.part('head').rot += 0.12 * coil - 0.08 * wide;
+  pointArm(p, 'armNear', lerp(lerp(1.2, 2.6, coil), 0.06, wide));
+  pointBlade(p, lerp(lerp(0.42, 2.9, coil), 0.02 + ring, wide));
+  p.part('armNear').z = coil > 0.5 ? -6 : 0;
+  // the off arm thrown out behind for balance
+  pointArm(p, 'armFar', lerp(lerp(1.6, 0.9, coil), Math.PI - 0.15, wide));
+  // one foot planted and the other trailing round, unless the feet are already running
+  const still = 1 - 0.5 * Math.min(1, a.speed);
+  p.part('legNear').rot += (-0.25 * coil - 0.42 * wide) * still;
+  p.part('legFar').rot += (0.2 * coil + 0.5 * wide) * still;
+  p.part('tail').rot += 0.3 * coil + 1.1 * wide;
+  p.part('skirt').rot += 0.35 * wide;
 }
 
 export const edgeAnimator: Animator = (p, a) => {
@@ -268,12 +275,9 @@ export const edgeAnimator: Animator = (p, a) => {
     case 'attack':
       swing(p, a);
       return 70;
-    case 'guard':
-      guard(p, a);
-      return 60;
     case 'special':
-      open(p, a);
-      return 30;
+      whirl(p, a);
+      return 60;
     case 'hurt':
       hurtPose(p, a);
       pointBlade(p, 1.0);
@@ -284,5 +288,5 @@ export const edgeAnimator: Animator = (p, a) => {
 };
 
 /** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
-const ENTRY: RigEntry = { def: EDGE_RIG, animator: edgeAnimator, required: SWORD_STATES, variants: { attack: [0, 1, 2] } };
+const ENTRY: RigEntry = { def: EDGE_RIG, animator: edgeAnimator, required: HERO_STATES, variants: { attack: [0, 1, 2] } };
 export default ENTRY;

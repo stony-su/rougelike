@@ -29,13 +29,13 @@ import { KEYS, toneOf } from './scale';
 /** Every sound, in the families the soundboard lists them by. */
 export const SOUND_GROUPS = [
   { name: 'Rally', sounds: ['rallySword', 'rallyBow', 'rallyFist', 'rallyChord', 'rallyBreak'] },
-  { name: 'Sword', sounds: ['swing1', 'swing2', 'swing3', 'hitSword', 'reflect', 'reflectPerfect', 'guard', 'riposte'] },
+  { name: 'Sword', sounds: ['swing1', 'swing2', 'swing3', 'hitSword', 'reflect', 'reflectPerfect', 'whirl'] },
   { name: 'Bow', sounds: ['loose', 'hitBow', 'ricochet', 'skip', 'stoneThrow', 'stonePlant', 'stoneRing', 'stoneEnd'] },
   { name: 'Fist', sounds: ['jab1', 'jab2', 'jab3', 'hitFist', 'chargeFull', 'haymaker', 'breakSlam', 'palmSlap'] },
-  { name: 'Bodies', sounds: ['launch', 'wallSlam', 'bumperRing', 'carom', 'ringOut', 'climbOut', 'land', 'stagger', 'armorBreak', 'tick'] },
+  { name: 'Bodies', sounds: ['launch', 'wallSlam', 'bumperRing', 'carom', 'ringOut', 'climbOut', 'land', 'stagger', 'armorBreak', 'clang', 'tick'] },
   { name: 'Bombs', sounds: ['bombThrow', 'bombLand', 'bombBat', 'bombBurst'] },
   { name: 'Echoes', sounds: ['spawn', 'windThrum', 'windPiper', 'windBurr', 'windEcho', 'thrumLunge', 'piperVolley', 'echoAttack', 'echoSlam', 'stun', 'echoDeath'] },
-  { name: 'Players', sounds: ['dash', 'dashReady', 'specialReady', 'refused', 'hurt', 'down'] },
+  { name: 'Players', sounds: ['dash', 'dashReady', 'specialReady', 'refused', 'hurt', 'down', 'ward'] },
   { name: 'The run', sounds: ['pickup', 'pickupBig', 'waveStart', 'roomClear', 'shockwave'] },
   { name: 'Interface', sounds: ['uiMove', 'uiConfirm', 'uiBack', 'uiError', 'uiBuy', 'uiTake'] },
 ] as const;
@@ -378,16 +378,31 @@ export const RECIPES: Record<SoundId, Recipe> = {
       tone('sine', 190, 80, 0.1, 0.4), // weight: this is the big one
     ],
   },
-  guard: {
+  // The Whirlwind: the blade all the way round. One long breath of air that opens and closes, with the steel humming through it.
+  whirl: {
+    space: 0.25,
+    home: at(7, 2),
+    layers: [
+      noise('bandpass', 420, 3000, 0.3, 0.6, { q: 1.1, attack: 0.07 }), // the air parting ahead of the blade as it comes round
+      noise('bandpass', 3000, 700, 0.26, 0.4, { q: 1.2, delay: 0.15, attack: 0.05 }), // and closing behind it
+      noise('lowpass', 700, 160, 0.3, 0.3, { attack: 0.06 }), // the weight of the turn
+      noise('bandpass', 5200, 8000, 0.22, 0.2, { q: 4, attack: 0.1 }), // the edge itself
+      partial(1, 0.5, 0.14, { attack: 0.1 }), // the fork of the blade humming the whole way
+      partial(2.756, 0.3, 0.07, { attack: 0.1 }),
+    ],
+  },
+  // A blow that met a shield, or a boss between two voices: steel on bronze, and nothing given.
+  clang: {
     space: 0.2,
     home: at(0, 2),
     layers: [
-      noise('bandpass', 2800, 5200, 0.05, 0.4, { q: 3, attack: 0.008 }), // the blade brought up
-      partial(1, 0.4, 0.22, { attack: 0.01 }), // and held, humming
+      noise('bandpass', 2800, 5200, 0.05, 0.4, { q: 3, attack: 0.008 }), // the edge stopped short
+      partial(1, 0.4, 0.22, { attack: 0.01 }), // and the metal it met, humming
       partial(2.756, 0.14, 0.08),
     ],
   },
-  riposte: {
+  // The Echo Ward: the blow that should have ended it, answered.
+  ward: {
     space: 0.35,
     home: at(0, 2),
     layers: [

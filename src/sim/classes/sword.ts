@@ -1,18 +1,20 @@
 // The Sword, the Edge. A three-swing combo in which every swing sends back the shots in its arc,
-// and bats away an Echo caught in its own attack. The special is the Riposte: a short guard that
-// returns whatever lands in it.
-import { PI, dcos, dhypot, dsin } from '../../core/dmath';
+// and bats away an Echo caught in its own attack. The special is the Whirlwind: one turn of the
+// blade that cuts and throws back everything round the Sword, knocks shields open, and sends
+// every shot in the circle home to whoever fired it, with nothing able to hurt the Sword meanwhile.
+import { PI, datan2, dcos, dhypot, dsin } from '../../core/dmath';
 import { ddamp } from '../../core/exact';
 import type { Vec2 } from '../../core/exact';
 import { pointInSector } from '../../core/geom';
 import { pushBody, relaunch } from '../bodies';
 import { BOMB_TOUCH, batBomb } from '../bombs';
-import { damageEnemy, freezeBody, hittable, outOfReach } from '../combat';
+import { damageEnemy, freezeBody, hittable, outOfReach, stunEnemy } from '../combat';
+import { applyMark } from '../conditions';
 import { rest, shift, walk } from '../move';
-import { fanOut, restrikeShot, returnShot, spawnProjectile } from '../projectiles';
+import { fanOut, restrikeShot, returnOrb, returnShot, spawnProjectile } from '../projectiles';
 import { addRally, rallyMul } from '../rally';
-import { BOMB, DASH, DT, DUET, EDGE, HITSTOP, PLAYER, RALLY, REFLECT, RIPOSTE, SIM_HZ, SWORD } from '../tuning';
-import type { Player, World } from '../types';
+import { BOMB, DASH, DUET, EDGE, HITSTOP, PLAYER, RALLY, REFLECT, SIM_HZ, SWORD, WHIRL } from '../tuning';
+import type { Enemy, Player, World } from '../types';
 import { wantsSpecial } from './kit';
 import type { Kit } from './kit';
 
@@ -45,16 +47,177 @@ function startSwing(w: World, p: Player, combo: number): void {
   w.events.push({ type: 'swing', player: p.slot, n: combo, x: p.x, y: p.y, angle: p.actAngle, reach: reachOf(p), halfArc: halfOf(p) });
 }
 
-function startGuard(w: World, p: Player): void {
-  p.state = 'guard';
+/** How far the Whirlwind reaches on its first turn, and how many times the blade goes round (Second Spin: twice). */
+const whirlReach = (p: Player): number => WHIRL.radius + p.mods.whirlReach;
+const whirlTurns = (p: Player): number => (p.mods.secondSpin > 0 ? 2 : 1);
+/** The reach of turn `n` (0 is the first): the second goes wider, to catch what the first threw. */
+const turnReach = (p: Player, n: number): number => whirlReach(p) * (n > 0 ? WHIRL.second : 1);
+
+function startWhirl(p: Player): void {
+  const turns = whirlTurns(p);
+  p.state = 'special';
   p.stateTime = 0;
-  // The guard lasts longer by the delay between a press and its effect, so it is as fair in co-op as alone.
-  p.guardT = RIPOSTE.guardTime + p.mods.riposteWindow + w.inputDelay * DT;
-  p.guardHit = false;
-  p.specialCd = RIPOSTE.cooldown;
   p.actAngle = p.aim;
+  p.actDur = WHIRL.windup + WHIRL.spin * turns + WHIRL.recovery;
+  p.whirlN = 0;
+  p.whirled = 0;
+  p.specialCd = WHIRL.cooldown;
   p.comboTimer = 0;
-  w.events.push({ type: 'guard', player: p.slot, x: p.x, y: p.y });
+  p.dashIn = false;
+  p.chainT = 0;
+  // nothing reaches the Sword while the blade is going round
+  p.iframes = Math.max(p.iframes, WHIRL.windup + WHIRL.spin * turns);
+}
+
+/**
+ * Alley-oop: a body already in flight is sent on along a unit direction, faster, and hurt more for
+ * it. That is a Return, and if someone else launched it, a Duet: it counts for them too.
+ */
+function sendOn(w: World, p: Player, e: Enemy, dx: number, dy: number, blow: number): void {
+  damageEnemy(w, e, blow * DUET.oopDamage * rallyMul(w, p.slot), { kind: 'return', by: p.slot, dx, dy, heavy: true, freeze: HITSTOP.heavy });
+  addRally(w, p.slot, RALLY.weight.sent, e.x, e.y);
+  if (e.dead) return;
+  const first = relaunch(w, e, dx, dy, DUET.oopSwordSpeed, p.slot);
+  if (first < 0) return;
+  addRally(w, first, RALLY.weight.sent, e.x, e.y);
+  w.events.push({ type: 'duet', kind: 'alleyoop', a: first, b: p.slot, x: e.x, y: e.y });
+}
+
+/** Count what the Whirlwind in hand has cut or sent back, and pay what the Sword's Tunings give for it. */
+function tally(w: World, p: Player, n: number): void {
+  if (n <= 0) return;
+  const before = p.whirled;
+  p.whirled += n;
+  const m = p.mods;
+  // Tempered Spin: the swings that follow a Whirlwind that met anything are doubled
+  if (before === 0 && m.whirlBuff > 0) p.buffSwings = m.whirlBuff;
+  // Encore: enough at once and it is ready again, with a dash charge and a little health
+  if (m.encoreRefund <= 0 || before >= WHIRL.encoreAt || p.whirled < WHIRL.encoreAt) return;
+  p.specialCd *= 1 - m.encoreRefund;
+  if (p.specialCd <= 0) {
+    p.specialCd = 0;
+    w.events.push({ type: 'specialReady', player: p.slot });
+  }
+  if (m.encoreDash > 0) p.dashCharges = Math.min(p.dashMaxCharges, p.dashCharges + m.encoreDash);
+  if (m.encoreHeal > 0 && p.hp < p.maxHp) {
+    const was = p.hp;
+    p.hp = Math.min(p.maxHp, p.hp + m.encoreHeal);
+    w.events.push({ type: 'heal', player: p.slot, amount: p.hp - was, x: p.x, y: p.y });
+  }
+}
+
+/** The blow of one turn of the Whirlwind: every Echo in the circle is cut and thrown outward, and a shield in the way is knocked open. */
+function resolveWhirl(w: World, p: Player): void {
+  const reach = turnReach(p, p.whirlN);
+  const m = p.mods;
+  let hits = 0;
+  // Iterate over a snapshot: effects triggered by hits may add enemies later.
+  for (const e of w.enemies.slice()) {
+    if (!hittable(e) || outOfReach(e)) continue;
+    let dx = e.x - p.x;
+    let dy = e.y - p.y;
+    const d = dhypot(dx, dy);
+    if (d > reach + e.radius) continue;
+    if (d > 1e-6) {
+      dx /= d;
+      dy /= d;
+    } else {
+      dx = dcos(p.actAngle);
+      dy = dsin(p.actAngle);
+    }
+    hits++;
+    if (e.state === 'launched') {
+      sendOn(w, p, e, dx, dy, WHIRL.damage);
+      continue;
+    }
+    // heavy enough to open a shield and land anyway
+    damageEnemy(w, e, WHIRL.damage, { kind: 'direct', by: p.slot, dx, dy, heavy: true, freeze: HITSTOP.heavy, breaks: true });
+    if (e.dead) continue;
+    const flying = pushBody(w, e, dx, dy, WHIRL.impulse, p.slot);
+    if (m.counterStun > 0) {
+      // Counterweight: it is dazed where it comes down (or where it stands, if it was too heavy to throw), and marked for everyone
+      if (flying) e.slamStun = Math.max(e.slamStun, m.counterStun);
+      else stunEnemy(w, e, m.counterStun);
+      applyMark(e, m.counterMark, EDGE.markTime);
+    }
+  }
+  w.events.push({ type: 'whirl', player: p.slot, x: p.x, y: p.y, radius: reach, n: p.whirlN });
+  if (hits > 0) freezeBody(p, HITSTOP.heavy);
+  tally(w, p, hits);
+}
+
+/** Every tick the blade is going round: enemy shots in the circle go back at whoever fired them, and bombs on the floor are batted back. */
+function whirlSweep(w: World, p: Player): void {
+  const reach = turnReach(p, p.whirlN - 1);
+  let turned = 0;
+  for (const pr of w.projectiles) {
+    if (pr.dead || pr.faction !== 'enemy') continue;
+    const dx = pr.x - p.x;
+    const dy = pr.y - p.y;
+    const r = reach + pr.radius;
+    if (dx * dx + dy * dy > r * r) continue;
+    // whoever fired it, if they are still there to be struck; with nobody to go back to, it goes back the way it came
+    let sender: Enemy | null = null;
+    for (const e of w.enemies) if (e.id === pr.owner && hittable(e)) sender = e;
+    let ax = sender ? sender.x - pr.x : -pr.vx;
+    let ay = sender ? sender.y - pr.y : -pr.vy;
+    if (ax === 0 && ay === 0) {
+      ax = dx;
+      ay = dy;
+    }
+    turned++;
+    if (pr.kind === 'orb') {
+      // an orb is heavy, and flies home by itself
+      returnOrb(w, pr, p, ax, ay, false);
+      continue;
+    }
+    returnShot(w, pr, p, datan2(ay, ax), false, sender ? sender.id : 0);
+    // it comes round on its sender wherever they go; Second Voice: it splits into a fan first
+    if (sender) pr.turn = Math.max(WHIRL.turn, p.mods.returnHoming);
+    fanOut(w, pr, p);
+  }
+  for (const b of w.bombs) {
+    if (b.dead || b.state !== 'fuse') continue;
+    const dx = b.x - p.x;
+    const dy = b.y - p.y;
+    const r = reach + BOMB_TOUCH;
+    if (dx * dx + dy * dy > r * r) continue;
+    let thrower: Enemy | null = null;
+    for (const e of w.enemies) if (e.id === b.owner && hittable(e)) thrower = e;
+    let ax = thrower ? thrower.x - b.x : dx;
+    let ay = thrower ? thrower.y - b.y : dy;
+    const al = dhypot(ax, ay);
+    if (al > 1e-6) {
+      ax /= al;
+      ay /= al;
+    } else {
+      ax = dcos(p.actAngle);
+      ay = dsin(p.actAngle);
+    }
+    batBomb(w, b, p.slot, ax, ay, BOMB.swordSpeed);
+    turned++;
+  }
+  tally(w, p, turned);
+}
+
+function stepWhirl(w: World, p: Player, move: Vec2, dt: number): void {
+  const turns = whirlTurns(p);
+  const t = p.stateTime;
+  const spinEnd = WHIRL.windup + WHIRL.spin * turns;
+  // each turn lands its blow as it begins
+  if (p.whirlN < turns && t >= WHIRL.windup + WHIRL.spin * p.whirlN) {
+    resolveWhirl(w, p);
+    p.whirlN++;
+  }
+  if (p.whirlN > 0 && t < spinEnd) whirlSweep(w, p);
+  walk(w, p, move, WHIRL.moveMul, dt);
+  if (t < spinEnd) return;
+  // the blade has come round: a cut asked for meanwhile follows without waiting for the Sword to straighten up
+  if (p.bufAttack > 0) {
+    startSwing(w, p, 0);
+    return;
+  }
+  if (t >= p.actDur) rest(p, move);
 }
 
 /** The blow of a swing, once, as its active frames begin: every Echo in the arc. */
@@ -64,7 +227,7 @@ function resolveSwing(w: World, p: Player): void {
   const half = halfOf(p);
   const ax = dcos(p.actAngle);
   const ay = dsin(p.actAngle);
-  // a Ring Cut has its own weight; Tempered Riposte doubles the swings that follow a landed Riposte
+  // a Ring Cut has its own weight; Tempered Spin doubles the swings that follow a Whirlwind that met anything
   const blow = (p.ringNow ? EDGE.ringDamage : SWORD.damage[c]) * (p.buffSwings > 0 ? 2 : 1) * (p.dashIn ? DASH.strike : 1);
   if (p.buffSwings > 0) p.buffSwings--;
   // Ringing Edge: the third swing throws a crescent, which is the Sword's own shot from the start
@@ -103,17 +266,8 @@ function resolveSwing(w: World, p: Player): void {
     }
     const kl = dhypot(kx, ky) || 1;
     if (e.state === 'launched') {
-      // Alley-oop: a body already in flight is sent on along the aim, faster, and hurt more for it.
-      // That is a Return, and if someone else launched it, a Duet: it counts for them too.
-      damageEnemy(w, e, blow * DUET.oopDamage * rallyMul(w, p.slot), { kind: 'return', by: p.slot, dx: ax, dy: ay, heavy: true, freeze: HITSTOP.heavy });
-      addRally(w, p.slot, RALLY.weight.sent, e.x, e.y);
-      if (!e.dead) {
-        const first = relaunch(w, e, ax, ay, DUET.oopSwordSpeed, p.slot);
-        if (first >= 0) {
-          addRally(w, first, RALLY.weight.sent, e.x, e.y);
-          w.events.push({ type: 'duet', kind: 'alleyoop', a: first, b: p.slot, x: e.x, y: e.y });
-        }
-      }
+      // a body already in flight goes on along the aim
+      sendOn(w, p, e, ax, ay, blow);
       hits++;
       continue;
     }
@@ -206,9 +360,9 @@ function stepSwing(w: World, p: Player, move: Vec2, dt: number): void {
   shift(w, p, p.vx * dt, p.vy * dt);
 
   if (t < activeEnd) return;
-  // Once the blade has passed, a Riposte may cut the recovery short.
+  // Once the blade has passed, the Whirlwind may cut the recovery short.
   if (wantsSpecial(w, p)) {
-    startGuard(w, p);
+    startWhirl(p);
     return;
   }
   // Chain into the next swing partway through recovery. The third swing must finish.
@@ -225,7 +379,7 @@ function stepSwing(w: World, p: Player, move: Vec2, dt: number): void {
 export const SWORD_KIT: Kit = {
   begin(w, p) {
     if (wantsSpecial(w, p)) {
-      startGuard(w, p);
+      startWhirl(p);
       return true;
     }
     if (p.bufAttack > 0) {
@@ -236,28 +390,10 @@ export const SWORD_KIT: Kit = {
   },
 
   step(w, p, move, dt) {
-    if (p.state === 'attack') {
-      stepSwing(w, p, move, dt);
-    } else if (p.state === 'guard') {
-      p.guardT -= dt;
-      walk(w, p, move, RIPOSTE.moveMul, dt);
-      if (p.guardT > 0) return;
-      p.guardT = 0;
-      if (p.guardHit) {
-        rest(p, move);
-      } else {
-        // nothing came: a moment of being open
-        p.state = 'special';
-        p.stateTime = 0;
-        p.actDur = RIPOSTE.whiff;
-      }
-    } else {
-      walk(w, p, move, RIPOSTE.moveMul, dt);
-      if (p.stateTime >= p.actDur) rest(p, move);
-    }
+    if (p.state === 'attack') stepSwing(w, p, move, dt);
+    else stepWhirl(w, p, move, dt);
   },
 
-  cancel(p) {
-    p.guardT = 0;
-  },
+  // the Sword holds nothing between ticks that a dash would have to drop
+  cancel() {},
 };

@@ -7,9 +7,9 @@ const deg = (d: number): number => (d * PI) / 180;
 /**
  * Walks at you behind a broad gong: blows and shots that meet it from the front ring off and do
  * nothing. Every class has a way round. Its bash is the opening: the gong is thrust out and then
- * hangs at its side while it recovers. A full Haymaker opens the guard by force, a Riposte sends
- * the bash back, a shot banked off a wall arrives from behind, and a body caromed into it does
- * not care which way it faces.
+ * hangs at its side while it recovers. A full Haymaker opens the guard by force, and so does the
+ * Whirlwind; a shot banked off a wall arrives from behind, and a body caromed into it does not
+ * care which way it faces.
  */
 export const GONG: EnemyDef = {
   id: 'gong',

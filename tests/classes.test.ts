@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { BURR } from '../src/content/enemies/burr';
+import { GONG } from '../src/content/enemies/gong';
 import { PIPER } from '../src/content/enemies/piper';
 import { THRUM } from '../src/content/enemies/thrum';
 import { PRACTICE_COURT } from '../src/content/rooms/practice-court';
@@ -10,7 +11,7 @@ import { spawnEnemy } from '../src/sim/ai';
 import { EXPERT, classBot, idleBot } from '../src/sim/bots';
 import type { Bot } from '../src/sim/bots';
 import { throwBomb } from '../src/sim/bombs';
-import { standing } from '../src/sim/combat';
+import { HURT_NONE, HURT_TAKEN, damagePlayer, standing } from '../src/sim/combat';
 import type { EnemyDef } from '../src/sim/defs';
 import { createFlow } from '../src/sim/flow';
 import { aimAngleOf } from '../src/sim/input';
@@ -18,7 +19,7 @@ import { previewArrow, spawnProjectile } from '../src/sim/projectiles';
 import { addRally } from '../src/sim/rally';
 import { buildRoom, groundAt, isClear } from '../src/sim/room';
 import { laneAngle } from '../src/sim/telegraphs';
-import { BODY, BOMB, BOW, BREAK, DT, FIST, HAYMAKER, PLAYER, RALLY, REFLECT, RINGSTONE, RIPOSTE, SWORD } from '../src/sim/tuning';
+import { BODY, BOMB, BOW, BREAK, DT, DUET, FIST, HAYMAKER, PLAYER, RALLY, REFLECT, RINGSTONE, SWORD, WHIRL } from '../src/sim/tuning';
 import { emptyInput } from '../src/sim/types';
 import type { ClassId, Enemy, World } from '../src/sim/types';
 import { createWorld, stepWorld } from '../src/sim/world';
@@ -162,84 +163,192 @@ describe('the Sword', () => {
   });
 });
 
-describe('the Riposte', () => {
-  it('a shot that lands in the guard does no damage and goes back to whoever fired it, a perfect return', () => {
+describe('the Whirlwind', () => {
+  /** Ticks from the press to the blow of the first turn, and to the end of the spin. */
+  const BLOW = Math.round(WHIRL.windup / DT) + 2;
+  const SPIN = Math.round((WHIRL.windup + WHIRL.spin) / DT);
+
+  it('one turn cuts everything round the Sword and throws it outward, whichever way the Sword faces', () => {
     const w = openWorld();
     const p = w.players[0];
-    const piper = dummy(w, 12.5, 9.5, 1000, PIPER);
+    const east = dummy(w, p.x + 1.8, p.y, 1000);
+    const west = dummy(w, p.x - 1.8, p.y, 1000);
+    const far = dummy(w, p.x, p.y + WHIRL.radius + 1.2, 1000);
     const pad = new Pad();
     run(w, 1, pad);
-    // the bolt arrives from +x, but its sender stands somewhere else: the return must find it
-    boltAt(w, p.x, p.y, 2.2, piper.id);
-    const ev = run(w, 90, pad.tap(PRESS.special));
-    expect(eventsOf(ev, 'guard')).toHaveLength(1);
-    expect(eventsOf(ev, 'riposte')).toHaveLength(1);
-    expect(eventsOf(ev, 'reflect')[0]).toMatchObject({ perfect: true });
-    expect(p.hp).toBe(p.maxHp);
-    const hit = eventsOf(ev, 'hit').find((h) => h.target === piper.id);
-    expect(hit).toMatchObject({ kind: 'return', crit: true, by: p.slot });
-    expect(p.rally).toBe(RALLY.weight.perfect);
+    const ev = run(w, BLOW, pad.tap(PRESS.special));
+    expect(eventsOf(ev, 'whirl')).toEqual([{ type: 'whirl', player: p.slot, x: p.x, y: p.y, radius: WHIRL.radius, n: 0 }]);
+    expect(1000 - east.hp).toBe(WHIRL.damage);
+    expect(1000 - west.hp).toBe(WHIRL.damage);
+    expect(far.hp).toBe(1000);
+    // a blow of the blade itself, not a Return
+    expect(eventsOf(ev, 'hit').map((h) => [h.kind, h.by])).toEqual([
+      ['direct', p.slot],
+      ['direct', p.slot],
+    ]);
+    // each is thrown its own way, straight out from the Sword
+    expect(east.state).toBe('launched');
+    expect(west.state).toBe('launched');
+    expect(east.lvx).toBeGreaterThan(0);
+    expect(west.lvx).toBeLessThan(0);
+    expect(eventsOf(ev, 'launch').find((l) => l.id === east.id)?.speed).toBeCloseTo(WHIRL.impulse / THRUM.mass);
+    expect(p.specialCd).toBeGreaterThan(WHIRL.cooldown - 0.5);
   });
 
-  it('a blow that lands in the guard throws the attacker clear and dazes it; landing it gives back half the cooldown', () => {
-    const w = openWorld();
-    const p = w.players[0];
-    const e = spawnEnemy(w, THRUM, p.x + 2.2, p.y, { instant: true });
-    e.cooldowns.fill(0);
-    const pad = new Pad().aimAt(p, e.x, e.y);
-    run(w, 1, pad);
-    let launched = false;
-    let tapped = false;
-    for (let t = 0; t < 240 && !launched; t++) {
-      // raise the guard as the lunge is about to go
-      const tg = w.telegraphs.find((x) => x.owner === e.id);
-      if (!tapped && tg && tg.dur - tg.t < 0.1) {
-        pad.tap(PRESS.special);
-        tapped = true;
-      }
-      const ev = run(w, 1, pad);
-      const launch = eventsOf(ev, 'launch').find((l) => l.id === e.id);
-      if (!launch) continue;
-      launched = true;
-      expect(launch.speed).toBeCloseTo(RIPOSTE.impulse);
-      expect(launch.by).toBe(p.slot);
-      // thrown away from the player
-      expect(e.lvx).toBeGreaterThan(0);
-    }
-    expect(launched).toBe(true);
-    expect(p.hp).toBe(p.maxHp);
-    expect(p.specialCd).toBeLessThanOrEqual(RIPOSTE.cooldown * (1 - RIPOSTE.refund));
-    expect(p.specialCd).toBeGreaterThan(RIPOSTE.cooldown * (1 - RIPOSTE.refund) - 1);
-  });
-
-  it('a guard that catches nothing leaves the player open for a moment, and the whole cooldown to wait', () => {
+  it('nothing hurts the Sword while the blade goes round; as it straightens up it can be hurt again', () => {
     const w = openWorld();
     const p = w.players[0];
     const pad = new Pad();
     run(w, 1, pad);
     run(w, 1, pad.tap(PRESS.special));
-    expect(p.state).toBe('guard');
-    run(w, Math.round(RIPOSTE.guardTime / DT) + 1, pad);
     expect(p.state).toBe('special');
-    run(w, Math.round(RIPOSTE.whiff / DT) + 2, pad);
+    for (let t = 0; t < SPIN - 2; t++) {
+      expect(damagePlayer(w, p, 10, p.x + 1, p.y, 0), `tick ${t}`).toBe(HURT_NONE);
+      run(w, 1, pad);
+    }
+    expect(p.hp).toBe(p.maxHp);
+    run(w, 4, pad);
+    // still finishing the move, and open
+    expect(p.state).toBe('special');
+    expect(damagePlayer(w, p, 10, p.x + 1, p.y, 0)).toBe(HURT_TAKEN);
+    expect(p.hp).toBe(p.maxHp - 10);
+  });
+
+  it('every enemy shot in the circle goes back at whoever fired it, from wherever it came', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    // the sender stands off to one side: neither shot is flying along a line that leads to it
+    const piper = dummy(w, p.x + 4.5, p.y + 3, 1000, PIPER);
+    const pad = new Pad();
+    run(w, 1, pad);
+    boltAt(w, p.x, p.y, 2, piper.id);
+    spawnProjectile(w, { kind: 'bolt', faction: 'enemy', owner: piper.id, x: p.x - 2, y: p.y, vx: 9, vy: 0, radius: 0.16, damage: 8, range: 12 });
+    const ev = run(w, 90, pad.tap(PRESS.special));
+    const turned = eventsOf(ev, 'reflect');
+    expect(turned).toHaveLength(2);
+    expect(turned.every((r) => !r.perfect && r.player === p.slot)).toBe(true);
+    expect(p.hp).toBe(p.maxHp);
+    const hits = eventsOf(ev, 'hit').filter((h) => h.target === piper.id);
+    expect(hits.map((h) => [h.kind, h.by])).toEqual([
+      ['return', p.slot],
+      ['return', p.slot],
+    ]);
+    expect(p.rally).toBe(2 * RALLY.weight.sent);
+  });
+
+  it('a shot with nobody to go home to goes back the way it came', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const pad = new Pad();
+    run(w, 1, pad);
+    boltAt(w, p.x, p.y, 2);
+    run(w, BLOW, pad.tap(PRESS.special));
+    const pr = w.projectiles[0];
+    expect([pr.faction, pr.owner, pr.returned, pr.homing]).toEqual(['player', p.slot, true, 0]);
+    expect(pr.vx).toBeGreaterThan(0);
+    expect(Math.abs(pr.vy)).toBeLessThan(1e-9);
+  });
+
+  it('a shot that reaches the circle while the blade is still going round is sent back too; one that comes after is not', () => {
+    /** A bolt that crosses the rim of the circle `after` seconds from the press. */
+    const arrives = (after: number): { turned: number; hurt: number } => {
+      const w = openWorld();
+      const p = w.players[0];
+      const pad = new Pad();
+      run(w, 1, pad);
+      boltAt(w, p.x, p.y, WHIRL.radius + 0.16 + 9 * after);
+      const ev = run(w, 80, pad.tap(PRESS.special));
+      return { turned: eventsOf(ev, 'reflect').length, hurt: p.maxHp - p.hp };
+    };
+    expect(arrives(0.25)).toEqual({ turned: 1, hurt: 0 });
+    expect(arrives(WHIRL.windup + WHIRL.spin + 0.1)).toEqual({ turned: 0, hurt: 8 });
+  });
+
+  it('knocks a raised shield open, and the blow lands', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const gong = dummy(w, p.x + 1.8, p.y, 1000, GONG);
+    gong.facing = Math.PI;
+    const pad = new Pad();
+    run(w, 1, pad);
+    // the blade alone does nothing to it from the front
+    const cut = run(w, 20, pad.tap(PRESS.attack));
+    expect(eventsOf(cut, 'clang').length).toBeGreaterThan(0);
+    expect(gong.hp).toBe(1000);
+    run(w, 30, pad);
+    const ev = run(w, BLOW, pad.tap(PRESS.special));
+    expect(eventsOf(ev, 'armorBreak')).toHaveLength(1);
+    expect(1000 - gong.hp).toBe(WHIRL.damage);
+    expect(gong.guardOpen).toBeGreaterThan(1);
+  });
+
+  it('a body already in flight is sent on outward, and that is a Return', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const e = dummy(w, p.x + 1.6, p.y, 1000);
+    e.state = 'launched';
+    e.lvx = 0;
+    e.lvy = 6;
+    e.launchBy = p.slot;
+    const pad = new Pad();
+    run(w, 1, pad);
+    const ev = run(w, BLOW, pad.tap(PRESS.special));
+    const hit = eventsOf(ev, 'hit').find((h) => h.target === e.id);
+    expect(hit).toMatchObject({ kind: 'return', by: p.slot });
+    expect(1000 - e.hp).toBeCloseTo(WHIRL.damage * DUET.oopDamage);
+    expect(p.rally).toBe(RALLY.weight.sent);
+    // away from the Sword now, whichever way it was going
+    expect(e.lvx * (e.x - p.x) + e.lvy * (e.y - p.y)).toBeGreaterThan(0);
+  });
+
+  it('bats a bomb on the floor back at whoever threw it', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const burr = dummy(w, p.x + 5, p.y, 1000, BURR);
+    const pad = new Pad();
+    run(w, 1, pad);
+    const b = throwBomb(w, burr, p.x + 1.2, p.y + 0.6, { damage: 10, radius: 1.5, flight: 0.2, fuse: 3 });
+    run(w, 20, pad);
+    expect(b.state).toBe('fuse');
+    const ev = run(w, BLOW, pad.tap(PRESS.special));
+    expect(eventsOf(ev, 'bombBat')).toHaveLength(1);
+    expect(b.by).toBe(p.slot);
+    // toward the Burr
+    expect(b.vx).toBeGreaterThan(0);
+  });
+
+  it('costs its whole wait whether or not it met anything, and cannot be used again until then', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const pad = new Pad();
+    run(w, 1, pad);
+    run(w, 1, pad.tap(PRESS.special));
+    expect(p.state).toBe('special');
+    run(w, Math.round((WHIRL.windup + WHIRL.spin + WHIRL.recovery) / DT) + 2, pad);
     expect(p.state).toBe('idle');
-    expect(p.specialCd).toBeGreaterThan(RIPOSTE.cooldown - 1);
-    // and it cannot be raised again yet
+    expect(p.specialCd).toBeGreaterThan(WHIRL.cooldown - 1);
     const ev = run(w, 3, pad.tap(PRESS.special));
     expect(eventsOf(ev, 'refused')).toHaveLength(1);
     expect(p.state).toBe('idle');
   });
 
-  it('the window is wider by the delay between a press and its effect', () => {
-    const alone = openWorld();
-    const delayed = openWorld();
-    delayed.inputDelay = 6;
-    for (const w of [alone, delayed]) {
-      const pad = new Pad();
+  it('a cut asked for while the blade goes round follows the moment it has come round', () => {
+    const w = openWorld();
+    const p = w.players[0];
+    const pad = new Pad();
+    run(w, 1, pad);
+    run(w, SPIN - 3, pad.tap(PRESS.special));
+    expect(p.state).toBe('special');
+    pad.tap(PRESS.attack);
+    const states: string[] = [];
+    for (let t = 0; t < 8; t++) {
       run(w, 1, pad);
-      run(w, 1, pad.tap(PRESS.special));
+      states.push(p.state);
     }
-    expect(delayed.players[0].guardT - alone.players[0].guardT).toBeCloseTo(6 * DT);
+    // well before the Whirlwind's own recovery would have let go
+    expect(states.indexOf('attack')).toBeGreaterThanOrEqual(0);
+    expect(states.indexOf('attack')).toBeLessThan(6);
+    expect(states.slice(0, states.indexOf('attack')).every((s) => s === 'special')).toBe(true);
   });
 });
 

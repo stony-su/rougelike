@@ -1,7 +1,7 @@
 // The Tunings of the Sword, the Edge (DESIGN.md section 4.2). Three builds of three, and one that
-// belongs to none. Mirror Guard sends more back; the Duelist lives on the Riposte; Edge Wave
-// makes shots of the Sword's own. The rules that read these numbers are in src/sim/classes/sword.ts,
-// src/sim/projectiles.ts (what a returned shot does) and src/sim/combat.ts (a landed Riposte).
+// belongs to none. Mirror Guard sends more back; the Cyclone lives on the Whirlwind; Edge Wave
+// makes shots of the Sword's own. The rules that read these numbers are in src/sim/classes/sword.ts
+// (the swings and the Whirlwind) and src/sim/projectiles.ts (what a returned shot does).
 import type { TuningSet } from '../../sim/mods';
 
 /** Degrees as radians, for the arc a card speaks of in degrees. */
@@ -61,24 +61,24 @@ const set: TuningSet = {
       ],
       effects: [{ mod: 'returnSplit', op: 'set', v: [1, 2, 3] }],
     },
-    // ---- the Duelist: the Riposte
+    // ---- the Cyclone: the Whirlwind
     {
-      id: 'tempered-riposte',
+      id: 'tempered-spin',
       icon: 'hourglass',
       tone: 'sword',
-      name: 'Tempered Riposte',
+      name: 'Tempered Spin',
       owner: 'sword',
-      build: 'Duelist',
+      build: 'Cyclone',
       rarity: 0,
       maxRank: 3,
       text: [
-        'The Riposte guards a tenth of a second longer. When it lands, your next 2 swings do double.',
-        'The Riposte guards 0.15 seconds longer. When it lands, your next 3 swings do double.',
-        'The Riposte guards a fifth of a second longer. When it lands, your next 4 swings do double.',
+        'The Whirlwind reaches 0.3 tiles further. After one that hits anything, your next 2 swings do double.',
+        'The Whirlwind reaches half a tile further. After one that hits anything, your next 3 swings do double.',
+        'The Whirlwind reaches 0.7 tiles further. After one that hits anything, your next 4 swings do double.',
       ],
       effects: [
-        { mod: 'riposteWindow', op: 'add', v: [0.1, 0.15, 0.2] },
-        { mod: 'riposteBuff', op: 'set', v: [2, 3, 4] },
+        { mod: 'whirlReach', op: 'add', v: [0.3, 0.5, 0.7] },
+        { mod: 'whirlBuff', op: 'set', v: [2, 3, 4] },
       ],
     },
     {
@@ -87,13 +87,13 @@ const set: TuningSet = {
       tone: 'sword',
       name: 'Counterweight',
       owner: 'sword',
-      build: 'Duelist',
+      build: 'Cyclone',
       rarity: 1,
       maxRank: 3,
       text: [
-        'A Riposte or a perfect return stuns what it strikes for 0.6 seconds and marks it: 20% more damage from everyone for 4 seconds.',
-        'A Riposte or a perfect return stuns what it strikes for 0.9 seconds and marks it: 30% more damage from everyone for 4 seconds.',
-        'A Riposte or a perfect return stuns what it strikes for 1.2 seconds and marks it: 40% more damage from everyone for 4 seconds.',
+        'The Whirlwind and a perfect return stun what they strike for 0.6 seconds and mark it: 20% more damage from everyone for 4 seconds.',
+        'The Whirlwind and a perfect return stun what they strike for 0.9 seconds and mark it: 30% more damage from everyone for 4 seconds.',
+        'The Whirlwind and a perfect return stun what they strike for 1.2 seconds and mark it: 40% more damage from everyone for 4 seconds.',
       ],
       effects: [
         { mod: 'counterStun', op: 'set', v: [0.6, 0.9, 1.2] },
@@ -106,10 +106,13 @@ const set: TuningSet = {
       tone: 'sword',
       name: 'Encore',
       owner: 'sword',
-      build: 'Duelist',
+      build: 'Cyclone',
       rarity: 2,
       maxRank: 2,
-      text: ['A Riposte that lands is ready again at once, and gives a dash charge back.', 'A Riposte that lands is ready again at once, gives a dash charge back, and heals 4.'],
+      text: [
+        'A Whirlwind that cuts or sends back 3 things or more is ready again at once, and gives a dash charge back.',
+        'A Whirlwind that cuts or sends back 3 things or more is ready again at once, gives a dash charge back, and heals 4.',
+      ],
       effects: [
         { mod: 'encoreRefund', op: 'set', v: [1, 1] },
         { mod: 'encoreDash', op: 'set', v: [1, 1] },
@@ -192,11 +195,11 @@ const set: TuningSet = {
       effects: [{ mod: 'hallOfMirrors', op: 'set', v: [1] }],
     },
     {
-      id: 'answer-in-kind',
-      name: 'Answer in Kind',
-      parents: ['tempered-riposte', 'counterweight'],
-      text: 'A Riposte that lands bursts round you for 12 and throws back what stands near.',
-      effects: [{ mod: 'answerInKind', op: 'set', v: [1] }],
+      id: 'second-spin',
+      name: 'Second Spin',
+      parents: ['tempered-spin', 'counterweight'],
+      text: 'The Whirlwind goes round twice. The second turn reaches further, and what the first threw it strikes in flight: a Return.',
+      effects: [{ mod: 'secondSpin', op: 'set', v: [1] }],
     },
     {
       id: 'standing-wave',

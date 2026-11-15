@@ -23,8 +23,7 @@ export type { SoundId } from './recipes';
 function classShown(ev: SimEvent): ClassId | null {
   switch (ev.type) {
     case 'swing':
-    case 'guard':
-    case 'riposte':
+    case 'whirl':
       return 'sword';
     case 'loose':
     case 'stoneThrow':

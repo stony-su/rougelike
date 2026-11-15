@@ -68,6 +68,9 @@ const floorRipples: ExtraFactory = ({ stage, textures }) => {
         case 'breakSlam':
           drop(ev.x, ev.y, ev.player, 1);
           break;
+        case 'whirl':
+          drop(ev.x, ev.y, ev.player, 0.9);
+          break;
         case 'bombBurst':
           drop(ev.x, ev.y, ev.by, 0.9);
           break;

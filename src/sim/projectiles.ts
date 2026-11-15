@@ -10,7 +10,7 @@ import { nearestEcho, pushBody } from './bodies';
 import { BOMB_TOUCH, detonateBomb } from './bombs';
 import { HIT_BUMPER, HIT_POST, SKIN, castCircle, circleTime, newHit } from './cast';
 import type { Hit } from './cast';
-import { HURT_GUARDED, HURT_TAKEN, burstAt, damageEnemy, damagePlayer, hittable, standing, stunEnemy } from './combat';
+import { HURT_TAKEN, burstAt, damageEnemy, damagePlayer, hittable, standing, stunEnemy } from './combat';
 import { applyMark, applyRoot } from './conditions';
 import { reflectFixed, reflectFree } from './geo';
 import type { Geo } from './geo';
@@ -514,7 +514,7 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
       } else {
         for (const pl of w.players) {
           // Swept, so a fast shot cannot skip through someone between ticks. A dash passes clean through.
-          if (!standing(pl) || (pl.iframes > 0 && pl.guardT <= 0)) continue;
+          if (!standing(pl) || pl.iframes > 0) continue;
           const tp = circleTime(pr.x, pr.y, dx, dy, pl.x, pl.y, pl.radius + pr.radius);
           if (tp < 0 || tp >= t) continue;
           t = tp;
@@ -629,24 +629,7 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
       end(w, pr, true, null);
     } else if (what === PLAYER && player && w) {
       const res = damagePlayer(w, player, pr.damage, pr.x - pr.vx, pr.y - pr.vy, 1.2);
-      if (res === HURT_GUARDED) {
-        // A Riposte: the shot goes straight back to whoever fired it.
-        let sender: Enemy | null = null;
-        for (const e of w.enemies) {
-          if (e.id === pr.owner && hittable(e)) {
-            sender = e;
-            break;
-          }
-        }
-        const bx = sender ? sender.x - pr.x : -pr.vx;
-        const by = sender ? sender.y - pr.y : -pr.vy;
-        const bl = Math.sqrt(bx * bx + by * by) || 1;
-        returnShot(w, pr, player, 0, true, sender ? sender.id : 0);
-        const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy);
-        pr.vx = (bx / bl) * sp;
-        pr.vy = (by / bl) * sp;
-        fanOut(w, pr, player);
-      } else if (res === HURT_TAKEN) {
+      if (res === HURT_TAKEN) {
         end(w, pr, true, null);
       } else {
         break;

@@ -23,8 +23,9 @@ export const CLASS_WORDS: Readonly<Record<ClassId, ClassWords>> = {
     name: 'The Edge',
     weapon: 'Sword',
     attack: 'Every swing turns enemy shots back where you aim, and bats away an Echo caught in its own attack. Three cuts; the third launches.',
-    specialName: 'Riposte',
-    special: 'Riposte. A guard: whatever lands in it goes back, harder, and a shield that struck it is thrown down.',
+    specialName: 'Whirlwind',
+    special:
+      'Whirlwind. One turn of the blade: everything round you is cut and thrown back, shields are knocked open, and every enemy shot in the circle flies home to whoever fired it. Nothing can hurt you while you turn.',
     plays: 'Stand in the fire and aim your returns.',
   },
   bow: {
