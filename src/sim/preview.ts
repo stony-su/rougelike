@@ -4,3 +4,5 @@
 export { previewArrow } from './projectiles';
 // What a camp would let a player do, without doing it.
 export { BUY_RATION, BUY_RESTOCK, CAMP, REST_HEAL, atCamp, priceOf, raisable, restockPrice } from './camp';
+// The Wager, as it stands.
+export { VOTE_NONE, VOTE_TAKE, VOTE_WALK, WAGER, carried, onTable } from './wager';

@@ -44,6 +44,10 @@ export interface RoomFlow {
   clearBonus: number;
   /** The id of the boss this chamber holds instead of waves, or '' for none. */
   boss: string;
+  /** The Discord the party carried in on a Wager (wager.ts), or '' for none. */
+  discord: string;
+  /** What every Chime this chamber drops is multiplied by: 1, or more under a Wager. */
+  chimeMul: number;
 }
 
 export const MAGNET_RADIUS = 2.4;
@@ -62,6 +66,8 @@ export function createFlow(chamber: number, players: number): RoomFlow {
     clearedFor: 0,
     clearBonus: 10 + 2 * chamber,
     boss: '',
+    discord: '',
+    chimeMul: 1,
   };
 }
 
@@ -160,7 +166,7 @@ function sendWave(w: World): void {
 // ---------------------------------------------------------------- pickups
 
 export function dropChimes(w: World, x: number, y: number, total: number): void {
-  let left = Math.max(0, Math.round(total));
+  let left = Math.max(0, Math.round(total * w.flow.chimeMul));
   while (left > 0) {
     const value = left >= 5 ? 5 : 1;
     left -= value;

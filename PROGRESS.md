@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 75% complete.** 23 of 40 tasks are done, 0 in progress, 10 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 76% complete.** 24 of 40 tasks are done, 0 in progress, 9 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -12,7 +12,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 16.3% | 100% |
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 10.9% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 12.2% | 100% |
-| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 71% |
+| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 75% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 53% |
 | 6 | Menus, saving, sound | 4.5% | 0% |
 | 7 | Polish and balance | 3.6% | 0% |
@@ -29,7 +29,6 @@ Nothing at the moment.
 - [T31](tasks/T31-tunings-bow.md) **Tunings: the Bow (ten, and three Harmonies)** (2.3% of the game)
 - [T32](tasks/T32-tunings-fist.md) **Tunings: the Fist (ten, and three Harmonies)** (2.3% of the game)
 - [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (0.9% of the game)
-- [T51](tasks/T51-wager.md) **The Wager, and the Brittle Discord** (0.9% of the game)
 - [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5% of the game)
 - [T66](tasks/T66-music.md) **Music beds and sound levels** (0.9% of the game)
 - [T71](tasks/T71-performance.md) **Performance pass** (0.9% of the game)
@@ -67,6 +66,7 @@ Nothing at the moment.
 - [T47](tasks/T47-echo-movement.md) Echoes that surround, flank and reposition
 - [T48](tasks/T48-traps.md) Traps in the floor
 - [T50](tasks/T50-camp.md) Camp: the Tuner (shop) and the Still Pool (rest)
+- [T51](tasks/T51-wager.md) The Wager, and the Brittle Discord
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 - [T65](tasks/T65-crater.md) The Crater: the third biome, for the last chamber
 

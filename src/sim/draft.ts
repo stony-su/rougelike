@@ -20,6 +20,8 @@ export interface Draft {
   /** Times the present offer has been dealt again, and how many more times this run it may be. */
   rolled: number;
   rerolls: number;
+  /** Offers still to come after this one is answered (a Wager won pays a second card). */
+  owed: number;
 }
 
 /** How long a player may look at their cards before the first is taken for them. */
@@ -30,7 +32,7 @@ const RARITY_WEIGHT: readonly number[] = [10, 6, 2.5];
 /** A class's fourth Tuning belongs to no build; the first draft leaves it out. */
 export const WILDCARD = 'Wildcard';
 
-export const newDraft = (rerolls = 0): Draft => ({ offers: [], timer: 0, made: 0, rare: false, rolled: 0, rerolls });
+export const newDraft = (rerolls = 0): Draft => ({ offers: [], timer: 0, made: 0, rare: false, rolled: 0, rerolls, owed: 0 });
 
 type Held = Readonly<Record<string, number>>;
 const rankOf = (held: Held, id: string): number => held[id] ?? 0;

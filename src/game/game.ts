@@ -45,6 +45,7 @@ import { CampFlow } from './campFlow';
 import { cardInfo } from './cardInfo';
 import type { Driver } from './driver';
 import { Input } from './input';
+import { WagerFlow } from './wagerFlow';
 
 export interface GameOptions {
   debug: boolean;
@@ -123,6 +124,7 @@ export class Game {
   /** The camp: its list, and the hint that says how to bring the list back. */
   private readonly camp = new CampFlow();
   private readonly campHint: Label;
+  private readonly wager = new WagerFlow();
   private draftKey = '';
   private pickSent = '';
   private lastMouseX = -1;
@@ -192,7 +194,19 @@ export class Game {
     this.endHint = new Label('Enter or A: go again', { size: 11, color: CHIME, tracking: 0.2, align: 'center' });
     this.campHint = new Label('', { size: 10, color: CHIME, tracking: 0.24, align: 'center' });
     for (const l of [this.endHead, this.endNote, this.endHint, this.campHint]) l.visible = false;
-    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.campHint, this.draft.root, this.camp.screen.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
+    this.stage.ui.addChild(
+      this.hud.root,
+      this.held.root,
+      this.bossBar.root,
+      this.campHint,
+      this.draft.root,
+      this.camp.screen.root,
+      this.wager.screen.root,
+      this.pausedLabel,
+      this.endHead,
+      this.endNote,
+      this.endHint,
+    );
 
     if (opts.debug) {
       BitmapFont.install({
@@ -236,6 +250,7 @@ export class Game {
     this.hud.destroy();
     this.draft.destroy();
     this.camp.destroy();
+    this.wager.destroy();
     this.bossBar.destroy();
     this.held.destroy();
     this.textures.destroy();
@@ -265,6 +280,8 @@ export class Game {
       draft: s.drafts[this.localSlot]
         ? { offers: s.drafts[this.localSlot].offers, timer: s.drafts[this.localSlot].timer, made: s.drafts[this.localSlot].made, open: this.draft.open, choice: this.draft.choice }
         : null,
+      wager: { ...s.wager, open: this.wager.screen.open },
+      discord: w.flow.discord,
       camp: s.camps[this.localSlot] ? { ...s.camps[this.localSlot], open: this.camp.screen.open, choice: this.camp.screen.choice, wait: s.campFor } : null,
       players: w.players.map((p) => ({
         slot: p.slot,
@@ -329,6 +346,7 @@ export class Game {
     this.hud.layout(this.viewW, this.viewH);
     this.draft.layout(this.viewW, this.viewH);
     this.camp.screen.layout(this.viewW, this.viewH);
+    this.wager.screen.layout(this.viewW, this.viewH);
     this.campHint.position.set(this.viewW / 2, this.viewH - 118);
     this.bossBar.layout(this.viewW);
     // to the right of the health panel, along the bottom
@@ -390,7 +408,8 @@ export class Game {
     const stop = stopOf(this.session);
     if (stop) {
       const hard = stop.kind === 'elite' || stop.kind === 'miniboss' || stop.kind === 'boss';
-      this.hud.banner(stop.kind === 'elite' ? `Elite: ${room.name}` : room.name, hard ? DANGER : PAPER, 2.4);
+      // a chamber the party wagered on says so before anything else
+      this.hud.banner(w.flow.discord ? 'Brittle: the Wager is on' : stop.kind === 'elite' ? `Elite: ${room.name}` : room.name, hard ? DANGER : PAPER, w.flow.discord ? 3 : 2.4);
     }
   }
 
@@ -407,7 +426,7 @@ export class Game {
       this.draftKey = '';
       return false;
     }
-    const key = `${s.attempt}/${s.stop}/${d.rolled}/${d.offers.join(',')}`;
+    const key = `${s.attempt}/${s.stop}/${d.made}/${d.rolled}/${d.offers.join(',')}`;
     if (this.autopilot) {
       // a bot in this seat takes its card without looking at the screen
       if (this.pickSent !== key) {
@@ -537,9 +556,22 @@ export class Game {
     );
     this.campHint.visible = this.camp.away;
     if (this.camp.away) this.campHint.text = this.input.device === 'pad' ? 'X   The camp' : 'F   The camp';
+    const wagering = this.wager.step(
+      this.session,
+      slot,
+      here.players.find((q) => q.slot === slot),
+      this.driver,
+      this.input,
+      !!this.autopilot,
+      dt,
+    );
+    if (this.wager.result) {
+      this.hud.banner(this.wager.result === 'on' ? 'The Wager is taken' : 'The party walks on', this.wager.result === 'on' ? DANGER : PAPER, 2);
+      this.wager.result = '';
+    }
     if (this.autopilot) {
       this.driver.input(this.autopilot.think(here, slot), now);
-    } else if (choosing || camping) {
+    } else if (choosing || camping || wagering) {
       // the cards have the keys: the character stands still, and nothing is pressed for them
       this.driver.input(this.input.quiet(), now);
     } else {

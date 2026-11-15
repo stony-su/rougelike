@@ -26,7 +26,9 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **Tunings.** After every fight each player is dealt three cards on their own screen and takes one (1, 2 or 3, the arrow keys and Enter, the mouse, or a controller). The twelve Tunings anyone can take are in: more dashes, a dash that rams, Rally that steps down instead of breaking, rings that burst and heal as Rally climbs, Returns that burn, chill or call lightning, more health, a ward against a downing blow. Three pairs of them switch on a Harmony when held together.
 
-What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), the Wager, menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
+- **The Wager.** When the chamber before the Inner Ring's elite is cleared, the party is asked whether it will carry a Discord into the elite's chamber: Brittle, which cuts everyone's health by 30% for the fight. More than half must say yes (1 or 2, the arrow keys and Enter, the mouse, or a controller; ten seconds). Win it and the chamber pays double Chimes and a second card, a rare one.
+
+What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 

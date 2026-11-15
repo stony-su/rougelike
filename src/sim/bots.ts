@@ -12,6 +12,7 @@ import { DRAFT_TICKS, completes } from './draft';
 import { hold, press, setAim, setMove } from './input';
 import { isClear } from './room';
 import type { Command, Session } from './session';
+import { VOTE_NONE, VOTE_TAKE, VOTE_WALK, WAGER, onTable } from './wager';
 import { previewArrow } from './projectiles';
 import { telegraphCovers } from './telegraphs';
 import { BOW, BREAK, FIST, HAYMAKER, SWORD } from './tuning';
@@ -586,8 +587,8 @@ export const BOT_THINKS = 40;
 
 /**
  * The commands bots in the given seats send this tick (every seat, if none are named): at most
- * one from each. Bots decide two things outside their hands: which card to take, and what to do
- * at a camp.
+ * one from each. Bots decide three things outside their hands: which card to take, whether to
+ * take a Wager, and what to do at a camp.
  */
 export function botCommands(s: Session, content: ContentRegistry, seats?: readonly number[]): Command[] {
   const out: Command[] = [];
@@ -598,6 +599,12 @@ export function botCommands(s: Session, content: ContentRegistry, seats?: readon
     const d = s.drafts[slot];
     if (d && d.offers.length > 0) {
       if (d.timer <= DRAFT_TICKS - BOT_THINKS) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'pick', a: botPick(d.offers, me.tunings, content) });
+      return;
+    }
+    if (onTable(s.wager)) {
+      // a bot takes a Wager when it is in good health, after a moment's thought
+      if (s.wager.votes[slot] === VOTE_NONE && s.wager.timer <= WAGER.count - BOT_THINKS)
+        out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'wager', a: me.hp >= me.maxHp * 0.6 ? VOTE_TAKE : VOTE_WALK });
       return;
     }
     // a bot looks round a camp for a moment before it does anything there

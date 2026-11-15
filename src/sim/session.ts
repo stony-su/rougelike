@@ -19,6 +19,8 @@ import { buildRoom, randomFloorPoint } from './room';
 import { generateRoom } from './roomgen';
 import { flowFor, planRoute, roomSpec } from './run';
 import type { Stop } from './run';
+import { WAGER, discord, lift, noWager, offer, onTable, stepTable, vote } from './wager';
+import type { Wager } from './wager';
 import { REVIVE, SIM_HZ } from './tuning';
 import { emptyInput } from './types';
 import type { ClassId, InputFrame, World } from './types';
@@ -55,9 +57,10 @@ export interface SessionConfig {
  * Everything a player can decide outside their hands. 'pick' takes card `a` (0, 1 or 2) of the
  * player's draft; 'reroll' deals their cards again, if they have a reroll left. At a camp
  * (camp.ts): 'buy' takes thing `a` from the Tuner, 'rest' takes thing `a` from the Still Pool,
- * and 'ready' says whether the player is ready to leave (`a` 1 or 0).
+ * and 'ready' says whether the player is ready to leave (`a` 1 or 0). 'wager' answers the Wager
+ * (wager.ts): `a` 1 takes it, 0 walks on.
  */
-export const COMMAND_KINDS = ['pause', 'restart', 'pick', 'reroll', 'buy', 'rest', 'ready'] as const;
+export const COMMAND_KINDS = ['pause', 'restart', 'pick', 'reroll', 'buy', 'rest', 'ready', 'wager'] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
 /** Something a player decided, outside moment-to-moment input. Applied in the order the bundle lists them. */
@@ -124,6 +127,8 @@ export interface Session {
   camps: CampSeat[];
   /** Ticks since the first of the party said they were ready to leave a camp, or -1. */
   campFor: number;
+  /** The Wager: whether it is on the table, what everyone has said, and whether the party is carrying it (wager.ts). */
+  wager: Wager;
 }
 
 /** Ticks the world plays on after the whole party is down, before the run is called lost. */
@@ -162,6 +167,7 @@ function begin(s: Session, content: ContentRegistry): void {
   s.clearFor = -1;
   s.pausedBy = -1;
   s.drafts = s.config.players.map(() => newDraft());
+  s.wager = noWager(s.config.players.length);
   s.worlds = [s.config.practice ? openPractice(s, content, 1, fresh(s)) : openStop(s, content, fresh(s))];
   s.where = s.config.players.map(() => 0);
   arrive(s, content);
@@ -171,6 +177,9 @@ function begin(s: Session, content: ContentRegistry): void {
 function arrive(s: Session, content: ContentRegistry): void {
   const w = s.worlds[0];
   const camp = w.flow.kind === 'camp';
+  // a Wager taken in the last chamber is played out in this one
+  s.wager.decided = false;
+  if (s.wager.on) discord(w, s.wager);
   s.campFor = -1;
   s.camps = s.config.players.map((_, slot) => {
     const p = w.players.find((q) => q.slot === slot);
@@ -198,6 +207,7 @@ export function createSession(config: SessionConfig, content: ContentRegistry): 
     drafts: [],
     camps: [],
     campFor: -1,
+    wager: noWager(config.players.length),
   };
   begin(s, content);
   return s;
@@ -236,7 +246,7 @@ function applyCommand(s: Session, c: Command, content: ContentRegistry): void {
   } else if (c.kind === 'restart') {
     restart(s, content);
   } else if (c.kind === 'pick') {
-    pick(s, c.slot, c.a);
+    pick(s, c.slot, c.a, content);
   } else if (c.kind === 'reroll') {
     const d = s.drafts[c.slot];
     if (d && d.offers.length > 0 && d.rerolls > 0) {
@@ -244,6 +254,8 @@ function applyCommand(s: Session, c: Command, content: ContentRegistry): void {
       d.rolled++;
       deal(s, content, c.slot);
     }
+  } else if (c.kind === 'wager') {
+    if (s.phase === 'run') vote(s.wager, c.slot, c.a);
   } else {
     // the rest are asked of a camp, and mean nothing anywhere else
     const seat = s.camps[c.slot];
@@ -261,7 +273,7 @@ function deal(s: Session, content: ContentRegistry, slot: number): void {
   const d = s.drafts[slot];
   const p = worldOf(s, slot).players.find((q) => q.slot === slot);
   if (!d || !p) return;
-  const seed = `${s.config.seed}/${s.attempt}/draft/${s.stop}/${slot}/${d.rolled}`;
+  const seed = `${s.config.seed}/${s.attempt}/draft/${s.stop}/${slot}/${d.made}/${d.rolled}`;
   d.offers = rollOffers(seed, p.classId, p.tunings, content, d.made, d.rare);
   d.timer = d.offers.length > 0 ? DRAFT_TICKS : 0;
 }
@@ -274,12 +286,14 @@ function openDrafts(s: Session, content: ContentRegistry, w: World): void {
     const d = s.drafts[p.slot];
     d.rare = kind === 'elite' || kind === 'miniboss';
     d.rolled = 0;
+    // a Wager won pays a second card
+    d.owed = w.flow.discord ? WAGER.cards : 0;
     deal(s, content, p.slot);
   }
 }
 
 /** Take a card. Ignored unless that card is on that player's table, so a pick sent twice does nothing the second time. */
-function pick(s: Session, slot: number, index: number): void {
+function pick(s: Session, slot: number, index: number, content: ContentRegistry): void {
   const d = s.drafts[slot];
   const id = d ? d.offers[index] : undefined;
   if (!d || id === undefined) return;
@@ -290,6 +304,13 @@ function pick(s: Session, slot: number, index: number): void {
   d.offers = [];
   d.timer = 0;
   d.made++;
+  if (d.owed > 0) {
+    // another card is owed: a rare one, dealt at once
+    d.owed--;
+    d.rare = true;
+    d.rolled = 0;
+    deal(s, content, slot);
+  }
 }
 
 /** Start over: a new route, the first chamber, fresh characters. */
@@ -356,6 +377,8 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
     if (s.clearFor < 0) {
       s.clearFor = 0;
       if (!s.config.practice) openDrafts(s, content, w);
+      // a wagered chamber is beaten: the Discord lifts
+      if (s.wager.on && w.flow.discord) lift(w, s.wager);
     } else {
       s.clearFor++;
     }
@@ -363,8 +386,9 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
     for (const d of s.drafts) {
       if (d.offers.length === 0) continue;
       d.timer--;
-      if (d.timer <= 0) pick(s, s.drafts.indexOf(d), 0);
+      if (d.timer <= 0) pick(s, s.drafts.indexOf(d), 0, content);
     }
+    const chosen = s.drafts.every((d) => d.offers.length === 0);
     // A camp is left when everyone is ready; once the first is, the others have a while and no longer.
     let stay = false;
     if (s.camps.some(atCamp)) {
@@ -372,8 +396,14 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
       else if (s.camps.some((c) => c.ready)) s.campFor = 0;
       stay = !s.camps.every((c) => c.ready) && s.campFor < CAMP.wait;
     }
+    // The chamber before an elite's: once the cards are taken, the Wager is put to the party, once.
+    if (w.flow.kind === 'wager' && !s.wager.decided) {
+      if (!onTable(s.wager) && chosen && s.clearFor >= CLEAR_BEAT) offer(s.wager);
+      else stepTable(s.wager);
+      stay = stay || !s.wager.decided;
+    }
     // the party walks on once the quiet is over and everyone has chosen
-    if (s.clearFor >= CLEAR_BEAT && !stay && s.drafts.every((d) => d.offers.length === 0)) {
+    if (s.clearFor >= CLEAR_BEAT && !stay && chosen) {
       s.clearFor = -1;
       // Everyone walks on with what they have, and the fallen stand up again.
       if (s.config.practice) s.worlds[0] = openPractice(s, content, w.chamber + 1, carry(w));
