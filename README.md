@@ -28,7 +28,7 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **The Wager.** When the chamber before the Inner Ring's elite is cleared, the party is asked whether it will carry a Discord into the elite's chamber: Brittle, which cuts everyone's health by 30% for the fight. More than half must say yes (1 or 2, the arrow keys and Enter, the mouse, or a controller; ten seconds). Win it and the chamber pays double Chimes and a second card, a rare one.
 
-What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), the controls and settings pages, and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
+What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), and what you keep between runs. [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 
@@ -40,6 +40,10 @@ npm run dev        # start the dev server, then open the printed URL (http://loc
 ```
 
 The game opens on its title. **Play alone**, then choose the Sword, the Bow or the Fist (each card shows how that class fights). In a run, **Esc** (or Start on a controller) opens your menu, which stops the game while you are alone; when a run ends, its numbers come up and **Enter** starts the next at once. Every screen works with the keyboard, the mouse or a controller.
+
+**Controls** (on the title, and in your menu) shows both sets on two pages. In short: move with W A S D, aim with the mouse, attack with the left button (hold it: the Bow keeps loosing, the Fist draws back a Haymaker), special with the right, dash with Space, F to interact, Esc for your menu, M for sound. On a controller: left stick, right stick, right trigger, left trigger, A, X, Start.
+
+**Settings** holds the volume, sound on or off, how much the screen shakes, how sharp the picture is (Light is the quickest on a slow laptop) and whether a controller rumbles. They are kept in the browser between visits.
 
 An address can skip the title: `http://localhost:5173/?class=bow` begins a run as the Bow, and `?team=fist,sword,bow` puts you in the first seat with bots in the others.
 

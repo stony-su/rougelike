@@ -4,6 +4,7 @@
 // src/ui/screens, picked up by themselves.
 import { Container } from 'pixi.js';
 import type { MenuKeys } from '../game/input';
+import type { Settings } from '../game/settings';
 import type { Session } from '../sim/session';
 import type { ClassId } from '../sim/types';
 import { scrim } from './widgets';
@@ -34,6 +35,8 @@ export interface AppState {
   slot: number;
   /** The class last played alone. */
   classId: ClassId;
+  /** What the player has set. A screen may change it, and then asks the app to 'settings'. */
+  settings: Settings;
 }
 
 /** What a screen can ask of the app. */
@@ -47,7 +50,7 @@ export interface ScreenHost {
   close(): void;
   /**
    * Something only the app can do: 'play' (with a class), 'lobby', 'again' (with false to take it
-   * back), 'restart', 'class', 'title', 'pauseAll'.
+   * back), 'restart', 'class', 'title', 'pauseAll', and 'settings' (they were changed: feel and keep them).
    */
   act(what: string, arg?: unknown): void;
 }

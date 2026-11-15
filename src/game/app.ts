@@ -21,6 +21,8 @@ import type { Driver } from './driver';
 import { Game } from './game';
 import type { GameOptions } from './game';
 import { Input, noKeys } from './input';
+import { Rumble } from './rumble';
+import { browserStore, loadSettings, saveSettings } from './settings';
 
 export interface AppOptions extends GameOptions {
   /** The host this page was served by, and where it says the others can join; null for a page alone. */
@@ -83,6 +85,8 @@ class MenuBackdrop {
 export class App implements ScreenHost {
   readonly input: Input;
   readonly audio = new GameAudio();
+  readonly settings = loadSettings(browserStore());
+  private readonly rumble = new Rumble();
   readonly state: AppState;
   game: Game | null = null;
   private driver: Driver | null = null;
@@ -104,7 +108,8 @@ export class App implements ScreenHost {
     private readonly opts: AppOptions,
   ) {
     this.input = new Input(pixi.canvas);
-    this.state = { pad: false, hosted: opts.host !== null, inGame: false, coop: false, session: null, slot: 0, classId: opts.classes[0] ?? 'sword' };
+    this.state = { pad: false, hosted: opts.host !== null, inGame: false, coop: false, session: null, slot: 0, classId: opts.classes[0] ?? 'sword', settings: this.settings };
+    this.applySettings();
     this.screens = createScreens(this);
     pixi.stage.addChild(this.layer);
     for (const s of Object.values(this.screens)) {
@@ -175,9 +180,25 @@ export class App implements ScreenHost {
       case 'title':
         this.showTitle();
         break;
+      case 'settings':
+        this.applySettings();
+        saveSettings(browserStore(), this.settings);
+        break;
       default:
         break;
     }
+  }
+
+  /** Make everything that follows a setting follow it now. */
+  private applySettings(): void {
+    const s = this.settings;
+    this.audio.setVolume(s.volume);
+    this.audio.setMuted(s.muted);
+    this.rumble.enabled = s.rumble;
+    // the picture: every pixel the screen has (up to two for one), one for one, or coarser
+    const resolution = s.picture >= 2 ? Math.min(window.devicePixelRatio || 1, 2) : s.picture === 1 ? 1 : 0.75;
+    if (this.pixi.renderer.resolution !== resolution) this.pixi.renderer.resize(this.pixi.screen.width, this.pixi.screen.height, resolution);
+    this.game?.applySettings();
   }
 
   // ---------------------------------------------------------------- what is up
@@ -248,7 +269,14 @@ export class App implements ScreenHost {
     this.stack.length = 0;
     this.driver = driver;
     this.pauseAskedAt = -1;
-    const game = new Game(this.pixi, driver, this.opts, { input: this.input, audio: this.audio, onMenu: () => this.open('pause') });
+    const game = new Game(this.pixi, driver, this.opts, {
+      input: this.input,
+      audio: this.audio,
+      settings: this.settings,
+      rumble: this.rumble,
+      onMenu: () => this.open('pause'),
+      onSettings: () => this.act('settings'),
+    });
     this.game = game;
     this.pixi.stage.addChild(this.layer);
     this.show();

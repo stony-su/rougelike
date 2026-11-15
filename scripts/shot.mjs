@@ -73,7 +73,15 @@ if (arg('pad', false) === true) {
       timestamp: 0,
       axes: [0, 0, 0, 0],
       buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+      // every rumble the page asks for is written down in window.__rumbles
+      vibrationActuator: {
+        playEffect(type, params) {
+          window.__rumbles.push({ type, ...params });
+          return Promise.resolve('complete');
+        },
+      },
     };
+    window.__rumbles = [];
     window.__pad = pad;
     navigator.getGamepads = () => [pad, null, null, null];
   });

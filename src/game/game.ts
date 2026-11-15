@@ -45,6 +45,8 @@ import { CampFlow } from './campFlow';
 import { cardInfo } from './cardInfo';
 import type { Driver } from './driver';
 import type { Input } from './input';
+import type { Rumble } from './rumble';
+import type { Settings } from './settings';
 import { WagerFlow } from './wagerFlow';
 
 export interface GameOptions {
@@ -64,8 +66,13 @@ export interface GameOptions {
 export interface GameDeps {
   input: Input;
   audio: GameAudio;
+  /** What the player has set: the game reads it as it goes. */
+  settings: Settings;
+  rumble: Rumble;
   /** The player asked for their menu. */
   onMenu: () => void;
+  /** The game changed a setting (the sound key): feel it and keep it. */
+  onSettings: () => void;
 }
 
 /** In the practice court the number keys change class: the page starts again with the new one. */
@@ -166,6 +173,7 @@ export class Game {
     this.textures = new Textures(app.renderer);
     this.input = deps.input;
     this.audio = deps.audio;
+    this.applySettings();
     const mine = this.session.config.players[this.localSlot];
     this.autopilot = makeBot(opts.autopilot, mine ? mine.classId : 'sword');
 
@@ -245,6 +253,11 @@ export class Game {
     this.held.destroy();
     this.textures.destroy();
     this.stage.root.destroy({ children: true });
+  }
+
+  /** A setting has changed: what the game itself holds of them follows. */
+  applySettings(): void {
+    this.camera.setShakeScale(this.deps.settings.shake);
   }
 
   /** A plain snapshot for automated checks. */
@@ -465,6 +478,8 @@ export class Game {
     this.fx.handle(ev);
     for (const x of this.extras) x.handle?.(ev, w);
     this.audio.handle(ev, this.localSlot, this.focusX, this.focusY);
+    // a controller in the player's hands answers what happens to them
+    if (this.input.device === 'pad') this.deps.rumble.handle(ev, this.localSlot, this.input.gamepad(), performance.now());
     switch (ev.type) {
       // the exact point of a bounce goes into the trail of whatever bounced, and a ring crosses the backdrop
       case 'ricochet':
@@ -584,7 +599,11 @@ export class Game {
       }
     }
     if (!held) {
-      if (this.input.take('mute')) this.hud.banner(this.audio.toggleMute() ? 'Sound off' : 'Sound on', PAPER, 1.1);
+      if (this.input.take('mute')) {
+        this.deps.settings.muted = !this.deps.settings.muted;
+        this.deps.onSettings();
+        this.hud.banner(this.deps.settings.muted ? 'Sound off' : 'Sound on', PAPER, 1.1);
+      }
       // Esc or Start: this player's own menu
       if (this.input.take('pause')) this.deps.onMenu();
       if (this.opts.debug && this.input.take('restart')) this.driver.command('restart');
@@ -639,7 +658,8 @@ export class Game {
     const aimY = me ? fy + Math.sin(me.aim) * 3 : fy;
     this.camera.update(dt, fx, fy, aimX, aimY);
     this.stage.applyCamera(this.camera);
-    if (this.opts.backdrop) this.backdrop.update(dt, this.camera, this.viewW, this.viewH);
+    // the light picture leaves the backdrop as it stands
+    if (this.opts.backdrop && this.deps.settings.picture > 0) this.backdrop.update(dt, this.camera, this.viewW, this.viewH);
     this.ambient.update(dt);
     for (const x of this.extras) x.update?.(dt, w, alpha, this.time);
     this.bossBar.update(w, dt);

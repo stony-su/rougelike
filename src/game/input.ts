@@ -217,6 +217,12 @@ export class Input {
     return f;
   }
 
+  /** The controller in use, as the browser has it (for what only the browser can do with it, like rumble), or null. */
+  gamepad(): Gamepad | null {
+    if (this.pads.current < 0 || typeof navigator === 'undefined' || !navigator.getGamepads) return null;
+    return navigator.getGamepads()[this.pads.current] ?? null;
+  }
+
   /** Read the controllers for a menu: one step left (-1) or right (1) for each push of the stick or the d-pad. */
   menuStep(): number {
     this.pollPad();
