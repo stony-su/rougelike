@@ -18,6 +18,8 @@ import { Rng } from '../core/rng';
 import type { Cue } from './cues';
 import { MAX_HZ, MIN_HZ, PITCH_HIGH, PITCH_JITTER, PITCH_LOW, RECIPES, SILENCE, homeNote, layerLife, noiseMakeup, recipeDuration, ringing, tuning } from './recipes';
 import type { Layer, Recipe, ToneLayer } from './recipes';
+import type { Loop } from './beds';
+import { trimOf } from './levels';
 
 // ---------------------------------------------------------------- limits
 
@@ -175,6 +177,8 @@ export class AudioEngine {
   private comp: DynamicsCompressorNode | null = null;
   private meter: AnalyserNode | null = null;
   private noise: AudioBuffer | null = null;
+  /** The loops that play under everything (the beds), by name: each one's own level. */
+  private readonly loops = new Map<string, GainNode>();
   private readonly scope = new Float32Array(METER_SAMPLES);
   private readonly voices: Voice[] = [];
   /** Voices given up, still fading. */
@@ -313,7 +317,7 @@ export class AudioEngine {
     const now = ctx.currentTime;
     const at = now + LEAD + clamp(cue.delay, 0, MAX_DELAY);
     const share = this.limiter.admit(cue.sound, at, recipe.gap ?? 0);
-    const gain = clamp01(cue.gain) * (recipe.level ?? 1) * share;
+    const gain = clamp01(cue.gain) * (recipe.level ?? 1) * trimOf(cue.sound) * share;
     if (!(gain >= FAINT)) {
       this.dropped++;
       return;
@@ -427,6 +431,34 @@ export class AudioEngine {
     src.start(start, this.rng.next() * NOISE_SECONDS);
     src.stop(stop + 0.01);
     sources.push(src);
+  }
+
+  /**
+   * Bring a loop to `level` over about `seconds`, making it with `make` the first time. It joins
+   * the bus as a voice does, so the volume, mute and the limiter hold for it too. False if sound
+   * has not started yet: nothing was done, ask again later. (music.ts decides what is asked for.)
+   */
+  setLoop(id: string, make: () => Loop, level: number, seconds: number): boolean {
+    const ctx = this.ctx;
+    if (!ctx || !this.bus || ctx.state !== 'running') return false;
+    let gain = this.loops.get(id);
+    if (!gain) {
+      const loop = make();
+      const buffer = ctx.createBuffer(2, loop.left.length, loop.rate);
+      buffer.getChannelData(0).set(loop.left);
+      buffer.getChannelData(1).set(loop.right);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.loop = true;
+      gain = ctx.createGain();
+      gain.gain.value = 0;
+      src.connect(gain);
+      gain.connect(this.bus);
+      src.start();
+      this.loops.set(id, gain);
+    }
+    gain.gain.setTargetAtTime(clamp01(level), ctx.currentTime, Math.max(0.01, seconds) / 4);
+    return true;
   }
 
   /** Take apart the voices that have finished. */
@@ -561,6 +593,7 @@ export class AudioEngine {
     this.voices.length = 0;
     this.fading.length = 0;
     this.limiter.clear();
+    this.loops.clear();
     if (ctx && ctx.state !== 'closed') void ctx.close().catch(() => undefined);
   }
 }

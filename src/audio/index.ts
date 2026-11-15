@@ -6,6 +6,11 @@
 //   recipes.ts  what each named sound is made of
 //   cues.ts     which sounds an event makes, how loud and where
 //   engine.ts   Web Audio: voices, the limiter, the meter
+//   beds.ts     the loop under each zone, and the pulse of a boss
+//   music.ts    which of those loops is heard when
+//   levels.ts   the mix: what each sound is trimmed by, and the band they all sit in
+//   measure.ts  a sound rendered without a browser, to measure how loud it is
+import { CONTENT } from '../content';
 import type { ZoneId } from '../sim/defs';
 import type { ClassId, SimEvent } from '../sim/types';
 import { setUiSoundSink } from '../ui/sfx';
@@ -14,6 +19,7 @@ import { cuesFor, uiCue } from './cues';
 import type { Cue, Listener } from './cues';
 import { AudioEngine } from './engine';
 import type { EngineStats } from './engine';
+import { Music } from './music';
 
 export type { Cue, Listener } from './cues';
 export type { EngineStats } from './engine';
@@ -41,6 +47,8 @@ function classShown(ev: SimEvent): ClassId | null {
 
 export class GameAudio {
   private readonly engine = new AudioEngine();
+  /** The beds under everything: the zone's, and the pulse of a boss. */
+  private readonly music = new Music(this.engine);
   /** Each seat's class. Told by `setClasses`, and otherwise learned from what each seat is seen to do. */
   private readonly classes: Array<ClassId | undefined> = [];
   private readonly listener: Listener = { slot: 0, x: 0, y: 0, zone: 'outer', classes: this.classes };
@@ -59,6 +67,7 @@ export class GameAudio {
   /** The zone the player is in: everything pitched is played in its key. */
   setZone(zone: ZoneId): void {
     this.listener.zone = zone;
+    this.music.setZone(zone);
   }
 
   get zone(): ZoneId {
@@ -83,6 +92,10 @@ export class GameAudio {
     at.x = focusX;
     at.y = focusY;
     for (const cue of cuesFor(ev, at)) this.engine.play(cue);
+    this.music.heard();
+    // a boss shows itself when it arrives, and again at each of its phases; a cleared chamber has none
+    if (ev.type === 'bossPhase' || (ev.type === 'enemySpawn' && CONTENT.enemies[ev.kind]?.boss)) this.music.setBoss(true);
+    else if (ev.type === 'roomClear') this.music.setBoss(false);
   }
 
   /** An interface sound, in the key of the zone the player is in. */
@@ -93,6 +106,16 @@ export class GameAudio {
   /** Play one cue as it stands. For the soundboard; the game goes through `handle`. */
   play(cue: Cue): void {
     this.engine.play(cue);
+  }
+
+  /** A boss is on the floor, or is gone. The game learns it from events (`handle`); this is for the soundboard. */
+  setBoss(boss: boolean): void {
+    this.music.setBoss(boss);
+  }
+
+  /** The beds on or off altogether. */
+  setMusic(on: boolean): void {
+    this.music.setOn(on);
   }
 
   get muted(): boolean {
@@ -116,6 +139,7 @@ export class GameAudio {
   /** Once a frame. */
   update(dt: number): void {
     this.engine.update(dt);
+    this.music.update(dt);
   }
 
   /** What is going out to the speakers right now: the largest sample and the RMS, where 1 is full scale. */

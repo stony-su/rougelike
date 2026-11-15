@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 87% complete.** 41 of 52 tasks are done, 0 in progress, 11 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 87% complete.** 42 of 52 tasks are done, 0 in progress, 10 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -14,7 +14,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 10.6% | 100% |
 | 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 21.7% | 100% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 17.7% | 89% |
-| 6 | Menus, saving, sound | 3.9% | 80% |
+| 6 | Menus, saving, sound | 3.9% | 100% |
 | 7 | Polish and balance | 3.1% | 75% |
 | 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 24% |
 
@@ -26,7 +26,6 @@ Nothing at the moment.
 
 - [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (0.8% of the game)
 - [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.2% of the game)
-- [T66](tasks/T66-music.md) **Music beds and sound levels** (0.8% of the game)
 - [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.8% of the game)
 - [T82](tasks/T82-card-layout.md) **Cards that fit their words; a wider camp and a wider between-runs screen** (0.8% of the game)
 - [T86](tasks/T86-specials.md) **Three specials to choose from for the Sword and for the Bow** (2.4% of the game)
@@ -76,6 +75,7 @@ Nothing.
 - [T63](tasks/T63-edge-markers.md) Edge markers for teammates and threats off screen
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 - [T65](tasks/T65-crater.md) The Crater: the third biome, for the last chamber
+- [T66](tasks/T66-music.md) Music beds and sound levels
 - [T70](tasks/T70-balance.md) Balance, by bots playing whole runs
 - [T71](tasks/T71-performance.md) Performance pass
 - [T80](tasks/T80-boss-size.md) Bosses arrive at their full size

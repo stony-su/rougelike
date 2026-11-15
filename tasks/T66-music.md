@@ -1,14 +1,16 @@
 ---
 id: T66
 title: Music beds and sound levels
-status: open
-owner:
+status: done
+owner: June Lee
 milestone: 6
 weight: 1
 needs: []
 files:
   - src/audio/beds.ts
   - src/audio/music.ts
+  - src/audio/levels.ts
+  - src/audio/measure.ts
   - src/game/soundboard.ts
   - tests/audio.test.ts
 touches:
