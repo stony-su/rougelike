@@ -102,10 +102,21 @@ export function planRoute(seed: string): Stop[] {
   return stops;
 }
 
+/**
+ * How many traps a stop's floor holds. None in the first chamber (there is enough to learn), none
+ * in a camp, and none under a boss, whose own patterns fill the floor. Otherwise more of them the
+ * deeper the chamber, and one more where the fight is an elite's.
+ */
+export function trapsFor(stop: Stop): number {
+  if (stop.n <= 1 || stop.kind === 'camp' || stop.kind === 'miniboss' || stop.kind === 'boss') return 0;
+  const byDepth = 1 + Math.floor(stop.n / 4);
+  return stop.kind === 'solo' ? 1 : stop.kind === 'elite' ? byDepth + 1 : byDepth;
+}
+
 /** What the generator is asked to build for a stop. */
 export function roomSpec(stop: Stop): RoomSpec {
   const boss = stop.kind === 'miniboss' || stop.kind === 'boss';
-  return { zone: stop.zone, kind: boss ? 'arena' : 'combat', look: stop.look, size: stop.size, shape: stop.shape, name: stop.name, arena: boss };
+  return { zone: stop.zone, kind: boss ? 'arena' : 'combat', look: stop.look, size: stop.size, shape: stop.shape, name: stop.name, arena: boss, traps: trapsFor(stop) };
 }
 
 /** How a stop's chamber runs: its waves, how much each may spend, and what clearing it pays. */

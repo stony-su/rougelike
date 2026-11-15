@@ -38,7 +38,7 @@ function shapesFor(t: Telegraph): Shapes {
     const r = t.radius * T;
     outline.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.1 }).circle(0, 0, r).stroke(stroke);
     fill.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.3 });
-  } else if (t.shape === 'lane' && t.count > 1) {
+  } else if (t.shape === 'lane' && (t.count > 1 || t.width <= 0.5)) {
     // a fan is drawn afresh each frame by drawFan; it has no fixed shape
   } else if (t.shape === 'lane') {
     const l = t.length * T;
@@ -118,14 +118,15 @@ export class TelegraphViews {
         const s = shapesFor(t);
         const c = new Container();
         // a fan is redrawn every frame, so it needs drawings of its own; the fixed shapes are shared
-        const isFan = t.shape === 'lane' && t.count > 1;
+        // (a single thin lane is the path of a shot too, and is cut off at the first wall like a fan's)
+        const isFan = t.shape === 'lane' && (t.count > 1 || t.width <= 0.5);
         const outline = isFan ? new Graphics() : new Graphics(s.outline);
         const fill = isFan ? new Graphics() : new Graphics(s.fill);
         outline.tint = DANGER;
         fill.tint = DANGER;
         c.addChild(outline, fill);
         this.stage.decals.addChild(c);
-        v = { c, outline, fill, shape: t.shape, fan: t.shape === 'lane' && t.count > 1, seen: this.frame };
+        v = { c, outline, fill, shape: t.shape, fan: isFan, seen: this.frame };
         this.views.set(t.id, v);
       }
       v.seen = this.frame;

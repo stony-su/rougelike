@@ -11,6 +11,7 @@ import { clampToFloor } from './room';
 import { stepStones } from './stones';
 import { stepStrikes } from './strikes';
 import { stepTelegraphs } from './telegraphs';
+import { createTraps, stepTraps } from './traps';
 import { standing } from './combat';
 import { DT, PLAYER, REVIVE } from './tuning';
 import type { ClassId, InputFrame, Player, Room, World } from './types';
@@ -60,7 +61,7 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     p.chimes = en.chimes ?? 0;
     return p;
   });
-  return {
+  const w: World = {
     tick: 0,
     time: 0,
     rng: new Rng(seed),
@@ -71,6 +72,7 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     bombs: [],
     stones: [],
     telegraphs: [],
+    traps: [],
     events: [],
     freeze: 0,
     freezeAllowedAt: 0,
@@ -83,6 +85,8 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     deaths: [],
     stats: { kills: 0, damageDealt: 0, damageTaken: 0, returns: 0, bestRally: 0 },
   };
+  w.traps = createTraps(w);
+  return w;
 }
 
 /** During a whole-chamber freeze nothing moves, so previous positions must equal current ones or interpolation would drift. */
@@ -164,6 +168,7 @@ export function stepWorld(w: World, inputs: ReadonlyArray<InputFrame | undefined
   stepBombs(w, DT);
   stepStones(w, DT);
   stepFlow(w, DT);
+  stepTraps(w, DT);
   stepStrikes(w, DT);
   stepTelegraphs(w, DT);
   sweepDead(w);

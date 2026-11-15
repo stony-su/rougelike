@@ -407,6 +407,21 @@ export class Fx {
       case 'takeoff':
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 6);
         break;
+      case 'trapWarn':
+        // the warning on the floor says it; the trap itself is drawn by its own extra
+        break;
+      case 'trapStrike':
+        if (ev.kind === 'spikes') {
+          ps.sparks(ev.x, ev.y, 0.3, 0, -1, DANGER_HOT, 6, 1.2);
+          this.shake(ev.x, ev.y, 0.12);
+        } else if (ev.kind === 'knell') {
+          ps.ring(ev.x, ev.y, DANGER, 0.5, 2.5, 0.35, 0.9);
+          ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 8);
+          this.shake(ev.x, ev.y, 0.25);
+        } else {
+          ps.flash(ev.x, ev.y, 0.8, DANGER_HOT, 90, 0.12);
+        }
+        break;
       case 'strike':
         // the warning itself flashes where it lands; this is the dust and the jolt
         if (ev.shape === 'circle') {

@@ -14,6 +14,9 @@ One file per chamber, each with the template as its default export. A file put i
 .        floor
 o        round post (stands in the middle of the tile)
 B        bumper: a post that kicks back harder
+^        a plate of spikes: it rises a moment after anything steps on it
+K        a knell: a post that tolls every few seconds, hurting whatever stands in its ring
+X        a thorn pipe: a post that spits a bolt at the nearest player down a warned line
 b        a flat mark on the floor, decoration only
 s        spawn mark: enemies may appear here
 P        where the party starts (near the bottom corner)

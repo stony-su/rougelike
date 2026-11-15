@@ -340,6 +340,31 @@ export const ELITE = {
   splitShove: 4,
 };
 
+/** Traps in the floor (traps.ts). Damage to the party grows with the depth of the chamber, like an Echo's. */
+export const TRAP = {
+  /** Spikes: seconds between a step on the plate and the spikes, seconds it stays spent, and what it does to a player, to an Echo standing on it, and to a body thrown onto it. */
+  spikeWarn: 0.55,
+  spikeRest: 1.4,
+  spikeDamage: 12,
+  spikeEcho: 14,
+  spikeBody: 18,
+  /** A knell: seconds from one toll to the next, seconds of warning, the ring's radius, and what it does to a player and to an Echo. */
+  knellEvery: 5.2,
+  knellWarn: 0.9,
+  knellRadius: 2.3,
+  knellDamage: 10,
+  knellKnock: 7,
+  knellEcho: 8,
+  knellShove: 9,
+  /** A thorn pipe: seconds from one bolt to the next, seconds of warning, how long of that it follows its target, and its bolt. */
+  thornEvery: 3.6,
+  thornWarn: 0.7,
+  thornTrack: 0.45,
+  thornReach: 12,
+  thornSpeed: 11,
+  thornDamage: 8,
+};
+
 /** How Echoes get about (steer.ts). */
 export const STEER = {
   /**

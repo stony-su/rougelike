@@ -27,6 +27,8 @@ export interface RoomSpec {
    * four bumpers toward its corners to bank off.
    */
   arena?: boolean;
+  /** How many traps to lay in the floor (each with its mirror image): rows of spike plates, knells, thorn pipes. */
+  traps?: number;
 }
 
 type Grid = string[][];
@@ -283,6 +285,37 @@ function attempt(seed: string, spec: RoomSpec, shape: RoomShape): RoomTemplate {
     if (clearance(g, c[0], c[1], 2) < 2) continue;
     marks.push(c);
     g[c[1]][c[0]] = 's';
+  }
+
+  // Traps, laid last so that they never take the place of anything the room needs, and never
+  // near where the party walks in or where the room's focus stands.
+  const wanted = Math.max(0, Math.round(spec.traps ?? 0));
+  const clearOf = (x: number, y: number, c: [number, number], d: number): boolean => (x - c[0]) * (x - c[0]) + (y - c[1]) * (y - c[1]) >= d * d;
+  const fair = (x: number, y: number): boolean => clearOf(x, y, start, 5) && clearOf(x, y, focus, 2.5);
+  /** A cell and its mirror images under the room's symmetry. */
+  const images = (x: number, y: number): Array<[number, number]> => {
+    const out: Array<[number, number]> = [[x, y]];
+    if (mode === 1 || mode === 3) out.push([gw - 1 - x, y]);
+    if (mode === 2 || mode === 3) out.push([x, gh - 1 - y]);
+    if (mode === 3 || mode === 4) out.push([gw - 1 - x, gh - 1 - y]);
+    return out;
+  };
+  for (let laid = 0, tries = 0; laid < wanted && tries < 300; tries++) {
+    const x = rng.int(3, gw - 4);
+    const y = rng.int(3, gh - 4);
+    const kind = rng.pick(['spikes', 'spikes', 'knell', 'thorn'] as const);
+    if (kind === 'spikes') {
+      // a row of three plates, across or down: something to step over, or to be driven onto
+      const across = rng.chance(0.5);
+      const cells: Array<[number, number]> = [];
+      for (let i = 0; i < 3; i++) for (const c of images(across ? x + i : x, across ? y : y + i)) cells.push(c);
+      if (!cells.every(([px, py]) => at(g, px, py) === '.' && fair(px, py))) continue;
+      for (const [px, py] of cells) g[py][px] = '^';
+      laid++;
+    } else {
+      if (!images(x, y).every(([px, py]) => fair(px, py))) continue;
+      if (mirrored(x, y, kind === 'knell' ? 'K' : 'X', 2, mode)) laid++;
+    }
   }
 
   return {

@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 66% complete.** 18 of 40 tasks are done, 1 in progress, 14 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 68% complete.** 19 of 40 tasks are done, 1 in progress, 13 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -13,13 +13,13 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 10.9% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 12.2% | 100% |
 | 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 47% |
-| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 36% |
+| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 47% |
 | 6 | Menus, saving, sound | 4.5% | 0% |
 | 7 | Polish and balance | 3.6% | 0% |
 
 ## In progress
 
-- [T48](tasks/T48-traps.md) **Traps in the floor**: stony-su
+- [T35](tasks/T35-attack-combos.md) **A combo of moves for every basic attack**: stony-su
 
 ## To do: ready to take
 
@@ -28,7 +28,6 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T30](tasks/T30-tunings-sword.md) **Tunings: the Sword (ten, and three Harmonies)** (2.3% of the game)
 - [T31](tasks/T31-tunings-bow.md) **Tunings: the Bow (ten, and three Harmonies)** (2.3% of the game)
 - [T32](tasks/T32-tunings-fist.md) **Tunings: the Fist (ten, and three Harmonies)** (2.3% of the game)
-- [T35](tasks/T35-attack-combos.md) **A combo of moves for every basic attack** (1.4% of the game)
 - [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (0.9% of the game)
 - [T45](tasks/T45-boss-toll.md) **Final boss: the Toll, in three phases** (3.2% of the game)
 - [T50](tasks/T50-camp.md) **Camp: the Tuner (shop) and the Still Pool (rest)** (1.8% of the game)
@@ -67,6 +66,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T44](tasks/T44-boss-carillon.md) Mini-boss: the Carillon
 - [T46](tasks/T46-boss-patterns.md) Bosses that fill their floor: bigger, with more and faster attacks
 - [T47](tasks/T47-echo-movement.md) Echoes that surround, flank and reposition
+- [T48](tasks/T48-traps.md) Traps in the floor
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 
 ## Future plans: designed, kept for later

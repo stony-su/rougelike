@@ -1,7 +1,7 @@
 ---
 id: T48
 title: Traps in the floor
-status: claimed
+status: done
 owner: stony-su
 milestone: 5
 weight: 2.5

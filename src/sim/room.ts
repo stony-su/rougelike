@@ -6,7 +6,7 @@ import { isOpen, pushOut } from './cast';
 import type { RoomTemplate } from './defs';
 import { CIRCLE_BUMPER, CIRCLE_POST, TILE, buildGeo } from './geo';
 import type { Circle } from './geo';
-import type { DoorSlot, Room } from './types';
+import type { DoorSlot, Room, TrapSpot } from './types';
 
 export const POST_RADIUS = 0.42;
 export const BUMPER_RADIUS = 0.5;
@@ -29,6 +29,7 @@ export function buildRoom(t: RoomTemplate): Room {
   const marks: Vec2[] = [];
   const spawnMarks: Vec2[] = [];
   const doors: DoorSlot[] = [];
+  const traps: TrapSpot[] = [];
   let start: Vec2 | null = null;
   let rewardSpot: Vec2 | null = null;
   let sx = 0;
@@ -53,7 +54,12 @@ export function buildRoom(t: RoomTemplate): Room {
       n++;
       if (ch === 'o') circles.push({ x: cx, y: cy, r: POST_RADIUS, kind: CIRCLE_POST });
       else if (ch === 'B') circles.push({ x: cx, y: cy, r: BUMPER_RADIUS, kind: CIRCLE_BUMPER });
-      else if (ch === 'b') marks.push({ x: cx, y: cy });
+      else if (ch === '^') traps.push({ kind: 'spikes', x: cx, y: cy });
+      else if (ch === 'K' || ch === 'X') {
+        // a knell and a thorn pipe each stand on a post, which is something to bank off like any other
+        circles.push({ x: cx, y: cy, r: POST_RADIUS, kind: CIRCLE_POST });
+        traps.push({ kind: ch === 'K' ? 'knell' : 'thorn', x: cx, y: cy });
+      } else if (ch === 'b') marks.push({ x: cx, y: cy });
       else if (ch === 's') spawnMarks.push({ x: cx, y: cy });
       else if (ch === 'P') start = { x: cx, y: cy };
       else if (ch === 'r') rewardSpot = { x: cx, y: cy };
@@ -74,6 +80,7 @@ export function buildRoom(t: RoomTemplate): Room {
     tiles,
     geo: buildGeo(tiles, w, h, circles),
     marks,
+    traps,
     spawnMarks,
     doors,
     start: start ?? { x: cx, y: cy },
@@ -187,7 +194,7 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
   if (w > 40 || h > 40) out.push(`${t.id}: larger than 40 x 40 (${w} x ${h})`);
   const at = (x: number, y: number): string => (y < 0 || y >= h ? ' ' : (t.map[y][x] ?? ' '));
   /** Somewhere a walker's centre can be. Diagonal tiles count: half of each is floor. */
-  const walkable = (x: number, y: number): boolean => !' #~oB'.includes(at(x, y));
+  const walkable = (x: number, y: number): boolean => !' #~oBKX'.includes(at(x, y));
   const count = (ch: string): Array<[number, number]> => {
     const found: Array<[number, number]> = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (at(x, y) === ch) found.push([x, y]);
@@ -196,13 +203,13 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const c = at(x, y);
-      if (!' #~7913.oBbsPDr'.includes(c)) out.push(`${t.id}: unknown symbol "${c}" at ${x},${y}`);
+      if (!' #~7913.oBbsPDr^KX'.includes(c)) out.push(`${t.id}: unknown symbol "${c}" at ${x},${y}`);
     }
   }
   const starts = count('P');
   const focus = count('r');
   const marks = count('s');
-  const posts = [...count('o'), ...count('B')];
+  const posts = [...count('o'), ...count('B'), ...count('K'), ...count('X')];
   if (starts.length !== 1) out.push(`${t.id}: needs exactly one P, has ${starts.length}`);
   if (focus.length !== 1) out.push(`${t.id}: needs exactly one r, has ${focus.length}`);
   for (const [x, y] of count('D')) if (x !== 0 && y !== 0) out.push(`${t.id}: door at ${x},${y} is not on a far edge (row 0 or column 0)`);

@@ -54,6 +54,16 @@ export interface DoorSlot {
   side: 'north' | 'west';
 }
 
+/** The kinds of trap a floor can hold (traps.ts). */
+export type TrapKind = 'spikes' | 'knell' | 'thorn';
+
+/** Where a room has a trap: the middle of its tile. */
+export interface TrapSpot {
+  kind: TrapKind;
+  x: number;
+  y: number;
+}
+
 /** A room instanced from a template: a tile grid, its collision shape, and the marks the template placed. */
 export interface Room {
   id: string;
@@ -69,6 +79,8 @@ export interface Room {
   geo: Geo;
   /** Flat marks on the floor, decoration only. */
   marks: Vec2[];
+  /** The traps in its floor. */
+  traps: TrapSpot[];
   spawnMarks: Vec2[];
   doors: DoorSlot[];
   start: Vec2;
@@ -418,6 +430,21 @@ export interface Ringstone {
   dead: boolean;
 }
 
+/** A trap in a chamber's floor, as it stands this tick (traps.ts). */
+export interface Trap {
+  id: number;
+  kind: TrapKind;
+  x: number;
+  y: number;
+  /** 'idle': waiting. 'warn': about to strike. 'rest': spent for a moment (a plate of spikes only). */
+  state: 'idle' | 'warn' | 'rest';
+  /** Seconds left in its state. For the traps that act on a clock, idle counts down to the next time. */
+  t: number;
+  /** A thorn pipe: the way it is aiming, and the warning it is steering (its id). */
+  angle: number;
+  tele: number;
+}
+
 export type TelegraphShape = 'circle' | 'lane' | 'cone';
 
 /**
@@ -541,6 +568,9 @@ export type SimEvent =
   | { type: 'grounded'; id: number; x: number; y: number }
   | { type: 'takeoff'; id: number; x: number; y: number }
   | { type: 'bossPhase'; id: number; kind: string; phase: number; x: number; y: number }
+  /** A trap in the floor began its warning, and struck (traps.ts). */
+  | { type: 'trapWarn'; kind: TrapKind; id: number; x: number; y: number }
+  | { type: 'trapStrike'; kind: TrapKind; id: number; x: number; y: number }
   /** A strike landed: a warning that carried its own blow (strikes.ts). */
   | { type: 'strike'; shape: TelegraphShape; x: number; y: number; angle: number; radius: number; inner: number; length: number; width: number }
   /** An orb came home and cracked a bell of the Carillon: its `n`th. */
@@ -562,6 +592,7 @@ export interface World {
   bombs: Bomb[];
   stones: Ringstone[];
   telegraphs: Telegraph[];
+  traps: Trap[];
   /** Appended to by the step; presentation clears it after reading. Never part of a snapshot. */
   events: SimEvent[];
   /** Whole-chamber freeze, in ticks, for moments the party shares. Ordinary hits freeze only the bodies involved. */

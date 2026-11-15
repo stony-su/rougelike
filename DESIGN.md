@@ -362,6 +362,18 @@ Records: runs, wins and fastest win per class, deepest chamber, Echoes sent back
 | **Stormshelf** | Slate over a cloud sea | Open pits (sky), few walls inside | Rolling cloud layers with distant lightning | Dorian |
 | **The Crater** | Black and gold, the Bell | Round court, four bumpers | Standing-wave rings that pulse with the boss | Whole tone |
 
+### 9.1 Traps
+
+Nothing in an empty floor makes a player move, so the floor is not empty (`src/sim/traps.ts`). Every trap warns before it strikes, strikes exactly what its warning covered, and hurts whatever is there, Echoes included, so a trap is also something to throw an Echo into.
+
+| Trap | What it does |
+|---|---|
+| **Spike plate** | Rises 0.55 s after anything steps on it: 12 to a player, 14 to an Echo. Spent for 1.4 s. A body in flight that comes down on it is spiked at once for 18, and that is a Return for whoever launched it. |
+| **Knell** | A post that tolls every 5.2 s: a ring of radius 2.3, warned for 0.9 s, that deals 10 and a shove to players and 8 and a shove to Echoes. It is a post like any other for banking off. |
+| **Thorn pipe** | A post that turns toward the nearest player within 12 tiles it can see, draws a line for 0.7 s (following them for the first 0.45 s) and spits a bolt down it: speed 11, 8 damage. A sword sends the bolt back. |
+
+Traps sleep once the chamber is cleared. The generator lays them with the rest of the terrain, mirrored like it, never within 5 tiles of where the party walks in: none in the first chamber, in a camp or under a boss; otherwise `1 + chamber / 4` features (a row of three plates, a knell, or a pipe), one more in an elite's chamber and one only in a side-chamber. Damage to players grows 4% per chamber, as an Echo's does.
+
 ## 10. Art direction: sound made visible
 
 **The style.** Vivid biome colour on deep backgrounds. Flat-shaded code-drawn rigs with a crisp pale rim and a two-tone shade (no hatching). The recurring motif is the ring and the ripple: every bounce drops an expanding ring on the floor, the backdrop takes a pulse from big moments, and a perfect return or a boss phase sends one ring across the whole screen. Chambers float over a living shader backdrop; pits are holes that show it.

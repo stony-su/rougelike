@@ -51,3 +51,30 @@ export const BOUNCE_ROOM: RoomTemplate = {
     '##################',
   ],
 };
+
+/**
+ * The open box with one of each trap in its floor: a plate of spikes at (5.5, 4.5), a knell at
+ * (11.5, 4.5) and a thorn pipe at (3.5, 9.5).
+ */
+export const TRAP_ROOM: RoomTemplate = {
+  id: 'test-traps',
+  name: 'Trap Ground',
+  zone: 'outer',
+  kind: 'combat',
+  map: [
+    '################',
+    '#..............#',
+    '#.s..........s.#',
+    '#..............#',
+    '#....^.....K...#',
+    '#..............#',
+    '#..............#',
+    '#......r.......#',
+    '#..............#',
+    '#..X...........#',
+    '#..............#',
+    '#.s..........s.#',
+    '#......P.......#',
+    '################',
+  ],
+};
