@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 95% complete.** 34 of 40 tasks are done, 0 in progress, 6 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 95% complete.** 35 of 40 tasks are done, 0 in progress, 5 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -13,7 +13,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 10.9% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 12.2% | 100% |
 | 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 100% |
-| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 87% |
+| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 89% |
 | 6 | Menus, saving, sound | 4.5% | 60% |
 | 7 | Polish and balance | 3.6% | 75% |
 
@@ -26,7 +26,6 @@ Nothing at the moment.
 - [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (0.9% of the game)
 - [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.4% of the game)
 - [T62](tasks/T62-title-shader.md) **Shader title screen and class cards** (0.9% of the game)
-- [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5% of the game)
 - [T66](tasks/T66-music.md) **Music beds and sound levels** (0.9% of the game)
 - [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.9% of the game)
 
@@ -66,6 +65,7 @@ Nothing.
 - [T51](tasks/T51-wager.md) The Wager, and the Brittle Discord
 - [T60](tasks/T60-controls-page.md) Controls page: keyboard and controller
 - [T61](tasks/T61-settings-rumble.md) Settings and controller rumble
+- [T63](tasks/T63-edge-markers.md) Edge markers for teammates and threats off screen
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 - [T65](tasks/T65-crater.md) The Crater: the third biome, for the last chamber
 - [T70](tasks/T70-balance.md) Balance, by bots playing whole runs
