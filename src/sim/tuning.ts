@@ -160,6 +160,12 @@ export const BOW = {
   impulse: 1.5,
   /** Seconds the loosing pose lasts. */
   pose: 0.2,
+  /**
+   * A run of three: arrows loosed within this long of each other count one, two, three, and the
+   * third, from a full draw, hits this much harder. Then the count starts again.
+   */
+  comboWindow: 0.8,
+  third: 1.3,
 };
 
 /** The Bow special: a thrown bumper. */

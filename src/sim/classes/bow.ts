@@ -11,14 +11,19 @@ import { wantsSpecial } from './kit';
 import type { Kit } from './kit';
 
 function loose(w: World, p: Player): void {
-  spawnProjectile(w, arrowSpec(p, p.aim));
+  // a run of three: the count goes on while the arrows keep coming, and starts again after a pause
+  p.combo = p.comboTimer > 0 ? (p.combo + 1) % 3 : 0;
+  p.comboTimer = BOW.comboWindow;
+  const arrow = arrowSpec(p, p.aim);
+  if (p.combo === 2) arrow.damage *= BOW.third;
+  spawnProjectile(w, arrow);
   p.fireT = BOW.interval;
   p.bufAttack = 0;
   p.state = 'attack';
   p.stateTime = 0;
   p.actAngle = p.aim;
   p.actDur = BOW.pose;
-  w.events.push({ type: 'loose', player: p.slot, x: p.x, y: p.y, angle: p.aim });
+  w.events.push({ type: 'loose', player: p.slot, n: p.combo, x: p.x, y: p.y, angle: p.aim });
 }
 
 /** Throw the stone or loose an arrow if the buttons ask for it. Returns true if either happened. */

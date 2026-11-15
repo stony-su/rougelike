@@ -131,58 +131,94 @@ function carry(p: PoseWriter, a: AnimInput): void {
   pointBlade(p, 0.42 + sway * 2 - 0.2 * run);
 }
 
-/** Where each swing starts and ends, as angles either side of the aim. */
-const SWINGS: ReadonlyArray<readonly [number, number]> = [
-  [1.35, -1.3],
-  [-1.35, 1.3],
-  [-2.0, 1.75],
+/**
+ * The three cuts of the combo. Each is a different move, so a run of them reads as one, two,
+ * three: a rising cut from the hip, its answer coming down through the same line with the body
+ * folding over it, and a leap that ends with the fork driven at the floor.
+ */
+interface Cut {
+  /** Where the blade starts and ends, as angles either side of the aim (negative is up). */
+  from: number;
+  to: number;
+  /** How far the body throws itself into it, in radians of the torso. */
+  lean: number;
+  /** How far the hips sink in the wind-up and on landing, and how high they rise through the cut, in pixels. */
+  sink: number;
+  hop: number;
+  /** How far the step carries, in pixels. */
+  step: number;
+  /** The share of the move spent winding up, and the point at which the blade has passed. */
+  wind: number;
+  passed: number;
+  /** Both hands on the hilt. */
+  twoHands: boolean;
+}
+const CUTS: readonly Cut[] = [
+  { from: 1.9, to: -1.25, lean: 0.22, sink: 2, hop: 0, step: 4, wind: 0.22, passed: 0.5, twoHands: false },
+  { from: -1.75, to: 1.6, lean: 0.36, sink: 5, hop: 0, step: 6.5, wind: 0.22, passed: 0.5, twoHands: false },
+  { from: -2.75, to: 1.75, lean: 0.55, sink: 8, hop: 15, step: 10, wind: 0.36, passed: 0.6, twoHands: true },
 ];
-/** Share of a swing spent winding up, and the point at which the blade has passed. */
-const WIND = 0.24;
-const PASSED = 0.52;
 
 function swing(p: PoseWriter, a: AnimInput): void {
-  const v = a.variant >= 0 && a.variant < SWINGS.length ? a.variant : 0;
-  const from = a.aim + SWINGS[v][0];
-  const to = a.aim + SWINGS[v][1];
-  const big = v === 2;
+  const c = CUTS[a.variant >= 0 && a.variant < CUTS.length ? a.variant : 0];
+  const from = a.aim + c.from;
+  const to = a.aim + c.to;
   const t = a.phase;
+  const dirSign = c.to > c.from ? 1 : -1;
   let angle: number;
+  /** 0 before the cut, 0 to 1 through it, 1 after. */
   let through: number;
-  if (t < WIND) {
-    const u = ease(t / WIND);
+  /** -1 coiled back, +1 thrown forward. */
+  let lean: number;
+  /** How low the hips are, in pixels: positive is down. */
+  let drop: number;
+  if (t < c.wind) {
+    const u = ease(t / c.wind);
     angle = lerp(1.2, from, u);
     through = 0;
-  } else if (t < PASSED) {
-    through = (t - WIND) / (PASSED - WIND);
+    lean = -u;
+    drop = c.sink * u;
+  } else if (t < c.passed) {
+    through = (t - c.wind) / (c.passed - c.wind);
     angle = lerp(from, to, through);
+    lean = -1 + 2 * through;
+    // up off the floor through the cut, and down hard at its end
+    drop = c.sink * (1 - through) - c.hop * Math.sin(through * Math.PI) + c.sink * through * through;
   } else {
-    const r = ease((t - PASSED) / (1 - PASSED));
-    // carries past the end, then comes back to the carry
-    angle = lerp(to + (to - from) * 0.12 * (1 - r), 1.2, r * r);
+    const r = ease((t - c.passed) / (1 - c.passed));
+    // the blade carries past the end and rings there, then comes back to the carry
+    const ring = Math.sin((t - c.passed) * 70) * 0.05 * (1 - r);
+    angle = lerp(to + (to - from) * 0.1 * (1 - r) + ring, 1.2, r * r);
     through = 1;
+    lean = 1 - r;
+    drop = c.sink * (1 - r);
   }
-  const dirSign = to > from ? 1 : -1;
+  const airborne = c.hop > 0 ? Math.sin(through * Math.PI) : 0;
   const torso = p.part('torso');
-  const lean = t < WIND ? -ease(t / WIND) : t < PASSED ? -1 + 2 * through : 1 - ease((t - PASSED) / (1 - PASSED));
-  torso.rot += 0.2 * lean * dirSign + (big ? 0.12 : 0.05);
+  torso.rot += c.lean * lean * dirSign + 0.05;
   pointArm(p, 'armNear', angle);
   // the fork runs on from the arm, leading it a little through the cut
-  pointBlade(p, angle + dirSign * (t >= WIND && t < PASSED ? 0.22 : 0.05));
+  pointBlade(p, angle + dirSign * (through > 0 && through < 1 ? 0.22 : 0.05));
   // behind the body on a back-swing, in front for the cut
   const behind = Math.cos(angle) < -0.25;
   p.part('armNear').z = behind ? -6 : 0;
-  // the off hand balances
-  pointArm(p, 'armFar', a.aim + Math.PI - 0.7 * lean * dirSign);
+  if (c.twoHands) {
+    // both hands on the hilt for the big one
+    pointArm(p, 'armFar', angle + 0.14);
+    p.part('armFar').z = behind ? -7 : 5;
+  } else {
+    // the off hand balances
+    pointArm(p, 'armFar', a.aim + Math.PI - 0.7 * lean * dirSign);
+  }
   // a committed step, unless the feet are already running
   const still = 1 - Math.min(1, a.speed);
-  const step = t < PASSED ? ease(t / PASSED) : 1 - ease((t - PASSED) / (1 - PASSED));
-  p.part('hips').x += 3.5 * step;
-  p.part('hips').y += (big ? -4 * Math.sin(Math.min(1, t / PASSED) * Math.PI) : 0) + 2 * step;
-  p.part('legNear').rot += -0.5 * step * still;
-  p.part('legFar').rot += 0.42 * step * still;
+  const step = t < c.passed ? ease(t / c.passed) : 1 - ease((t - c.passed) / (1 - c.passed));
+  p.part('hips').x += c.step * step;
+  p.part('hips').y += drop;
+  p.part('legNear').rot += (-0.5 * step - 0.5 * airborne) * still;
+  p.part('legFar').rot += (0.42 * step + 0.6 * airborne) * still;
   p.part('head').rot -= 0.1 * lean * dirSign;
-  p.part('tail').rot += 0.5 * step;
+  p.part('tail').rot += 0.5 * step + 0.6 * airborne;
 }
 
 /** The Riposte: the fork upright in both hands, weight low, ringing. */

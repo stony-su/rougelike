@@ -255,7 +255,8 @@ describe('the Bow', () => {
     const ev = run(w, Math.round((BOW.interval * 3 + 0.05) / DT), pad);
     expect(eventsOf(ev, 'loose')).toHaveLength(3);
     run(w, 40, pad.hold(BTN.attack, false));
-    expect(1000 - e.hp).toBe(4 * BOW.damage);
+    // four arrows, of which the third (the full draw of the run) hits harder
+    expect(1000 - e.hp).toBeCloseTo((3 + BOW.third) * BOW.damage);
     expect(p.rally).toBe(0);
     expect(w.stats.returns).toBe(0);
   });

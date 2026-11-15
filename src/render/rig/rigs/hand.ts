@@ -409,9 +409,9 @@ const JAB_BACK: readonly number[] = [0.1, 0.1, 0.18];
 /** How far each jab draws in before it goes: a flick for the first two, a real coil for the third. */
 const JAB_COIL: readonly number[] = [0.35, 0.35, 0.7];
 /** How far from the shoulder each blow lands. */
-const JAB_REACH = ARM_LENGTH * 1.36;
-const CROSS_REACH = ARM_LENGTH * 1.42;
-const PALM_REACH = ARM_LENGTH * 1.32;
+const JAB_REACH = ARM_LENGTH * 1.48;
+const CROSS_REACH = ARM_LENGTH * 1.62;
+const PALM_REACH = ARM_LENGTH * 1.5;
 
 /** Where the fist is `t` seconds into jab `v`: 0 in the guard, negative drawn back, 1 at full reach. */
 function jabReach(v: number, t: number): number {
@@ -454,10 +454,12 @@ function jab(p: PoseWriter, a: AnimInput): void {
   const hips = p.part('hips');
   const head = p.part('head');
   if (v === 2) {
-    torso.rot += 0.3 * e;
-    hips.x += 6 * e;
-    sink(p, 3 * out + 2.5 * coil);
-    head.rot -= 0.17 * e;
+    // the third: both palms, off the back foot, the whole body going with them
+    torso.rot += 0.44 * e;
+    hips.x += 10 * e;
+    hips.y -= 3 * out;
+    sink(p, 5 * out + 3.5 * coil);
+    head.rot -= 0.2 * e;
     // the chest turns square to the blow, so both palms land side by side
     turn(p, 'armFar', 17 * out - 2 * coil);
     turn(p, 'armNear', -2 * out - 3 * coil);
@@ -467,10 +469,11 @@ function jab(p: PoseWriter, a: AnimInput): void {
     swell(p, 'armFar', 1 + 0.22 * full);
     stand(p, a, 6 * out - coil, 1.5 * out);
   } else if (v === 1) {
-    torso.rot += 0.17 * e;
-    hips.x += 4 * e;
-    sink(p, 1.6 * out);
-    head.rot -= 0.09 * e;
+    // the second: a cross, the far shoulder driven right through
+    torso.rot += 0.32 * e;
+    hips.x += 7 * e;
+    sink(p, 3 * out);
+    head.rot -= 0.13 * e;
     // the far shoulder comes right through; the near one opens to let it
     turn(p, 'armFar', 13 * e);
     turn(p, 'armNear', -6 * out);
@@ -480,10 +483,11 @@ function jab(p: PoseWriter, a: AnimInput): void {
     swell(p, 'armFar', 1 + 0.16 * full);
     stand(p, a, 2 * out, out);
   } else {
-    torso.rot += 0.12 * e;
-    hips.x += 3 * e;
-    sink(p, 1.2 * out);
-    head.rot -= 0.06 * e;
+    // the first: a straight left, quick
+    torso.rot += 0.2 * e;
+    hips.x += 5 * e;
+    sink(p, 1.6 * out);
+    head.rot -= 0.08 * e;
     turn(p, 'armNear', 2.5 * e);
     turn(p, 'armFar', -2 * out);
     thrust(p, 'armNear', nx, ny, nx * 0.5, ny * 0.5 + 3, coil, a.aim, JAB_REACH, out);

@@ -506,7 +506,8 @@ export type SimEvent =
   | { type: 'dashCharge'; player: number; charges: number }
   | { type: 'swing'; player: number; n: number; x: number; y: number; angle: number; reach: number; halfArc: number }
   | { type: 'jab'; player: number; n: number; x: number; y: number; angle: number; reach: number; halfArc: number }
-  | { type: 'loose'; player: number; x: number; y: number; angle: number }
+  /** An arrow left the string: the `n`th of a run of three, counted from 0. */
+  | { type: 'loose'; player: number; n: number; x: number; y: number; angle: number }
   | { type: 'chargeFull'; player: number; x: number; y: number }
   | { type: 'haymaker'; player: number; x: number; y: number; angle: number; charge: number }
   | { type: 'breakSlam'; player: number; x: number; y: number; radius: number }

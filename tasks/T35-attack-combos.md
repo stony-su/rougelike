@@ -1,7 +1,7 @@
 ---
 id: T35
 title: A combo of moves for every basic attack
-status: claimed
+status: done
 owner: stony-su
 milestone: 5
 weight: 1.5

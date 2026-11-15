@@ -87,6 +87,18 @@ describe('rig definitions', () => {
   }
 });
 
+describe('the basic attack of each class', () => {
+  for (const id of ['edge', 'string', 'hand']) {
+    it(`${id}: is a run of three different moves`, () => {
+      const entry = RIGS[id];
+      expect(entry.variants.attack).toEqual([0, 1, 2]);
+      const moves = [0, 1, 2].map((v) => sample(entry.def, entry.animator, 'attack', v).frames);
+      // at no moment of the move do two of them strike the same pose
+      for (const i of [2, 4, 6, 8]) expect(new Set(moves.map((m) => m[i])).size, `moment ${i}`).toBe(3);
+    });
+  }
+});
+
 describe('part recipe', () => {
   it('clips and rims an outline', () => {
     const square = [0, 0, 10, 0, 10, 10, 0, 10];

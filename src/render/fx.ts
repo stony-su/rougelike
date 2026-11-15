@@ -145,14 +145,32 @@ export class Fx {
         // told by the HUD, a sound, or the thing itself
         break;
       case 'swing':
-        this.arc(this.swingCtx[ev.n] ?? this.swingCtx[0], ev.player, ev.x, ev.y, ev.angle, SWORD.windup[ev.n] ?? 0.07, ev.n === 2 ? 0.2 : 0.14, ev.n === 1 ? -1 : 1, 0.5);
+        this.arc(this.swingCtx[ev.n] ?? this.swingCtx[0], ev.player, ev.x, ev.y, ev.angle, SWORD.windup[ev.n] ?? 0.07, ev.n === 2 ? 0.2 : 0.14, ev.n === 1 ? -1 : 1, ev.n === 2 ? 0.75 : 0.5);
+        if (ev.n === 2) {
+          // the finisher comes down on the floor in front: a second, wider arc, and the ground answers
+          this.arc(this.swingCtx[2], ev.player, ev.x, ev.y, ev.angle, (SWORD.windup[2] ?? 0.12) + 0.04, 0.24, -1, 0.4);
+          const fx = ev.x + Math.cos(ev.angle) * ev.reach * 0.7;
+          const fy = ev.y + Math.sin(ev.angle) * ev.reach * 0.7;
+          ps.ring(fx, fy, paleOf(ev.player), 0.2, 1.3, 0.3, 0.7);
+          ps.dust(fx, fy, Math.cos(ev.angle), Math.sin(ev.angle), this.theme.highlight, 8);
+          if (ev.player === this.localSlot) this.camera.kick(0.012);
+        }
         break;
       case 'jab':
         this.arc(this.jabCtx, ev.player, ev.x, ev.y, ev.angle, FIST.windup[ev.n] ?? 0.04, ev.n === 2 ? 0.16 : 0.1, ev.n === 1 ? -1 : 1, ev.n === 2 ? 0.55 : 0.4);
         break;
-      case 'loose':
-        ps.flash(ev.x + Math.cos(ev.angle) * 0.5, ev.y + Math.sin(ev.angle) * 0.5, 0.7, paleOf(ev.player), 34, 0.08);
+      case 'loose': {
+        const mx = ev.x + Math.cos(ev.angle) * 0.5;
+        const my = ev.y + Math.sin(ev.angle) * 0.5;
+        ps.flash(mx, my, 0.7, paleOf(ev.player), ev.n === 2 ? 70 : 34, ev.n === 2 ? 0.12 : 0.08);
+        if (ev.n === 2) {
+          // the full-draw shot of a run: the string's snap can be seen
+          ps.ring(mx, my, paleOf(ev.player), 0.1, 0.8, 0.2, 0.8);
+          ps.sparks(mx, my, 0.7, Math.cos(ev.angle), Math.sin(ev.angle), paleOf(ev.player), 5, 1.4);
+          if (ev.player === this.localSlot) this.camera.kick(0.006);
+        }
         break;
+      }
       case 'chargeFull':
         ps.ring(ev.x, ev.y, paleOf(ev.player), 1.3, 0.45, 0.2, 0.9);
         ps.flash(ev.x, ev.y, 0.7, paleOf(ev.player), 80, 0.12);

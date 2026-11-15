@@ -198,7 +198,8 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
 
     // ---- the Bow
     case 'loose':
-      here(out, at, 'loose', ev.x, ev.y, whose(ev.player));
+      // the third of a run is the loudest
+      here(out, at, 'loose', ev.x, ev.y, whose(ev.player) * (ev.n === 2 ? 1 : 0.8));
       break;
     case 'ricochet': {
       if (ev.by < 0) {
@@ -463,7 +464,7 @@ export const SAMPLE_EVENTS: { readonly [K in SimEvent['type']]: Extract<SimEvent
   dashCharge: { type: 'dashCharge', player: 0, charges: 2 },
   swing: { type: 'swing', player: 0, n: 0, x: 0, y: 0, angle: 0, reach: 2, halfArc: 1 },
   jab: { type: 'jab', player: 0, n: 0, x: 0, y: 0, angle: 0, reach: 1.5, halfArc: 0.9 },
-  loose: { type: 'loose', player: 0, x: 0, y: 0, angle: 0 },
+  loose: { type: 'loose', player: 0, n: 0, x: 0, y: 0, angle: 0 },
   chargeFull: { type: 'chargeFull', player: 0, x: 0, y: 0 },
   haymaker: { type: 'haymaker', player: 0, x: 0, y: 0, angle: 0, charge: 1 },
   breakSlam: { type: 'breakSlam', player: 0, x: 0, y: 0, radius: 2.6 },

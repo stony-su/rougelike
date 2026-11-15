@@ -131,22 +131,49 @@ function carry(p: PoseWriter, a: AnimInput): void {
   p.part('bow').rot = -0.5 + sway;
 }
 
-/** Loosing. The arrow has just left at t = 0; the hand comes back to the string, then draws again. */
+/**
+ * Loosing, as a run of three. The arrow has just left at t = 0; the hand comes back to the
+ * string, then draws again. Each shot of the run is drawn from a different stance, so a volley
+ * reads as one, two, three: a quick shot standing square, a high draw leaning back, and a full
+ * draw from a deep stance with the whole body behind it.
+ */
 function loose(p: PoseWriter, a: AnimInput): void {
+  const v = a.variant === 1 || a.variant === 2 ? a.variant : 0;
   const d = stringDraw(a);
-  const kick = Math.max(0, 1 - a.t / 0.08);
-  pointArm(p, 'armFar', a.aim);
-  // the bow stands across the aim, and rocks forward as the string is let go
-  p.part('bow').rot = 0.18 * kick;
+  const kick = Math.max(0, 1 - a.t / (v === 2 ? 0.14 : 0.08));
+  // how the bow is held: square, canted high, or laid over for the long draw
+  const cant = v === 1 ? -0.42 : v === 2 ? 0.3 : 0;
+  pointArm(p, 'armFar', a.aim + (v === 1 ? -0.16 : 0));
+  p.part('bow').rot = cant * (0.4 + 0.6 * d) + (v === 2 ? 0.5 : 0.18) * kick;
   p.part('armFar').z = 5;
-  // The drawing arm lies along the aim. Its hand goes out to the string, then comes back to the cheek.
-  pointArm(p, 'armNear', a.aim - 0.06);
-  const reach = a.t < NOCK_AT ? lerp(0.22, 1, ease(a.t / NOCK_AT)) : lerp(1, 0.3, d);
-  p.part('armNear').sy = reach;
+  // the drawing hand goes out to the string, then back: to the cheek, to the ear, or right past the shoulder
+  pointArm(p, 'armNear', a.aim - 0.06 + (v === 1 ? -0.3 : v === 2 ? 0.12 : 0));
+  const back = v === 2 ? 0.12 : v === 1 ? 0.24 : 0.3;
+  p.part('armNear').sy = a.t < NOCK_AT ? lerp(0.22, 1, ease(a.t / NOCK_AT)) : lerp(1, back, d);
   const torso = p.part('torso');
-  torso.rot += -0.06 - 0.1 * d + 0.12 * kick;
-  p.part('head').rot += 0.05 * d;
-  p.part('cloak').rot += 0.25 * kick;
+  const hips = p.part('hips');
+  if (v === 1) {
+    // leaning back under a high draw; the release drops the bow arm
+    torso.rot += -0.2 - 0.14 * d + 0.2 * kick;
+    hips.x += -2 * d + 3 * kick;
+    p.part('legNear').rot += 0.22 * d;
+    p.part('head').rot += -0.12 * d;
+  } else if (v === 2) {
+    // a deep, wide stance; the release throws the body back out of it
+    torso.rot += 0.08 + 0.16 * d - 0.3 * kick;
+    hips.y += 5 * d - 4 * kick;
+    hips.x += 3 * d - 5 * kick;
+    p.part('legNear').rot += -0.5 * d;
+    p.part('legFar').rot += 0.45 * d;
+    p.part('head').rot += 0.1 * d;
+    const bow = p.part('bow');
+    bow.sx = 1 + 0.12 * d;
+    bow.sy = 1 + 0.12 * d;
+  } else {
+    torso.rot += -0.06 - 0.1 * d + 0.12 * kick;
+    p.part('head').rot += 0.05 * d;
+  }
+  p.part('cloak').rot += (v === 2 ? 0.7 : 0.25) * kick;
 }
 
 /** Throwing the Ringstone: a quick overhand throw with the string hand. */
@@ -194,5 +221,5 @@ export const stringAnimator: Animator = (p, a) => {
 };
 
 /** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
-const ENTRY: RigEntry = { def: STRING_RIG, animator: stringAnimator, required: HERO_STATES, variants: {} };
+const ENTRY: RigEntry = { def: STRING_RIG, animator: stringAnimator, required: HERO_STATES, variants: { attack: [0, 1, 2] } };
 export default ENTRY;
