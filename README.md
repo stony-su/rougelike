@@ -189,3 +189,27 @@ Two more that are worth knowing when reading the code:
 - `npm run coop-check -- --port 5180` (with `npm run host` running and nobody in the lobby): three browser pages join through the network address, fight, one is frozen and one reloaded, and the host must not have had to repair anyone.
 - `npm run look -- --query "debug&class=bow" --out name` builds the game, serves that build on a free port for as long as the check takes, and runs the next tool against it. Nothing else has to be running.
 - `npm run shot -- --url "http://localhost:5173/?debug=1" --out name` takes a screenshot through your installed Chrome or Edge (no browser download) and reports console errors. A `--steps file.json` script can hold keys, move the mouse, run script in the page and take several shots; with `--pad` it also drives a scripted fake controller. See the header of `scripts/shot.mjs`.
+
+## What has been checked, and what has not
+
+**Checked by a machine**, all of it on one laptop (Windows 11, integrated graphics, the installed Chrome):
+
+- `npm run check`, on the game as it is now: the layout of the code, both TypeScript configurations, 727 tests and a production build. The tests cover every rule of the Rebound, both new specials, every upgrade and synergy, every enemy and both bosses, the route and the room generator over many seeds, camps, the Gamble, forks, saving, how loud every sound is, a pretend network (three laptops with lag, jitter, stalls and a drop-out, equal hashes throughout), and the guards that keep the simulation exact and the presentation from changing it. Among them, bots win whole runs alone with each class and as a party, and a party that stands still loses.
+- `node scripts/run-check.mjs --only alone-lost,alone-won`, on the game as it is now, in the real page: RUN_CHECK_RESULTS
+- `npm run itch`: both zips open with another program's unzipper and are laid out as itch.io asks; the page was played from a subfolder of a plain file server with no host behind it; the co-op folder, unpacked outside the repository, started its host and served the game.
+- The Whirlwind, the Hook Shot, the upgrade cards, the class cards, the page that says how to play and the camp were each looked at in the real page.
+
+**Checked earlier, and not again since the specials changed:** the pinned game giving the same hashes in Node, Chrome and Edge (`npm run selftest`); three pages through the network address with one frozen and one reloaded (`npm run coop-check`); whole runs by three pages together (`run-check`'s other two parts); the table of how often bots win (`node scripts/balance.mjs`, DESIGN.md section 16: the bands the tests hold still pass, the table itself is from before the new specials); frame times in the stress scene (tasks/T71-performance.md).
+
+**Not checked, because it needs people or things this laptop does not have:**
+
+- **itch.io itself.** The upload, the page and the game inside itch.io's frame have not been tried: that needs the account. `itch/page.md` ends with what to try on the draft page before publishing.
+- **Three laptops.** Every co-op check ran three browser pages on one machine, through its network address. Real Wi-Fi between real laptops, Windows asking to allow Node.js through the firewall, and a network that keeps laptops apart have not been met. The co-op download was started on this machine only.
+- **Controllers in hands.** Menus and play were driven by a scripted pretend controller. No real controller was plugged in.
+- **How it sounds.** Every sound and bed is rendered and measured by a test; nobody has listened to them.
+- **How it feels.** Every run in these checks was played by a bot, or by nobody. Whether the Whirlwind and the Hook Shot feel good, whether a boss reads, whether one page is enough to teach the game: a person has to say.
+- **Whether it is balanced for people.** The numbers are the bots'. The classes are not equal even for them.
+- **Other browsers.** Chrome and Edge are one engine. Firefox and Safari have not been opened.
+- **A long evening.** Nothing has been left running for hours to see what memory does.
+
+**Asked for after playing, and not built** (DESIGN.md section 17): the camp as a place to walk through, with a pool to walk into (the camp is still a screen, with a merchant's stall and plain words now); more kinds of terrain and trap; a look of its own for every upgrade. **Designed, and not built** (section 15): the Skirl (a sixth enemy), the three kinds of side-room (each is a short fight for now), two more biomes, six more synergies, two more Curses, the Toll's mirrored attacks, and watching a teammate's side-room.
