@@ -31,6 +31,7 @@ const KEYS: readonly Line[] = [
   { glyph: () => mouseGlyph('right'), name: 'Special', note: 'Riposte for the Sword, a Ringstone for the Bow, Break for the Fist.' },
   { glyph: () => keyGlyph('Space', 96), name: 'Dash', note: 'Four tiles, and nothing can touch you on the way. Two charges.' },
   { glyph: () => keyGlyph('F'), name: 'Interact', note: 'Bring the camp back when you have put it away.' },
+  { glyph: () => keyGlyph('Tab', 64), name: 'What you can do', note: 'Hold it: your attack, your special and every upgrade you hold, in words. Or point at an emblem.' },
   { glyph: () => row([keyGlyph('Esc'), keyGlyph('M')]), name: 'Menu, sound', note: 'Esc is your own menu. M turns the sound off and on.' },
 ];
 
@@ -41,6 +42,7 @@ const PADS: readonly Line[] = [
   { glyph: () => row([triggerGlyph('LT'), triggerGlyph('LB')]), name: 'Special', note: 'Riposte for the Sword, a Ringstone for the Bow, Break for the Fist.' },
   { glyph: () => faceGlyph('A'), name: 'Dash', note: 'Four tiles, and nothing can touch you on the way. Two charges.' },
   { glyph: () => faceGlyph('X'), name: 'Interact', note: 'Bring the camp back when you have put it away.' },
+  { glyph: () => keyGlyph('View', 64), name: 'What you can do', note: 'Hold the small button left of Start: your attack, your special and every upgrade you hold, in words.' },
   { glyph: () => row([startGlyph(), dpadGlyph(), faceGlyph('B')], 16), name: 'Menus', note: 'Start is your own menu. In menus: the d-pad or the stick, A to choose, B to go back.' },
 ];
 

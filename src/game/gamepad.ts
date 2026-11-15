@@ -6,6 +6,7 @@
 //   attack    right trigger, RB     special   left trigger, LB
 //   dash      A                     interact  X
 //   pause     Start                 menus     stick or d-pad, A to confirm, B to go back
+//   what your kit does (held)       View (the small button left of Start)
 
 export interface PadState {
   axes: readonly number[];
@@ -25,6 +26,8 @@ export interface PadRead {
   special: boolean;
   dash: boolean;
   interact: boolean;
+  /** Held: show what the kit does. */
+  info: boolean;
   pause: boolean;
   /** Menu direction (-1, 0 or 1 on each axis), from the d-pad or the left stick. */
   menuX: number;
@@ -45,6 +48,7 @@ export const emptyPad = (): PadRead => ({
   special: false,
   dash: false,
   interact: false,
+  info: false,
   pause: false,
   menuX: 0,
   menuY: 0,
@@ -59,7 +63,7 @@ export const STICK_DEAD = 0.22;
 export const TRIGGER_ON = 0.35;
 
 /** Indices in the browser's standard gamepad layout. */
-const B = { a: 0, b: 1, x: 2, lb: 4, rb: 5, lt: 6, rt: 7, start: 9, up: 12, down: 13, left: 14, right: 15 } as const;
+const B = { a: 0, b: 1, x: 2, lb: 4, rb: 5, lt: 6, rt: 7, view: 8, start: 9, up: 12, down: 13, left: 14, right: 15 } as const;
 
 /** A stick with a round dead zone: nothing near the middle, full at the edge, direction kept. */
 function stick(x: number, y: number, out: { x: number; y: number }): void {
@@ -92,6 +96,7 @@ export function readPad(pad: PadState, out: PadRead): PadRead {
   out.special = held(B.lt) || held(B.lb);
   out.dash = held(B.a);
   out.interact = held(B.x);
+  out.info = held(B.view);
   out.pause = held(B.start);
   out.confirm = held(B.a);
   out.back = held(B.b);

@@ -42,6 +42,9 @@ import { DraftScreen } from '../ui/draftScreen';
 import { Hud } from '../ui/hud';
 import { Label } from '../ui/label';
 import { TuningRow } from '../ui/tuningRow';
+import { CLASS_WORDS, DASH_WORDS } from '../ui/words';
+import { AbilityPanel } from '../ui/abilityPanel';
+import type { AbilityLine } from '../ui/abilityPanel';
 import { Waiting } from '../ui/waiting';
 import { CampFlow } from './campFlow';
 import { cardInfo } from './cardInfo';
@@ -136,6 +139,9 @@ export class Game {
   private readonly bossBar = new BossBar();
   /** What this laptop's player has built, as emblems along the bottom of the screen. */
   private readonly held = new TuningRow();
+  /** What the kit does, in words: a box by the emblem pointed at, and the whole of it while Tab is held. */
+  private readonly abilities = new AbilityPanel();
+  private readonly tipAt = { x: 0, y: 0 };
   private readonly draft = new DraftScreen();
   /** The camp: its list, and the hint that says how to bring the list back. */
   private readonly camp = new CampFlow();
@@ -216,7 +222,18 @@ export class Game {
     this.pausedLabel.visible = false;
     this.campHint = new Label('', { size: 10, color: CHIME, tracking: 0.24, align: 'center' });
     this.campHint.visible = false;
-    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.campHint, this.draft.root, this.waiting.root, this.camp.screen.root, this.wager.screen.root, this.pausedLabel);
+    this.stage.ui.addChild(
+      this.hud.root,
+      this.held.root,
+      this.bossBar.root,
+      this.campHint,
+      this.draft.root,
+      this.waiting.root,
+      this.camp.screen.root,
+      this.wager.screen.root,
+      this.abilities.root,
+      this.pausedLabel,
+    );
 
     if (opts.debug) {
       BitmapFont.install({
@@ -264,6 +281,7 @@ export class Game {
     this.waiting.destroy();
     this.bossBar.destroy();
     this.held.destroy();
+    this.abilities.destroy();
     this.textures.destroy();
     this.stage.root.destroy({ children: true });
   }
@@ -373,6 +391,7 @@ export class Game {
     this.waiting.layout(this.viewW);
     // to the right of the health panel, along the bottom
     this.held.root.position.set(372, this.viewH - 70);
+    this.abilities.layout(this.viewW, this.viewH);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.22);
     this.debugText?.position.set(14, this.viewH - 190);
   }
@@ -695,10 +714,34 @@ export class Game {
       const ids = Object.keys(me.tunings)
         .filter((id) => me.tunings[id] > 0 && w.content.tunings[id])
         .sort((a, b) => (w.content.tunings[a].tone < w.content.tunings[b].tone ? -1 : w.content.tunings[a].tone > w.content.tunings[b].tone ? 1 : a < b ? -1 : 1));
+      const joined = activeHarmonies(me.tunings, w.content.harmonies);
       this.held.set(
         ids.map((id) => ({ id, icon: w.content.tunings[id].icon, tone: w.content.tunings[id].tone, rank: me.tunings[id] })),
-        activeHarmonies(me.tunings, w.content.harmonies).map((h) => h.parents),
+        joined.map((h) => h.parents),
       );
+      // What it all does, in words. Pointing at an emblem says what that one does; holding the
+      // key (Tab, or View on a controller) says all of it. Neither stops the game.
+      const line = (id: string): AbilityLine => {
+        const t = w.content.tunings[id];
+        const rank = me.tunings[id];
+        return { id, name: t.name, text: t.text[Math.min(rank, t.text.length) - 1] ?? '', rank, maxRank: t.maxRank, icon: t.icon, tone: t.tone };
+      };
+      const busy = this.menuUp || this.draft.open;
+      if (this.input.info && !busy) {
+        const words = CLASS_WORDS[me.classId];
+        this.abilities.sheet(
+          `${words.name}: what you can do`,
+          [
+            { name: 'Attack', text: words.attack },
+            { name: 'Special', text: words.special },
+            { name: 'Dash', text: DASH_WORDS },
+          ],
+          ids.map(line),
+          joined.map((h) => ({ name: h.name, text: h.text })),
+        );
+      } else this.abilities.sheet(null, [], [], []);
+      const over = !busy && !this.input.info && this.input.hasMouse && this.input.device === 'keys' ? this.held.hit(this.input.mouseX, this.input.mouseY, this.tipAt) : null;
+      this.abilities.tip(over && me.tunings[over] > 0 ? line(over) : null, this.tipAt.x, this.tipAt.y);
     }
     this.hud.setRun(s.route.length);
     // at a fork the party is apart: the others' frames stay, and once this player is done the road says who it waits for

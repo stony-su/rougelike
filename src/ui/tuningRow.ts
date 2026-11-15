@@ -20,12 +20,15 @@ const GAP = 6;
 export class TuningRow {
   readonly root = new Container();
   private shown = '';
+  /** The ids shown, in the order they stand. */
+  private ids: string[] = [];
 
   /** Show these Tunings, in this order. `joined` lists pairs of ids that make a Harmony. */
   set(held: readonly HeldTuning[], joined: ReadonlyArray<readonly [string, string]>): void {
     const key = `${held.map((h) => `${h.id}${h.rank}`).join(',')}|${joined.length}`;
     if (key === this.shown) return;
     this.shown = key;
+    this.ids = held.map((h) => h.id);
     for (const c of this.root.removeChildren()) c.destroy({ children: true });
     const at = new Map<string, number>();
     held.forEach((h, i) => {
@@ -60,6 +63,21 @@ export class TuningRow {
       const ground = new Graphics().roundRect(-8, -6, held.length * (SIZE + GAP) - GAP + 16, SIZE + 28, 8).fill({ color: UI.glass, alpha: 0.55 });
       this.root.addChildAt(ground, 0);
     }
+  }
+
+  /**
+   * The emblem under a point of the screen, as its id and the middle of its top edge (where a box
+   * of words about it should stand), or null. The row is taken to be drawn unscaled.
+   */
+  hit(x: number, y: number, out: { x: number; y: number }): string | null {
+    const lx = x - this.root.x;
+    const ly = y - this.root.y;
+    if (ly < -6 || ly > SIZE + 22) return null;
+    const i = Math.floor((lx + GAP / 2) / (SIZE + GAP));
+    if (i < 0 || i >= this.ids.length) return null;
+    out.x = this.root.x + i * (SIZE + GAP) + SIZE / 2;
+    out.y = this.root.y - 6;
+    return this.ids[i];
   }
 
   destroy(): void {

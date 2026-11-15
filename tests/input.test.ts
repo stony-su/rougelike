@@ -37,6 +37,16 @@ describe('reading a controller', () => {
     expect([out.aimX, out.aimY]).toEqual([0, -1]);
   });
 
+  it('View, held, asks for the words: what the kit does', () => {
+    const out = emptyPad();
+    readPad(pad([0, 0, 0, 0]), out);
+    expect(out.info).toBe(false);
+    readPad(pad([0, 0, 0, 0], { 8: 1 }), out);
+    expect(out.info).toBe(true);
+    // and it is nothing else
+    expect([out.attack, out.special, out.dash, out.pause, out.confirm, out.back]).toEqual([false, false, false, false, false, false]);
+  });
+
   it('triggers and shoulder buttons attack and use the special; A dashes, X interacts, Start pauses', () => {
     const out = emptyPad();
     readPad(pad([0, 0, 0, 0], { 7: TRIGGER_ON + 0.05 }), out);

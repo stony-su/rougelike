@@ -4,7 +4,7 @@
 import { Graphics } from 'pixi.js';
 import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { damp, lerp } from '../core/math';
-import { DASH, HAYMAKER, PLAYER, REVIVE } from '../sim/tuning';
+import { DASH, HAYMAKER, PLAYER, REVIVE, SPECIAL_COOLDOWN } from '../sim/tuning';
 import type { Player, SimEvent } from '../sim/types';
 import type { Sortable } from './depth';
 import { DANGER_HOT, PLAYER_COLORS, PLAYER_PALE, RIM } from './palette';
@@ -16,6 +16,8 @@ import type { RigEntry } from './rig/registry';
 import { RigView } from './rig/view';
 import type { Stage } from './stage';
 
+/** The radius of the ring under a player's feet, in tiles. */
+const RING = PLAYER.radius * 1.5;
 const GHOSTS = 4;
 
 interface Ghost {
@@ -31,6 +33,10 @@ export class PlayerView {
   private readonly sort: Sortable;
   private readonly shadow: Graphics;
   private readonly ring: Graphics;
+  /** The part of the ring that is lit: all of it when the special is ready, and as much as has come back while it is not. */
+  private readonly ready: Graphics;
+  private readyStep = -1;
+  private readyPop = 0;
   /** The ring a drawing-back fist grows on the floor. */
   private readonly charge: Graphics;
   private readonly ghosts: Ghost[] = [];
@@ -61,13 +67,15 @@ export class PlayerView {
     this.rig = new RigView(this.entry.def, { accent: this.color });
     this.sort = stage.depth.add(this.rig.root, 0, 0);
     this.shadow = new Graphics().circle(0, 0, PLAYER.radius * 1.15 * TILE).fill({ color: 0x000000, alpha: 0.34 });
-    this.ring = new Graphics().circle(0, 0, PLAYER.radius * 1.5 * TILE).stroke({ width: 0.07 * TILE, color: 0xffffff });
+    this.ring = new Graphics().circle(0, 0, RING * TILE).stroke({ width: 0.07 * TILE, color: 0xffffff });
     this.ring.tint = this.color;
     this.ring.alpha = 0.85;
+    this.ready = new Graphics();
+    this.ready.tint = this.pale;
     this.charge = new Graphics().circle(0, 0, TILE).stroke({ width: 0.06 * TILE, color: 0xffffff });
     this.charge.tint = this.pale;
     this.charge.visible = false;
-    stage.decals.addChild(this.shadow, this.ring, this.charge);
+    stage.decals.addChild(this.shadow, this.ring, this.ready, this.charge);
 
     for (let i = 0; i < GHOSTS; i++) {
       const rig = new RigView(this.entry.def);
@@ -114,6 +122,8 @@ export class PlayerView {
     this.sort.depth = depthKey(x, y);
     this.shadow.position.set(x * TILE, y * TILE);
     this.ring.position.set(x * TILE, y * TILE);
+    this.ready.position.set(x * TILE, y * TILE);
+    this.drawSpecial(p, dt);
 
     // Facing: along the aim; along the dash while dashing; along the blow while it is being struck.
     const busy = p.state === 'attack' || p.state === 'release';
@@ -173,7 +183,8 @@ export class PlayerView {
     this.rig.setFlash(hurtFlash, DANGER_HOT);
     const blinking = p.state !== 'down' && p.hurtT < PLAYER.hurtIframes && p.hurtT > 0.12;
     this.rig.root.alpha = blinking && Math.floor(time * 22) % 2 === 0 ? 0.45 : 1;
-    this.ring.alpha = p.state === 'down' ? 0.3 : 0.85;
+    this.ring.alpha = p.state === 'down' ? 0.3 : p.specialCd > 0 ? 0.35 : 0.85;
+    this.ready.visible = p.state !== 'down';
 
     // Squash and stretch around the dash: stretch on launch, squash on landing.
     this.squash = damp(this.squash, 0, 12, dt);
@@ -182,6 +193,33 @@ export class PlayerView {
 
     this.drawOver(p, time, dt);
     this.updateGhosts(sx, sy, x, y, dt, p.state === 'dash');
+  }
+
+  /**
+   * The special coming back, on the ring under the feet, where the eyes already are. While it is
+   * away the ring is dim and a bright arc grows round it from the top; when the arc closes the
+   * whole ring is lit again, with a beat to say so.
+   */
+  private drawSpecial(p: Player, dt: number): void {
+    const total = SPECIAL_COOLDOWN[p.classId];
+    const k = p.specialCd <= 0 ? 1 : Math.max(0, Math.min(1, 1 - p.specialCd / total));
+    const step = Math.round(k * 60);
+    if (step !== this.readyStep) {
+      if (this.readyStep >= 0 && this.readyStep < 60 && step === 60) this.readyPop = 1;
+      this.readyStep = step;
+      const g = this.ready;
+      g.clear();
+      // nothing to draw when it is ready: the ring itself is at full brightness then
+      if (step > 0 && step < 60) {
+        const from = -Math.PI / 2;
+        g.moveTo(Math.cos(from) * RING * TILE, Math.sin(from) * RING * TILE)
+          .arc(0, 0, RING * TILE, from, from + (step / 60) * Math.PI * 2)
+          .stroke({ width: 0.11 * TILE, color: 0xffffff, cap: 'round' });
+      }
+    }
+    this.readyPop = damp(this.readyPop, 0, 7, dt);
+    this.ready.alpha = 0.95;
+    this.ring.scale.set(1 + this.readyPop * 0.45);
   }
 
   /** What joins moving parts, redrawn every frame over the rig and on the floor. */
@@ -245,6 +283,7 @@ export class PlayerView {
     this.rig.destroy();
     this.shadow.destroy();
     this.ring.destroy();
+    this.ready.destroy();
     this.charge.destroy();
     for (const g of this.ghosts) {
       this.stage.depth.remove(g.sort);

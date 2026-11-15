@@ -4,9 +4,10 @@
 // its words change. There is no controls legend here: controls live on their own page in the menu.
 import { Container, Graphics } from 'pixi.js';
 import { damp, mixColor } from '../core/math';
-import { BREAK, DASH, RALLY as RALLY_RULES, RINGSTONE, RIPOSTE } from '../sim/tuning';
+import { DASH, RALLY as RALLY_RULES } from '../sim/tuning';
 import type { ClassId, Player, World } from '../sim/types';
 import type { NetStats } from '../game/driver';
+import { CLASS_WORDS } from './words';
 import { CHIME, DANGER, INK, PAPER, PLAYER_COLORS, RALLY, RIM, RIPE } from '../render/palette';
 import { Label } from './label';
 import { stamp } from './widgets';
@@ -18,11 +19,11 @@ const MATE_W = 150;
 const NOTE_W = BAR_W / RALLY_RULES.cap;
 const noteHeight = (i: number): number => 5 + i * 0.55;
 
-/** What each class calls itself and its special, and how long that special takes to come back. */
-const CLASSES: Record<ClassId, { name: string; special: string; cooldown: number }> = {
-  sword: { name: 'The Edge', special: 'Riposte', cooldown: RIPOSTE.cooldown },
-  bow: { name: 'The String', special: 'Ringstone', cooldown: RINGSTONE.cooldown },
-  fist: { name: 'The Hand', special: 'Break', cooldown: BREAK.cooldown },
+/** What each class calls itself and its special. */
+const CLASSES: Record<ClassId, { name: string; special: string }> = {
+  sword: { name: CLASS_WORDS.sword.name, special: CLASS_WORDS.sword.specialName },
+  bow: { name: CLASS_WORDS.bow.name, special: CLASS_WORDS.bow.specialName },
+  fist: { name: CLASS_WORDS.fist.name, special: CLASS_WORDS.fist.specialName },
 };
 
 interface MateFrame {
@@ -49,12 +50,8 @@ export class Hud {
   private lastCharges = -1;
 
   // --- the special and the Rally
-  private readonly dial = new Graphics();
-  private readonly dialGlow = new Graphics();
   private readonly specialName: Label;
   private readonly className: Label;
-  private dialStep = -1;
-  private dialPop = 0;
   private lastClass: ClassId | '' = '';
   private readonly notes: Graphics[] = [];
   private readonly notePop: number[] = [];
@@ -123,15 +120,13 @@ export class Hud {
       this.pipPop.push(0);
     }
 
-    // the special: a dial that fills as it comes back, and its name
-    this.dialGlow.circle(0, 0, 15).fill({ color: 0xffffff, alpha: 0.35 });
-    this.dialGlow.position.set(BAR_W - 14, 36);
-    this.dial.position.set(BAR_W - 14, 36);
+    // the special: its name, bright when it is ready. How far it has come back is shown on the
+    // ring under the hero, where the eyes are in a fight, and not down here.
     this.specialName = new Label('', { size: 7, color: PAPER, tracking: 0.25, align: 'right', alpha: 0.85 });
-    this.specialName.position.set(BAR_W - 34, 32.5);
+    this.specialName.position.set(BAR_W, 32.5);
     this.className = new Label('', { size: 7, color: PAPER, bold: true, tracking: 0.3, align: 'center' });
     this.className.position.set(BAR_W / 2, -20);
-    this.vitals.addChild(this.dialGlow, this.dial, this.specialName, this.className);
+    this.vitals.addChild(this.specialName, this.className);
 
     // the Rally: twenty notes above the panel, and a thin line for how long it will hold
     const rally = new Container();
@@ -353,7 +348,7 @@ export class Hud {
     }
   }
 
-  /** The special: a dial that fills as it comes back, bright and breathing when it is ready. */
+  /** The special: its name, bright when it is ready and dim while it is coming back. */
   private updateSpecial(p: Player, dt: number): void {
     const c = CLASSES[p.classId];
     if (this.lastClass !== p.classId) {
@@ -361,35 +356,10 @@ export class Hud {
       this.specialName.text = c.special;
       this.className.text = c.name;
       this.className.setColor(PLAYER_COLORS[p.slot] ?? PAPER);
-      this.dialStep = -1;
     }
     const ready = p.specialCd <= 0;
-    const k = ready ? 1 : Math.max(0, Math.min(1, 1 - p.specialCd / c.cooldown));
-    // redrawn only when it has visibly moved
-    const step = Math.round(k * 48);
-    if (step !== this.dialStep) {
-      if (this.dialStep >= 0 && step === 48) this.dialPop = 1;
-      this.dialStep = step;
-      const g = this.dial;
-      g.clear();
-      g.circle(0, 0, 11).fill({ color: 0x000000, alpha: 0.55 });
-      if (step > 0) {
-        if (step >= 48) g.circle(0, 0, 11).fill(0xffffff);
-        else
-          g.moveTo(0, 0)
-            .arc(0, 0, 11, -Math.PI / 2, -Math.PI / 2 + (step / 48) * Math.PI * 2)
-            .closePath()
-            .fill({ color: 0xffffff, alpha: 0.55 });
-      }
-      g.circle(0, 0, 11).stroke({ width: 1.8, color: 0xffffff, alpha: 0.9 });
-    }
-    const color = PLAYER_COLORS[p.slot] ?? RIM;
-    this.dialPop = damp(this.dialPop, 0, 8, dt);
-    this.dial.tint = ready ? color : mixColor(color, INK, 0.35);
-    this.dial.scale.set(1 + this.dialPop * 0.5);
-    this.dialGlow.tint = color;
-    this.dialGlow.alpha = ready ? 0.5 + 0.3 * Math.sin(this.breath) + this.dialPop : 0;
-    this.specialName.alpha = ready ? 1 : 0.55;
+    this.specialName.alpha = ready ? 0.8 + 0.2 * Math.sin(this.breath) : 0.4;
+    this.specialName.setColor(ready ? (PLAYER_COLORS[p.slot] ?? PAPER) : PAPER);
     this.breath += dt * 4;
   }
 

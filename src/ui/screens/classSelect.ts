@@ -9,8 +9,9 @@ import { HERO_RIG, rigEntry } from '../../render/rig/registry';
 import type { RigEntry } from '../../render/rig/registry';
 import { RigView } from '../../render/rig/view';
 import { CLASS_HP } from '../../sim/tuning';
-import type { ClassId } from '../../sim/types';
 import { Label } from '../label';
+import { CLASS_ORDER, CLASS_WORDS } from '../words';
+import type { ClassWords } from '../words';
 import { uiSound } from '../sfx';
 import { PanelScreen } from '../screen';
 import type { Pointer, ScreenFactory, ScreenHost } from '../screen';
@@ -22,41 +23,7 @@ const W = CARD_W * 3 + GAP * 2;
 const H = CARD_H + 150;
 const STAGE_H = 190;
 
-interface ClassWords {
-  id: ClassId;
-  name: string;
-  weapon: string;
-  attack: string;
-  special: string;
-  plays: string;
-}
-
-const CLASSES: readonly ClassWords[] = [
-  {
-    id: 'sword',
-    name: 'The Edge',
-    weapon: 'Sword',
-    attack: 'Every swing turns enemy shots back where you aim, and bats away an Echo caught in its own attack. Three cuts; the third launches.',
-    special: 'Riposte. A guard: whatever lands in it goes back, harder, and a shield that struck it is thrown down.',
-    plays: 'Stand in the fire and aim your returns.',
-  },
-  {
-    id: 'bow',
-    name: 'The String',
-    weapon: 'Bow',
-    attack: 'Arrows bounce off walls and skip from one Echo to the next, harder with every bounce. The dotted line is the path the arrow will take.',
-    special: 'Ringstone. A stone that sends shots and flung bodies on to the nearest Echo.',
-    plays: 'Read the angles of the room.',
-  },
-  {
-    id: 'fist',
-    name: 'The Hand',
-    weapon: 'Fist',
-    attack: 'Jabs on the press, and a jab knocks a shot aside. Keep the button held to draw back a Haymaker that throws its target into walls and into its friends.',
-    special: 'Break. A slam that pops everything near you outward, and sends an orb home.',
-    plays: 'Line up bodies and walls.',
-  },
-];
+const CLASSES: readonly ClassWords[] = CLASS_ORDER.map((id) => CLASS_WORDS[id]);
 
 /** The moves a card's Returner goes through while it is pointed at: state, variant, seconds. */
 const SHOW: ReadonlyArray<readonly [string, number, number]> = [

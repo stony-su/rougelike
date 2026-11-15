@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 84% complete.** 38 of 52 tasks are done, 0 in progress, 14 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 85% complete.** 39 of 52 tasks are done, 0 in progress, 13 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 17.7% | 89% |
 | 6 | Menus, saving, sound | 3.9% | 80% |
 | 7 | Polish and balance | 3.1% | 75% |
-| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 4% |
+| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 11% |
 
 ## In progress
 
@@ -29,7 +29,6 @@ Nothing at the moment.
 - [T66](tasks/T66-music.md) **Music beds and sound levels** (0.8% of the game)
 - [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.8% of the game)
 - [T82](tasks/T82-card-layout.md) **Cards that fit their words; a wider camp and a wider between-runs screen** (0.8% of the game)
-- [T83](tasks/T83-cooldown-and-ability-text.md) **The special's cooldown under the hero, and what every upgrade does on Tab or on hover** (0.9% of the game)
 - [T84](tasks/T84-fist-stomp.md) **The Fist's stomp: safe through it, and a follow-up** (0.9% of the game)
 - [T85](tasks/T85-dash-chains.md) **Dash into attack for everyone; dash into heavy into jab for the Fist** (0.8% of the game)
 - [T86](tasks/T86-specials.md) **Three specials to choose from for the Sword and for the Bow** (2.4% of the game)
@@ -83,6 +82,7 @@ Nothing.
 - [T71](tasks/T71-performance.md) Performance pass
 - [T80](tasks/T80-boss-size.md) Bosses arrive at their full size
 - [T81](tasks/T81-gong-guard-down.md) A Gong's guard stays down longer after its bash
+- [T83](tasks/T83-cooldown-and-ability-text.md) The special's cooldown under the hero, and what every upgrade does on Tab or on hover
 
 ## Future plans: designed, kept for later
 

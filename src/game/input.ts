@@ -23,6 +23,8 @@ export const BINDINGS = {
   pause: ['Escape', 'KeyP'],
   restart: ['KeyR'],
   mute: ['KeyM'],
+  // held: what your kit does, in words, over the fight
+  info: ['Tab'],
   confirm: ['Enter', 'Space', 'KeyF'],
   back: ['Escape', 'Backspace'],
 } as const;
@@ -49,6 +51,8 @@ export class Input {
   mouseY = 0;
   /** True once the mouse has moved, so aim is not stuck at (0, 0) before the first move. */
   hasMouse = false;
+  /** The key that shows what the player's kit does is down (Tab, or View on a controller). */
+  info = false;
   /** The device touched last: prompts show its glyphs, and movement and aim come from it. */
   device: Device = 'keys';
   /** A key or a button has been pressed at least once (browsers hold sound back until then). */
@@ -199,6 +203,7 @@ export class Input {
     hold(f, BTN.special, this.isDown('special') || (pad !== null && pad.special));
     hold(f, BTN.dash, this.isDown('dash') || (pad !== null && pad.dash));
     hold(f, BTN.interact, this.isDown('interact') || (pad !== null && pad.interact));
+    this.info = this.isDown('info') || (pad !== null && pad.info);
     if (this.take('attack')) press(f, PRESS.attack);
     if (this.take('special')) press(f, PRESS.special);
     if (this.take('dash')) press(f, PRESS.dash);

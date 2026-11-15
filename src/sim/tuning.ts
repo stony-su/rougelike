@@ -245,6 +245,9 @@ export const BREAK = {
   recovery: 0.3,
 };
 
+/** How long each class's special takes to come back, for whoever draws it coming back. */
+export const SPECIAL_COOLDOWN: Readonly<Record<'sword' | 'bow' | 'fist', number>> = { sword: RIPOSTE.cooldown, bow: RINGSTONE.cooldown, fist: BREAK.cooldown };
+
 /** A bomb a player has struck. */
 export const BOMB = {
   /** Speed when sent flying by a sword, and by a punch. */
