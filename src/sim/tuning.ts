@@ -35,6 +35,15 @@ export const DASH = {
   recharge: 1.2,
   /** Fraction of run speed kept when the dash ends, so it flows back into movement. */
   exitSpeed: 0.85,
+  /**
+   * A dash runs on into a blow. An attack asked for during a dash, or within `chain` seconds of
+   * its end, comes out of it: it begins on the tick the dash ends with half its wind-up already
+   * behind it, its step forward is `lunge` times as long, and its first blow lands `strike`
+   * times as hard (an arrow flies that much faster too).
+   */
+  chain: 0.22,
+  lunge: 2.2,
+  strike: 1.3,
 };
 
 // ---------------------------------------------------------------- the Rebound
@@ -229,11 +238,35 @@ export const HAYMAKER = {
   recovery: 0.22,
   /** What cannot be thrown takes the whole of the blow: a full one is multiplied by this against a body that is anchored. */
   anchored: 3,
+  /**
+   * The hand comes back in a dash: with the button held through one, the Fist lands with this
+   * much of the hold already done (the least for a punch is `min`), so letting go at once is a
+   * punch, and holding on a moment longer a full one.
+   */
+  dashCharge: 0.45,
 };
 
 /** The Fist special: a ground slam that pops everything nearby outward. */
 export const BREAK = {
   cooldown: 7,
+  /** Nothing hurts the Fist from the moment the slam begins until this long after it is over. */
+  safe: 0.35,
+  /**
+   * The follow-up. For `follow` seconds after the slam, attacking sends the Fist flying to one of
+   * the Echoes it struck (the one nearest the aim, within `chaseRange`), at `chaseSpeed` and for
+   * no longer than `chaseMost` seconds, untouchable on the way. Arriving, it lands three blows
+   * without another press: the first two hold the Echo where it is for `pin` seconds each, and the
+   * third throws it along the aim with `finish` and is a Return.
+   */
+  follow: 1.2,
+  chaseRange: 9,
+  chaseSpeed: 30,
+  chaseMost: 0.4,
+  flurry: [7, 7, 14] as const,
+  pin: 0.45,
+  finish: 18,
+  /** Before each of the three blows the Fist closes this much of whatever gap has opened, in tiles. */
+  keepUp: 1.6,
   windup: 0.15,
   radius: 2.6,
   damage: 10,

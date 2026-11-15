@@ -188,6 +188,16 @@ export interface Player {
   dodged: boolean;
   /** Ram: the Echoes this dash has already knocked aside. */
   dashHit: number[];
+  /** Seconds left in which an attack counts as coming straight out of a dash. */
+  chainT: number;
+  /** The attack in hand came straight out of a dash: it carries further and lands harder. */
+  dashIn: boolean;
+  /** The Fist: seconds left in which an attack follows the last stomp up, and the Echoes that stomp struck. */
+  stompT: number;
+  stomped: number[];
+  /** The Fist: the Echo it is flying to after a stomp (its id), or 0; and the blows left of the run it lands on arriving. */
+  chase: number;
+  flurry: number;
   /** Opening Note: true until this player's first Return of the chamber. */
   opening: boolean;
   /** Rally gained since the last Overtone ring, and since the last Storm lightning. */

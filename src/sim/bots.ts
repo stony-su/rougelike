@@ -97,17 +97,29 @@ function countNear(w: World, p: Player, range: number): number {
  * that kept it took a new warning for one it had first seen in the future, and never reacted.
  */
 interface Notice {
-  world: World | null;
+  /** The chamber being looked at, and its clock when it was last looked at. */
+  where: string;
+  at: number;
   ids: number[];
   since: number[];
 }
 
-const newNotice = (): Notice => ({ world: null, ids: [], since: [] });
+const newNotice = (): Notice => ({ where: '', at: 0, ids: [], since: [] });
 
-/** Begin looking at a world: whatever was noticed in another one is dropped. */
+/**
+ * Begin looking at a chamber: whatever was noticed in another one is dropped. A chamber is known
+ * by what it is and by its clock never running backwards, not by the object that holds it: the
+ * same chamber read back from a snapshot is still the same chamber, and a bot's memory of it
+ * must carry over, or two laptops' bots would part ways at every repair.
+ */
 function lookAt(seen: Notice, w: World): void {
-  if (seen.world === w) return;
-  seen.world = w;
+  const where = `${w.room.id}#${w.chamber}`;
+  if (seen.where === where && w.time >= seen.at) {
+    seen.at = w.time;
+    return;
+  }
+  seen.where = where;
+  seen.at = w.time;
   seen.ids.length = 0;
   seen.since.length = 0;
 }
@@ -750,6 +762,13 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
           const lands = od - osp * (FIST.windup[0] + 1 / SIM_HZ);
           if (lands <= FIST.reach + orb.radius - 0.35 && p.state !== 'attack') latch = flick(f, 3);
         }
+      }
+
+      // A stomp has just struck something: an attack now flies to it, untouchable, and lands three
+      // blows there. That is worth more than whatever else the hand had in mind.
+      if (!orb && p.stompT > 0 && p.stomped.length > 0 && p.state !== 'attack' && p.state !== 'dash') {
+        latch = flick(f, 3);
+        return f;
       }
 
       const threat = threatTo(w, p, seen, o);

@@ -14,9 +14,9 @@ import { aimAngleOf, aimDistOf, moveInto } from './input';
 import { baseMods, computeMods } from './mods';
 import { rest, shift, walk } from './move';
 import { stepRally } from './rally';
-import { CLASS_HP, DASH, KNOCK_DECAY, PLAYER, REVIVE, TUNE } from './tuning';
+import { BREAK, CLASS_HP, DASH, FIST, KNOCK_DECAY, PLAYER, REVIVE, TUNE } from './tuning';
 import { PRESS, PRESS_COUNT } from './types';
-import type { ClassId, InputFrame, Player, World } from './types';
+import type { ClassId, Enemy, InputFrame, Player, World } from './types';
 
 const KITS: Readonly<Record<ClassId, Kit>> = { sword: SWORD_KIT, bow: BOW_KIT, fist: FIST_KIT };
 
@@ -78,6 +78,12 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
     afterT: 0,
     dodged: false,
     dashHit: [],
+    chainT: 0,
+    dashIn: false,
+    stompT: 0,
+    stomped: [],
+    chase: 0,
+    flurry: 0,
     opening: true,
     overtoneAcc: 0,
     stormAcc: 0,
@@ -218,6 +224,8 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
   if (p.comboTimer > 0) p.comboTimer -= dt;
   if (p.fireT > 0) p.fireT -= dt;
   if (p.afterT > 0) p.afterT = Math.max(0, p.afterT - dt);
+  if (p.chainT > 0) p.chainT = Math.max(0, p.chainT - dt);
+  if (p.stompT > 0) p.stompT = Math.max(0, p.stompT - dt);
   if (p.specialCd > 0) {
     p.specialCd -= dt;
     if (p.specialCd <= 0) {
@@ -256,9 +264,34 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
   }
 
   if (p.state === 'dash') {
+    // An attack asked for during a dash is kept until the dash is over, and comes out of it.
+    if (p.bufAttack > 0) p.bufAttack = Math.max(p.bufAttack, p.dashTimeLeft + PLAYER.buffer);
     // A dash slides along walls and stops at the edge of a pit like any other step.
-    const speed = DASH.distance / DASH.time;
-    const step = Math.min(dt, p.dashTimeLeft);
+    let speed = DASH.distance / DASH.time;
+    let reach = Infinity;
+    if (p.chase !== 0) {
+      // The Fist after a stomp: it flies to an Echo the stomp struck, wherever that has got to.
+      let e: Enemy | null = null;
+      for (const o of w.enemies) if (o.id === p.chase && hittable(o)) e = o;
+      if (!e) {
+        p.chase = 0;
+        p.flurry = 0;
+        p.dashTimeLeft = 0;
+      } else {
+        const dx = e.x - p.x;
+        const dy = e.y - p.y;
+        const d = dhypot(dx, dy);
+        speed = BREAK.chaseSpeed;
+        // it pulls up at arm's length
+        reach = Math.max(0, d - (FIST.reach * 0.6 + e.radius));
+        if (d > 1e-6) {
+          p.dashDirX = dx / d;
+          p.dashDirY = dy / d;
+        }
+        if (reach <= 0.02) p.dashTimeLeft = 0;
+      }
+    }
+    const step = Math.min(dt, Math.max(0, p.dashTimeLeft), reach / speed);
     shift(w, p, p.dashDirX * speed * step, p.dashDirY * speed * step);
     if (p.mods.ram > 0) ram(w, p);
     p.dashTimeLeft -= dt;
@@ -270,6 +303,10 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
       p.vy = p.dashDirY * keep;
       rest(p, move);
       w.events.push({ type: 'dashEnd', player: p.slot, x: p.x, y: p.y });
+      // Whatever was asked for meanwhile begins on this same tick, and knows it comes out of a dash:
+      // the dash runs on into the blow instead of stopping for it.
+      p.chainT = DASH.chain;
+      if (kit.begin(w, p, move)) kit.step(w, p, move, dt);
     }
     return;
   }

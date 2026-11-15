@@ -40,9 +40,11 @@ export const CLASS_WORDS: Readonly<Record<ClassId, ClassWords>> = {
     id: 'fist',
     name: 'The Hand',
     weapon: 'Fist',
-    attack: 'Jabs on the press, and a jab knocks a shot aside. Keep the button held to draw back a Haymaker that throws its target into walls and into its friends.',
+    attack:
+      'Jabs on the press, and a jab knocks a shot aside. Keep the button held to draw back a Haymaker that throws its target into walls and into its friends; held through a dash, the hand is part drawn when you land.',
     specialName: 'Break',
-    special: 'Break. A slam that pops everything near you outward, and sends an orb home.',
+    special:
+      'Break. A slam that pops everything near you outward and sends an orb home; nothing can hurt you while you slam. Attack right after it to fly to one of the Echoes it struck and land three blows.',
     plays: 'Line up bodies and walls.',
   },
 };
@@ -51,4 +53,5 @@ export const CLASS_WORDS: Readonly<Record<ClassId, ClassWords>> = {
 export const CLASS_ORDER: readonly ClassId[] = ['sword', 'bow', 'fist'];
 
 /** What the dash does, for every class. */
-export const DASH_WORDS = 'Dash. Four tiles in the way you are moving, and nothing can touch you on the way. Two charges that come back by themselves.';
+export const DASH_WORDS =
+  'Dash. Four tiles in the way you are moving, and nothing can touch you on the way. Two charges that come back by themselves. An attack pressed in a dash comes straight out of it, further and harder.';

@@ -1,17 +1,17 @@
 // The Fist, the Hand. Jabs fire on the press. Keep the button held and the hand draws back: let
 // go for a Haymaker that sends its target flying. The special is the Break, a ground slam that
 // pops everything nearby outward like the first shot of a game of billiards.
-import { dcos, dhypot, dsin } from '../../core/dmath';
+import { datan2, dcos, dhypot, dsin } from '../../core/dmath';
 import { clamp01, ddamp } from '../../core/exact';
 import type { Vec2 } from '../../core/exact';
 import { pointInSector } from '../../core/geom';
 import { addStagger, pushBody, relaunch, thunderclap } from '../bodies';
 import { BOMB_TOUCH, batBomb } from '../bombs';
-import { damageEnemy, freezeBody, hittable, outOfReach } from '../combat';
+import { damageEnemy, freezeBody, hittable, outOfReach, stunEnemy } from '../combat';
 import { rest, shift, walk } from '../move';
 import { returnOrb, slapShot } from '../projectiles';
 import { addRally, rallyMul } from '../rally';
-import { BOMB, BREAK, FIST, HAND, HAYMAKER, HITSTOP, PLAYER, RALLY } from '../tuning';
+import { BOMB, BREAK, DASH, FIST, HAND, HAYMAKER, HITSTOP, PLAYER, RALLY } from '../tuning';
 import { BTN } from '../types';
 import type { Enemy, Player, World } from '../types';
 import { wantsSpecial } from './kit';
@@ -22,11 +22,34 @@ const CHAIN_AT = 0.4;
 
 const holding = (p: Player): boolean => (p.held & BTN.attack) !== 0;
 
+/** The Echo the Fist is flying to, or landing its three blows on, if it is still there to be struck. */
+function quarry(w: World, p: Player): Enemy | null {
+  if (p.chase === 0) return null;
+  for (const e of w.enemies) if (e.id === p.chase && hittable(e)) return e;
+  return null;
+}
+
 function startJab(w: World, p: Player, combo: number): void {
   p.combo = combo;
   p.state = 'attack';
   p.stateTime = 0;
   p.actAngle = p.aim;
+  // out of a dash: the dash runs on into the punch (the three blows after a stomp are their own thing)
+  p.dashIn = p.chainT > 0 && p.flurry === 0;
+  p.chainT = 0;
+  if (p.dashIn) p.stateTime = FIST.windup[combo] * 0.5;
+  const target = p.flurry > 0 ? quarry(w, p) : null;
+  if (target) {
+    // one of the three blows: it is thrown at the Echo, wherever the aim is, and the Fist keeps up with it
+    const dx = target.x - p.x;
+    const dy = target.y - p.y;
+    const d = dhypot(dx, dy);
+    if (d > 1e-6) {
+      p.actAngle = datan2(dy, dx);
+      const gap = d - (FIST.reach * 0.6 + target.radius);
+      if (gap > 0) shift(w, p, (dx / d) * Math.min(gap, BREAK.keepUp), (dy / d) * Math.min(gap, BREAK.keepUp));
+    }
+  }
   p.actDur = FIST.windup[combo] + FIST.active + FIST.recovery[combo];
   p.actDone = false;
   p.bufAttack = 0;
@@ -49,6 +72,61 @@ function startBreak(p: Player): void {
   p.specialCd = BREAK.cooldown;
   p.charge = 0;
   p.comboTimer = 0;
+  p.flurry = 0;
+  p.chase = 0;
+  // nothing hurts the Fist through the slam, or for a moment after it
+  p.iframes = Math.max(p.iframes, p.actDur + BREAK.safe);
+}
+
+/**
+ * Which of the Echoes the last stomp struck an attack goes after: the one nearest the line of the
+ * aim, among those still standing within reach of the flight. Null if there is none.
+ */
+function stompTarget(w: World, p: Player): Enemy | null {
+  const ax = dcos(p.aim);
+  const ay = dsin(p.aim);
+  let best: Enemy | null = null;
+  let score = -Infinity;
+  for (const e of w.enemies) {
+    if (!hittable(e) || outOfReach(e) || !p.stomped.includes(e.id)) continue;
+    const dx = e.x - p.x;
+    const dy = e.y - p.y;
+    const d = dhypot(dx, dy);
+    if (d > BREAK.chaseRange) continue;
+    // along the aim counts for most, and nearness breaks ties
+    const s = (d > 1e-6 ? (dx * ax + dy * ay) / d : 1) - d * 0.02;
+    if (s > score || (s === score && best !== null && e.id < best.id)) {
+      score = s;
+      best = e;
+    }
+  }
+  return best;
+}
+
+/** The follow-up to a stomp: fly to one of the Echoes it struck, untouchable on the way, and land three blows on arriving. */
+function startChase(w: World, p: Player, e: Enemy): void {
+  const dx = e.x - p.x;
+  const dy = e.y - p.y;
+  const d = dhypot(dx, dy) || 1;
+  p.chase = e.id;
+  p.flurry = BREAK.flurry.length;
+  p.stompT = 0;
+  p.stomped.length = 0;
+  p.bufAttack = 0;
+  p.charge = 0;
+  p.comboTimer = 0;
+  p.dashDirX = dx / d;
+  p.dashDirY = dy / d;
+  p.dashTimeLeft = BREAK.chaseMost;
+  p.dodged = false;
+  p.dashHit.length = 0;
+  p.iframes = Math.max(p.iframes, BREAK.chaseMost + 0.1);
+  p.kx = 0;
+  p.ky = 0;
+  // the flight is a dash in every way but one: it costs no charge (the player step steers it, player.ts)
+  p.state = 'dash';
+  p.stateTime = 0;
+  w.events.push({ type: 'dash', player: p.slot, x: p.x, y: p.y, dx: p.dashDirX, dy: p.dashDirY });
 }
 
 function resolveJab(w: World, p: Player): void {
@@ -78,6 +156,34 @@ function resolveJab(w: World, p: Player): void {
       ky = ay;
     }
     const kl = dhypot(kx, ky) || 1;
+    if (p.flurry > 0 && e.id === p.chase) {
+      // One of the three blows after a stomp. The first two hold the Echo where it is; the third
+      // throws it along the punch, and is a Return.
+      const last = p.flurry === 1;
+      const blow = BREAK.flurry[BREAK.flurry.length - p.flurry] * (e.def.anchored ? FIST.anchored : 1);
+      if (last) {
+        damageEnemy(w, e, blow * rallyMul(w, p.slot), { kind: 'return', by: p.slot, dx: ax, dy: ay, heavy: true, freeze: HITSTOP.heavy });
+        addRally(w, p.slot, RALLY.weight.sent, e.x, e.y);
+        if (!e.dead) {
+          // it was held a moment ago: nothing stops this one from sending it
+          e.launchImmune = 0;
+          pushBody(w, e, ax, ay, BREAK.finish, p.slot);
+        }
+      } else {
+        damageEnemy(w, e, blow, { kind: 'direct', by: p.slot, dx: ax, dy: ay, freeze: FIST.freeze[c] });
+        if (!e.dead) {
+          addStagger(w, e, 1);
+          if (e.state === 'launched') {
+            // caught in the air: it drops where it is, and is dazed as it lands
+            e.lvx = 0;
+            e.lvy = 0;
+            e.slamStun = Math.max(e.slamStun, BREAK.pin);
+          } else stunEnemy(w, e, BREAK.pin, true);
+        }
+      }
+      hits++;
+      continue;
+    }
     if (e.state === 'launched' && p.mods.reJab > 0 && e.rejabs < HAND.rejabMost) {
       // Rebound Jab: a body in flight is sent on again along the aim, harder and faster. It is a Return.
       const again = e.rejabs + 1;
@@ -92,7 +198,14 @@ function resolveJab(w: World, p: Player): void {
       continue;
     }
     // what cannot be shoved takes the whole of the jab
-    damageEnemy(w, e, FIST.damage[c] * (e.def.anchored ? FIST.anchored : 1), { kind: 'direct', by: p.slot, dx: kx / kl, dy: ky / kl, heavy: c === 2, freeze: FIST.freeze[c] });
+    damageEnemy(w, e, FIST.damage[c] * (e.def.anchored ? FIST.anchored : 1) * (p.dashIn ? DASH.strike : 1), {
+      kind: 'direct',
+      by: p.slot,
+      dx: kx / kl,
+      dy: ky / kl,
+      heavy: c === 2,
+      freeze: FIST.freeze[c],
+    });
     if (!e.dead) {
       // Stagger first: if this jab tips the body over, the same jab already launches it harder.
       addStagger(w, e, 1);
@@ -118,7 +231,7 @@ function stepJab(w: World, p: Player, move: Vec2, dt: number): void {
     resolveJab(w, p);
   }
 
-  const stepSpeed = t < activeEnd ? FIST.step[c] / activeEnd : 0;
+  const stepSpeed = t < activeEnd ? (FIST.step[c] * (p.dashIn ? DASH.lunge : 1)) / activeEnd : 0;
   const tx = dcos(p.actAngle) * stepSpeed + move.x * PLAYER.speed * FIST.moveMul;
   const ty = dsin(p.actAngle) * stepSpeed + move.y * PLAYER.speed * FIST.moveMul;
   p.vx = ddamp(p.vx, tx, 30, dt);
@@ -126,6 +239,17 @@ function stepJab(w: World, p: Player, move: Vec2, dt: number): void {
   shift(w, p, p.vx * dt, p.vy * dt);
 
   if (t < activeEnd) return;
+  if (p.flurry > 0) {
+    // the three blows after a stomp follow one another without a press
+    if (t < activeEnd + FIST.recovery[c] * CHAIN_AT) return;
+    p.flurry--;
+    if (p.flurry > 0 && quarry(w, p)) {
+      startJab(w, p, Math.min(2, c + 1));
+      return;
+    }
+    p.flurry = 0;
+    p.chase = 0;
+  }
   // The hold starts to count the moment the jab has landed.
   if (holding(p)) p.charge += dt;
   else p.charge = 0;
@@ -224,6 +348,9 @@ function tryPunch(w: World, p: Player): boolean {
 
 function stepRelease(w: World, p: Player, move: Vec2, dt: number): void {
   const t = p.stateTime;
+  // a jab asked for at any moment of the punch waits for the punch to land
+  const chainAt = HAYMAKER.lungeTime + HAYMAKER.recovery * CHAIN_AT;
+  if (p.bufAttack > 0 && t < chainAt) p.bufAttack = Math.max(p.bufAttack, chainAt - t + PLAYER.buffer);
   if (!p.actDone) {
     if (t <= HAYMAKER.lungeTime) {
       const speed = HAYMAKER.lunge / HAYMAKER.lungeTime;
@@ -242,6 +369,12 @@ function stepRelease(w: World, p: Player, move: Vec2, dt: number): void {
     }
   } else {
     walk(w, p, move, 0.25, dt);
+    // The punch has landed: a jab asked for now cuts the rest of the recovery short.
+    if (p.bufAttack > 0 && t >= chainAt) {
+      p.charge = 0;
+      startJab(w, p, 0);
+      return;
+    }
   }
   if (t >= p.actDur) {
     p.charge = 0;
@@ -253,6 +386,7 @@ function resolveBreak(w: World, p: Player): void {
   const ax = dcos(p.aim);
   const ay = dsin(p.aim);
   w.events.push({ type: 'breakSlam', player: p.slot, x: p.x, y: p.y, radius: BREAK.radius });
+  p.stomped.length = 0;
   let hits = 0;
   for (const e of w.enemies.slice()) {
     if (!hittable(e) || outOfReach(e)) continue;
@@ -274,9 +408,12 @@ function resolveBreak(w: World, p: Player): void {
       // heavy bodies stand their ground and lose their footing instead
       if (e.def.mass >= 4) addStagger(w, e, BREAK.stagger);
       else pushBody(w, e, dx, dy, BREAK.impulse * p.mods.breakImpulse, p.slot);
+      // an attack in the next moment goes after one of these
+      p.stomped.push(e.id);
     }
     hits++;
   }
+  p.stompT = p.stomped.length > 0 ? BREAK.follow : 0;
   // Break Shot: a good break is ready again sooner
   if (hits >= 3 && p.mods.breakRefund > 0) p.specialCd = Math.max(0, p.specialCd - p.mods.breakRefund);
   for (const pr of w.projectiles) {
@@ -322,11 +459,36 @@ export const FIST_KIT: Kit = {
       startBreak(p);
       return true;
     }
+    // arrived at the Echo it flew to after a stomp: the three blows begin
+    if (p.flurry > 0) {
+      if (quarry(w, p)) {
+        startJab(w, p, 0);
+        return true;
+      }
+      p.flurry = 0;
+      p.chase = 0;
+    }
+    // an attack right after a stomp goes after one of the Echoes it struck
+    if (p.bufAttack > 0 && p.stompT > 0) {
+      const e = stompTarget(w, p);
+      if (e) {
+        startChase(w, p, e);
+        return true;
+      }
+    }
+    // The button held through a dash: the hand came back on the way, and is part drawn already.
+    if (p.chainT > 0 && holding(p)) {
+      p.bufAttack = 0;
+      p.chainT = 0;
+      startCharge(p);
+      p.charge = HAYMAKER.dashCharge;
+      return true;
+    }
     if (p.bufAttack > 0) {
       startJab(w, p, p.comboTimer > 0 && p.combo < 2 ? p.combo + 1 : 0);
       return true;
     }
-    // still holding after a dash: the hand draws back again
+    // still holding: the hand draws back again
     if (holding(p)) {
       startCharge(p);
       return true;
@@ -335,6 +497,8 @@ export const FIST_KIT: Kit = {
   },
 
   step(w, p, move, dt) {
+    // the flight after a stomp is the player step's business (player.ts): it begins next tick
+    if (p.state === 'dash') return;
     if (p.state === 'attack') {
       stepJab(w, p, move, dt);
     } else if (p.state === 'charge') {
@@ -346,6 +510,14 @@ export const FIST_KIT: Kit = {
         p.actDone = true;
         resolveBreak(w, p);
       }
+      // the slam has landed: an attack now does not wait for the Fist to straighten up
+      if (p.actDone && p.bufAttack > 0 && p.stompT > 0) {
+        const e = stompTarget(w, p);
+        if (e) {
+          startChase(w, p, e);
+          return;
+        }
+      }
       walk(w, p, move, 0.3, dt);
       if (p.stateTime >= p.actDur) rest(p, move);
     }
@@ -353,5 +525,7 @@ export const FIST_KIT: Kit = {
 
   cancel(p) {
     p.charge = 0;
+    p.flurry = 0;
+    p.chase = 0;
   },
 };

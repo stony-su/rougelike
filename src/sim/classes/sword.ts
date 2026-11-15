@@ -11,7 +11,7 @@ import { damageEnemy, freezeBody, hittable, outOfReach } from '../combat';
 import { rest, shift, walk } from '../move';
 import { fanOut, restrikeShot, returnShot, spawnProjectile } from '../projectiles';
 import { addRally, rallyMul } from '../rally';
-import { BOMB, DT, DUET, EDGE, HITSTOP, PLAYER, RALLY, REFLECT, RIPOSTE, SIM_HZ, SWORD } from '../tuning';
+import { BOMB, DASH, DT, DUET, EDGE, HITSTOP, PLAYER, RALLY, REFLECT, RIPOSTE, SIM_HZ, SWORD } from '../tuning';
 import type { Player, World } from '../types';
 import { wantsSpecial } from './kit';
 import type { Kit } from './kit';
@@ -28,12 +28,17 @@ function startSwing(w: World, p: Player, combo: number): void {
   p.state = 'attack';
   p.stateTime = 0;
   p.actAngle = p.aim;
+  // out of a dash: the dash runs on into the cut
+  p.dashIn = p.chainT > 0;
+  p.chainT = 0;
   // Chorus: enough Rally has been gained, and this swing is a Ring Cut
   p.ringNow = p.ringReady && p.mods.chorusEvery > 0;
   p.ringReady = false;
   // Bladesong: the higher the Rally, the quicker the swing
   p.actHaste = 1 + p.mods.swingHaste * p.rally;
   p.actDur = (SWORD.windup[combo] + SWORD.active[combo] + SWORD.recovery[combo]) / p.actHaste;
+  // half the wind-up is already behind it
+  if (p.dashIn) p.stateTime = (SWORD.windup[combo] / p.actHaste) * 0.5;
   p.actDone = false;
   p.bufAttack = 0;
   p.comboTimer = 0;
@@ -60,7 +65,7 @@ function resolveSwing(w: World, p: Player): void {
   const ax = dcos(p.actAngle);
   const ay = dsin(p.actAngle);
   // a Ring Cut has its own weight; Tempered Riposte doubles the swings that follow a landed Riposte
-  const blow = (p.ringNow ? EDGE.ringDamage : SWORD.damage[c]) * (p.buffSwings > 0 ? 2 : 1);
+  const blow = (p.ringNow ? EDGE.ringDamage : SWORD.damage[c]) * (p.buffSwings > 0 ? 2 : 1) * (p.dashIn ? DASH.strike : 1);
   if (p.buffSwings > 0) p.buffSwings--;
   // Ringing Edge: the third swing throws a crescent, which is the Sword's own shot from the start
   if (c === 2 && p.mods.crescent > 0 && !p.ringNow) {
@@ -193,7 +198,7 @@ function stepSwing(w: World, p: Player, move: Vec2, dt: number): void {
   }
 
   // A small committed step into the swing, plus a little steering.
-  const stepSpeed = t < activeEnd ? SWORD.step[c] / activeEnd : 0;
+  const stepSpeed = t < activeEnd ? (SWORD.step[c] * (p.dashIn ? DASH.lunge : 1)) / activeEnd : 0;
   const tx = dcos(p.actAngle) * stepSpeed + move.x * PLAYER.speed * SWORD.moveMul;
   const ty = dsin(p.actAngle) * stepSpeed + move.y * PLAYER.speed * SWORD.moveMul;
   p.vx = ddamp(p.vx, tx, 30, dt);
