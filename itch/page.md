@@ -67,7 +67,7 @@ Everything the page needs. `npm run itch` makes the two files to upload in `itch
 > | Special | Right mouse | Left trigger |
 > | Dash | Space | A |
 > | What you can do | Hold Tab | View |
-> | Menu | Esc | Start |
+> | Menu | Esc or P | Start |
 >
 > The game opens on a page that says how it is played. Chrome or Edge is best. Progress is kept in your browser.
 >

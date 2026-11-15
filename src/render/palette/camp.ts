@@ -1,4 +1,4 @@
-// The colours of a camp: the Still Pool's water and the brass of the Tuner's fork and lamp.
+// The colours of a camp: the Healing Pool's water, and the brass, cloth and lamp of the Merchant's stall.
 export const CAMP_LOOK = {
   water: 0x2a6f8f,
   waterDeep: 0x143d55,

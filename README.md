@@ -58,6 +58,8 @@ That makes 42 Tunings and 12 Harmonies; a fresh save drafts from 21 as any class
 
 - **Each their own way.** Three times a run the road forks: at a side-chamber every player walks into a short chamber of their own, at the same moment, fights it alone and is paid for it alone, and the party meets again in the next chamber it shares. Whoever finishes first sees who the road is waiting for; once only one is left they have twenty seconds, and going down alone costs the prize, not the run. Alone, a side-chamber is simply a short fight.
 
+- **Sound and music.** Every sound is made in code from a short recipe, in the key of the zone, and a bounce's note climbs with the Combo. Each zone has a quiet bed under it and a pulse joins while a boss is on the floor. Every sound is rendered by a test and held to one band of loudness, so nothing drowns anything else.
+
 - **Balance, by bots.** Whole runs are played with nobody watching, alone with each class and as a party, and the numbers were set by what they found (`node scripts/balance.mjs` prints the table; DESIGN.md section 16 tells it). Bots that play well, and overlook one warning in ten, reach the Bell alone in 83% of runs with the Sword, 93% with the Bow and 58% with the Fist; slower, less watchful ones in 30% to 55%; a party that stands still falls in the first chamber. Three together nearly always arrive, because the fallen are picked up. This says the road can be walked; it does not say how it feels in a person's hands.
 
 What is not here yet: the three kinds of side-chamber (Proving, Cache, Echo Duel): for now every side-chamber is a short fight. [PROGRESS.md](PROGRESS.md) lists all of it.
@@ -181,6 +183,7 @@ Two more that are worth knowing when reading the code:
 - `?stop=6` begins the run at that chamber (6 is the Carillon's), to get to a part of the road without walking it.
 - `?gallery=edge` (or any rig id, or `all`) shows every animation state of a rig as a filmstrip; add `&away`, `&silhouette` or `&live`.
 - `?selftest` plays a pinned three-player game headless in the page and prints its hashes.
+- `?sounds` shows the soundboard: every sound by name, with its measured level beside it, to listen through.
 - The debug overlay (`?debug`) shows the frame time and the render scale. The picture is drawn with fewer pixels by itself while frames run long, and steps back up when they are short again; `?stress=30&team=sword,bow,fist&autopilot=expert&stop=9` is the scene it was measured with (tasks/T71-performance.md has the numbers).
 - `node scripts/balance.mjs 40` plays forty whole runs for each class at three levels of skill, and twenty for each party, and prints who won, where the others fell and how long the bosses stood (about two minutes).
 - `npm run coop-check -- --port 5180` (with `npm run host` running and nobody in the lobby): three browser pages join through the network address, fight, one is frozen and one reloaded, and the host must not have had to repair anyone.

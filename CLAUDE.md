@@ -19,6 +19,7 @@ Several people build this at the same time, each with their own session. The wor
 ```
 npm run dev            the game alone (http://localhost:5173)
 npm run host           build, then serve the game and the co-op relay on this network
+npm run itch           build the two zips for itch.io into itch/out/ (itch/page.md says what goes on the page)
 npm run check          layout, types, every test, production build: the gate for every change
 npm run format         lay the code out (the only formatter; do not use another)
 npm run repin          pin the hashes of the fixed game again, after a deliberate change to the rules
