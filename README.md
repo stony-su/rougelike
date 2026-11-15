@@ -147,6 +147,7 @@ Two more that are worth knowing when reading the code:
 - `?stop=6` begins the run at that chamber (6 is the Carillon's), to get to a part of the road without walking it.
 - `?gallery=edge` (or any rig id, or `all`) shows every animation state of a rig as a filmstrip; add `&away`, `&silhouette` or `&live`.
 - `?selftest` plays a pinned three-player game headless in the page and prints its hashes.
+- The debug overlay (`?debug`) shows the frame time and the render scale. The picture is drawn with fewer pixels by itself while frames run long, and steps back up when they are short again; `?stress=30&team=sword,bow,fist&autopilot=expert&stop=9` is the scene it was measured with (tasks/T71-performance.md has the numbers).
 - `node scripts/balance.mjs 40` plays forty whole runs for each class at three levels of skill, and twenty for each party, and prints who won, where the others fell and how long the bosses stood (about two minutes).
 - `npm run coop-check -- --port 5180` (with `npm run host` running and nobody in the lobby): three browser pages join through the network address, fight, one is frozen and one reloaded, and the host must not have had to repair anyone.
 - `npm run look -- --query "debug&class=bow" --out name` builds the game, serves that build on a free port for as long as the check takes, and runs the next tool against it. Nothing else has to be running.

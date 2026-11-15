@@ -47,6 +47,7 @@ import { CampFlow } from './campFlow';
 import { cardInfo } from './cardInfo';
 import type { Driver } from './driver';
 import type { Input } from './input';
+import { Quality } from './quality';
 import type { Rumble } from './rumble';
 import type { Settings } from './settings';
 import { WagerFlow } from './wagerFlow';
@@ -155,6 +156,10 @@ export class Game {
   private readonly renderTimes: number[] = [];
   private renderStart = 0;
   private lastFrameAt = 0;
+  /** The sharpness the player chose (pixels drawn for each one of the page), which the render scale multiplies. */
+  private sharpness = 1;
+  /** Draws the picture with fewer pixels while the frames run long (quality.ts). */
+  private readonly quality = new Quality((scale) => this.app.renderer.resize(this.app.screen.width, this.app.screen.height, this.sharpness * scale));
 
   /** The session being played. In co-op the driver replaces it when the host sends the whole game again. */
   get session(): Session {
@@ -233,6 +238,8 @@ export class Game {
   }
 
   destroy(): void {
+    // the menus are drawn as sharp as the player chose
+    this.quality.reset();
     this.app.ticker.remove(this.frame, this);
     this.app.ticker.remove(this.beforeRender, this);
     this.app.ticker.remove(this.afterRender, this);
@@ -264,6 +271,9 @@ export class Game {
   /** A setting has changed: what the game itself holds of them follows. */
   applySettings(): void {
     this.camera.setShakeScale(this.deps.settings.shake);
+    // whatever sharpness the app has just set is the one to keep to, and to step down from
+    this.quality.reset();
+    this.sharpness = this.app.renderer.resolution;
   }
 
   /** A plain snapshot for automated checks. */
@@ -319,6 +329,8 @@ export class Game {
       workMs: { median: q(this.workTimes, 0.5), p95: q(this.workTimes, 0.95), max: q(this.workTimes, 1) },
       renderMs: { median: q(this.renderTimes, 0.5), p95: q(this.renderTimes, 0.95), max: q(this.renderTimes, 1) },
       slowFrames: this.frameTimes.filter((t) => t > 20).length,
+      renderScale: +this.quality.scale.toFixed(3),
+      resolution: +this.app.renderer.resolution.toFixed(3),
       sortables: this.stage.depth.count,
       views: this.enemyViews.count,
       view: [this.viewW, this.viewH],
@@ -386,6 +398,7 @@ export class Game {
 
   /** The player's world has been replaced (a new chamber, or the party started over): rebuild what is drawn. */
   private watch(w: World): void {
+    this.quality.arrived();
     this.viewed = w;
     const room = w.room;
     this.theme = ZONES[room.zone];
@@ -550,6 +563,7 @@ export class Game {
     if (this.lastFrameAt > 0) {
       this.frameTimes.push(now - this.lastFrameAt);
       if (this.frameTimes.length > 240) this.frameTimes.shift();
+      this.quality.frame(now - this.lastFrameAt);
     }
     this.lastFrameAt = now;
     const dt = Math.min(ticker.elapsedMS, 100) / 1000;
@@ -713,7 +727,7 @@ export class Game {
       const f = d.frameMs as { median: number; p95: number };
       const wk = d.workMs as { median: number; p95: number };
       this.debugText.text =
-        `${(1000 / Math.max(1, f.median)).toFixed(0)} fps  frame ${f.median} ms (p95 ${f.p95})  work ${wk.median} ms (p95 ${wk.p95})\n` +
+        `${(1000 / Math.max(1, f.median)).toFixed(0)} fps  frame ${f.median} ms (p95 ${f.p95})  work ${wk.median} ms (p95 ${wk.p95})  scale ${this.quality.scale.toFixed(2)}\n` +
         `tick ${s.tick}  chamber ${w.chamber}  ${w.flow.phase} wave ${w.flow.wave}/${w.flow.waves}  players ${w.players.length}  enemies ${w.enemies.length}  kills ${w.stats.kills}`;
     }
   }

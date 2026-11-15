@@ -29,7 +29,10 @@ if (params.has('selftest')) {
   await pixi.init({
     background: '#061426',
     resizeTo: window,
-    antialias: true,
+    // Smoothed edges where a pixel of the page is a pixel of the screen. Where the screen has two or
+    // more for each, they are small enough already, and smoothing them cost this game half its frames
+    // on integrated graphics. (?aa=1 or ?aa=0 says otherwise, to measure.)
+    antialias: params.has('aa') ? params.get('aa') !== '0' : (window.devicePixelRatio || 1) < 1.5,
     autoDensity: true,
     // Capped at 2: the canvas and every full-screen pass grow with the pixel count.
     resolution: Math.min(window.devicePixelRatio || 1, 2),
