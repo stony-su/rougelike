@@ -890,6 +890,15 @@ export function botCamp(seat: CampSeat | undefined, me: Player, content: Content
   return { kind: 'ready', a: 1 };
 }
 
+/**
+ * What a bot says to the Wager: it takes it when it is in good health and has company, and alone
+ * it walks on (a third less health in the hardest chamber of the road is a great deal to give up
+ * with nobody to pick you up).
+ */
+export function botWager(me: Player, players: number): number {
+  return players > 1 && me.hp >= me.maxHp * 0.6 ? VOTE_TAKE : VOTE_WALK;
+}
+
 /** How long a bot looks at its cards before taking one, in ticks. */
 export const BOT_THINKS = 40;
 
@@ -910,9 +919,8 @@ export function botCommands(s: Session, content: ContentRegistry, seats?: readon
       return;
     }
     if (onTable(s.wager)) {
-      // a bot takes a Wager when it is in good health and has company, after a moment's thought; alone it walks on
-      const bold = s.config.players.length > 1 && me.hp >= me.maxHp * 0.6;
-      if (s.wager.votes[slot] === VOTE_NONE && s.wager.timer <= WAGER.count - BOT_THINKS) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'wager', a: bold ? VOTE_TAKE : VOTE_WALK });
+      // after a moment's thought
+      if (s.wager.votes[slot] === VOTE_NONE && s.wager.timer <= WAGER.count - BOT_THINKS) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'wager', a: botWager(me, s.config.players.length) });
       return;
     }
     // a bot looks round a camp for a moment before it does anything there

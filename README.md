@@ -55,7 +55,7 @@ npm run dev        # start the dev server, then open the printed URL (http://loc
 
 The game opens on its title. **Play alone**, then choose the Sword, the Bow or the Fist (each card shows how that class fights). In a run, **Esc** (or Start on a controller) opens your menu, which stops the game while you are alone; when a run ends, its numbers come up and **Enter** starts the next at once. Every screen works with the keyboard, the mouse or a controller.
 
-**Controls** (on the title, and in your menu) shows both sets on two pages. In short: move with W A S D, aim with the mouse, attack with the left button (hold it: the Bow keeps loosing, the Fist draws back a Haymaker), special with the right, dash with Space, F to interact, Esc for your menu, M for sound. On a controller: left stick, right stick, right trigger, left trigger, A, X, Start.
+**Controls** (on the title, and in your menu) shows both sets on two pages. In short: move with W A S D, aim with the mouse, attack with the left button (hold it: the Bow keeps loosing, the Fist draws back a Haymaker), special with the right, dash with Space, Esc for your menu, M for sound. On a controller: left stick, right stick, right trigger, left trigger, A, Start.
 
 **Settings** holds the volume, sound on or off, how much the screen shakes, how sharp the picture is (Light is the quickest on a slow laptop) and whether a controller rumbles. They are kept in the browser between visits.
 
@@ -78,15 +78,16 @@ npm run host       # builds the game, starts the host, and prints two addresses
 - On each other laptop, open the second (`http://<the host's address>:5180`) in Chrome or Edge. Nothing needs installing there.
 - On the title, choose **Co-op lobby**. In the lobby, press **1**, **2** or **3** to choose a class and **Enter** when ready. When everyone is ready, **Enter** starts the game. When a run ends, the next begins once everyone has chosen **Go again**.
 
-If the other laptops cannot connect: Windows asks once whether to allow Node.js on your network, and the answer must be yes for private networks; and guest or public Wi-Fi often keeps laptops from seeing each other (a home network or a phone hotspot does not). Leave the host's window open while you play: closing it ends the game for everyone. A laptop that drops out keeps its seat and rejoins by reloading the page. `npm run host -- --port 5200` uses another port.
+If the other laptops cannot connect: Windows asks once whether to allow Node.js on your network, and the answer must be yes for private networks; and guest or public Wi-Fi often keeps laptops from seeing each other (a home network or a phone hotspot does not). Leave the host's window open while you play: closing it ends the game for everyone. A laptop that drops out keeps its seat and rejoins by reloading the page.npm run host -- --port 5200` uses another port.
 
 To try it alone, open the host's address in two or three browser windows: each window is a player.
 
 ```bash
 npm run typecheck  # TypeScript, strict; also compiles the simulation without any DOM types
 npm test           # headless logic tests (vitest)
-npm run check      # typecheck, tests and a production build in one go
+npm run check      # layout, types, every test and a production build in one go: the gate for every change
 npm run selftest   # with `npm run preview` running: the pinned game in installed Chrome and Edge
+node scripts/run-check.mjs   # the whole game in the real page: a run lost and a run won, alone with each class and in three pages (about twenty minutes)
 ```
 
 ## Controls
@@ -110,7 +111,7 @@ src/
   main.ts      boot
   core/        deterministic math, seeded random numbers, geometry, isometric projection
   sim/         the game as pure logic on a fixed 60 Hz step: session, world, classes, bodies, shots, enemies
-  content/     typed data, one file per thing and picked up by itself: enemies/, rooms/
+  content/     typed data, one file per thing and picked up by itself: enemies/, rooms/, tunings/
   net/         co-op without sockets: the wire format, the host's and a laptop's logic, the playout buffer
 server/        the host program: a web server and WebSockets round src/net
   render/      PixiJS: layers, camera, room art, rigs (rig/rigs/, one file each), trails, effects, extras/
@@ -118,7 +119,7 @@ server/        the host program: a web server and WebSockets round src/net
   ui/          lettering, widgets, the HUD
   game/        the shell: input devices, the frame, wiring, development pages
 tests/         vitest suites (no browser needed)
-scripts/       the task board, and browser checks driven through your installed Chrome or Edge
+scripts/       the task board, the balance table, and browser checks driven through your installed Chrome or Edge
 tasks/         the task board: one file per task, with its owner and the files it may change
 ```
 

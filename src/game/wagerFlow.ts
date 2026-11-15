@@ -1,5 +1,6 @@
 // What the game shell does while the Wager is on the table: shows it, reads the keys, and sends
 // this laptop's answer as a command. When the table closes it says how the party answered.
+import { botWager } from '../sim/bots';
 import { VOTE_NONE, VOTE_TAKE, VOTE_WALK, WAGER, onTable } from '../sim/preview';
 import type { Session } from '../sim/session';
 import type { Player } from '../sim/types';
@@ -40,7 +41,7 @@ export class WagerFlow {
       const table = `${s.attempt}/${s.stop}`;
       if (this.botSaid !== table && wg.timer <= WAGER.count - 40) {
         this.botSaid = table;
-        driver.command('wager', me.hp >= me.maxHp * 0.6 ? VOTE_TAKE : VOTE_WALK);
+        driver.command('wager', botWager(me, s.config.players.length));
       }
       return false;
     }
