@@ -21,17 +21,19 @@
 // many times it has tolled, [9] seconds the frame is still ringing from its last cracked bell.
 import { TAU, datan2, dcos, dhypot, dsin } from '../../core/dmath';
 import { ddamp, ddampAngle } from '../../core/exact';
-import { chooseTarget, nearestPlayer, setState, spawnEnemy } from '../ai';
+import { chooseTarget, setState } from '../ai';
 import { phaseFor, setPhase } from '../boss';
 import type { BossBrain } from '../boss';
 import { damageEnemy, standing } from '../combat';
+import { callThrums, furthest, leanOrb, passes, ringOfBolts } from './patterns';
+import type { RingSpec } from './patterns';
 import { destroyProjectile, spawnProjectile } from '../projectiles';
 import { addRally } from '../rally';
 import { clampToFloor } from '../room';
 import { strikeCircle, strikeLane } from '../strikes';
 import { addTelegraph, findTelegraph, laneAngle } from '../telegraphs';
 import { HITSTOP, RALLY } from '../tuning';
-import type { Enemy, Player, Projectile, World } from '../types';
+import type { Enemy, Projectile, World } from '../types';
 
 /** One number for each phase: before half its health, and after. */
 type ByPhase = readonly [number, number];
@@ -127,47 +129,8 @@ const POSE: Readonly<Record<Pattern, number>> = { serve: 0, marks: 0, peal: 0, t
 
 const phaseOf = (e: Enemy): number => (e.phase > 0 ? 1 : 0);
 
-/** A ring of bolts from the frame, with its gaps starting at place `gap`. */
-function ringOfBolts(w: World, e: Enemy, gap: number): void {
-  const apart = Math.floor(CARILLON.pealPlaces / CARILLON.pealGaps);
-  for (let i = 0; i < CARILLON.pealPlaces; i++) {
-    const from = (((i - gap) % apart) + apart) % apart;
-    // each gap is two places wide: room to stand in, not just to slip through
-    if (from === 0 || from === 1) continue;
-    const a = (i / CARILLON.pealPlaces) * TAU;
-    spawnProjectile(w, {
-      kind: 'bolt',
-      faction: 'enemy',
-      owner: e.id,
-      x: e.x,
-      y: e.y,
-      vx: dcos(a) * CARILLON.pealSpeed,
-      vy: dsin(a) * CARILLON.pealSpeed,
-      radius: 0.16,
-      damage: CARILLON.pealDamage * e.damageMul,
-      range: 18,
-    });
-  }
-  w.events.push({ type: 'shockwave', x: e.x, y: e.y, radius: e.radius + 1.2 });
-}
-
-/** The player furthest from the frame, so that nobody is ever simply out of its reach. */
-function furthest(w: World, e: Enemy): Player | null {
-  let best: Player | null = null;
-  let bd = -1;
-  for (const p of w.players) {
-    if (!standing(p)) continue;
-    const d = (p.x - e.x) * (p.x - e.x) + (p.y - e.y) * (p.y - e.y);
-    if (d > bd) {
-      bd = d;
-      best = p;
-    }
-  }
-  return best;
-}
-
-/** True on the one tick the pattern's clock passes `at`. */
-const passes = (t: number, dt: number, at: number): boolean => t - dt < at && t >= at;
+/** Its ring of bolts: each gap is two places wide, room to stand in and not just to slip through. */
+const PEAL: RingSpec = { places: CARILLON.pealPlaces, gaps: CARILLON.pealGaps, gapWidth: 2, speed: CARILLON.pealSpeed, damage: CARILLON.pealDamage, range: 18 };
 
 /**
  * Run the pattern in hand for one tick. `t` is how long it has been running, this tick included
@@ -242,7 +205,7 @@ function run(w: World, e: Enemy, what: Pattern, t: number, dt: number): boolean 
       for (let k = 0; k < rings; k++) {
         if (!passes(t, dt, CARILLON.pealTell + k * CARILLON.pealEvery)) continue;
         // the gaps walk round the ring from one to the next
-        ringOfBolts(w, e, e.mem[ANGLE] + k * 3);
+        ringOfBolts(w, e, PEAL, e.mem[ANGLE] + k * 3);
         setState(e, 'attack', 0.3);
       }
       return t >= CARILLON.pealTell + (rings - 1) * CARILLON.pealEvery + 0.3;
@@ -314,52 +277,11 @@ function run(w: World, e: Enemy, what: Pattern, t: number, dt: number): boolean 
         e.px = at.x;
         e.py = at.y;
         e.airborne = false;
-        ringOfBolts(w, e, w.rng.int(0, CARILLON.pealPlaces - 1));
+        ringOfBolts(w, e, PEAL, w.rng.int(0, CARILLON.pealPlaces - 1));
         setState(e, 'attack', 0.4);
       }
       return t >= CARILLON.leapWarn + 0.4;
     }
-  }
-}
-
-/** An orb of its own, still on its way to a player: it leans toward the nearest one, at the speed the cracked bells set. */
-function conduct(w: World, e: Enemy, pr: Projectile, dt: number): void {
-  const speed = CARILLON.orbSpeed + CARILLON.orbFaster * e.mem[CRACKED];
-  let ux = pr.vx;
-  let uy = pr.vy;
-  const l = dhypot(ux, uy) || 1;
-  ux /= l;
-  uy /= l;
-  const p = nearestPlayer(w, pr.x, pr.y);
-  if (p) {
-    const tx = p.x - pr.x;
-    const ty = p.y - pr.y;
-    const tl = dhypot(tx, ty);
-    if (tl > 1e-6) {
-      const k = CARILLON.orbLean * dt;
-      ux += (tx / tl) * k;
-      uy += (ty / tl) * k;
-      const nl = dhypot(ux, uy) || 1;
-      ux /= nl;
-      uy /= nl;
-    }
-  }
-  pr.vx = ux * speed;
-  pr.vy = uy * speed;
-}
-
-/** Thrums answer a cracked bell: two and one for each player, never more than a handful alive. */
-function callThrums(w: World): void {
-  const thrum = w.content.enemies.thrum;
-  const marks = w.room.spawnMarks;
-  if (!thrum || marks.length === 0) return;
-  let alive = 0;
-  for (const o of w.enemies) if (!o.dead && o.defId === thrum.id) alive++;
-  const call = Math.min(CARILLON.thrums + w.players.length, CARILLON.thrumsMost - alive);
-  const from = w.rng.int(0, marks.length - 1);
-  for (let i = 0; i < call; i++) {
-    const m = marks[(from + i) % marks.length];
-    spawnEnemy(w, thrum, m.x, m.y);
   }
 }
 
@@ -379,7 +301,8 @@ function crack(w: World, e: Enemy, pr: Projectile): void {
   }
   damageEnemy(w, e, amount, { kind: 'return', by, dx, dy, heavy: true, crit: whole, freeze: HITSTOP.perfect });
   addRally(w, by, whole ? RALLY.weight.perfect : RALLY.weight.sent, e.x, e.y);
-  if (whole && !e.dead) callThrums(w);
+  // Thrums answer a cracked bell
+  if (whole && !e.dead) callThrums(w, CARILLON.thrums + w.players.length, CARILLON.thrumsMost);
 }
 
 export const CARILLON_BRAIN: BossBrain = {
@@ -405,7 +328,8 @@ export const CARILLON_BRAIN: BossBrain = {
     for (const pr of w.projectiles) {
       if (pr.dead || pr.kind !== 'orb') continue;
       if (pr.faction === 'enemy') {
-        if (pr.owner === e.id) conduct(w, e, pr, dt);
+        // its own orbs lean toward whoever is nearest, at the speed the cracked bells set
+        if (pr.owner === e.id) leanOrb(w, pr, CARILLON.orbSpeed + CARILLON.orbFaster * e.mem[CRACKED], CARILLON.orbLean, dt);
       } else if ((pr.x - e.x) * (pr.x - e.x) + (pr.y - e.y) * (pr.y - e.y) <= (reach + pr.radius) * (reach + pr.radius)) {
         crack(w, e, pr);
         if (e.dead) return;

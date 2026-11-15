@@ -125,6 +125,8 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
       }
     }
   }
+  // what it takes of this kind of blow (a boss's phases change it; for nearly everything it is all of it)
+  amount *= returned ? e.takeReturn : src.kind === 'direct' ? e.takeDirect : 1;
   if (e.def.boss) {
     // A boss is never stunned, but Returns landed one after another stagger it: it stops, and takes more.
     if (e.staggered > 0) {

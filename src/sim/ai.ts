@@ -151,6 +151,8 @@ export function spawnEnemy(w: World, def: EnemyDef, x: number, y: number, o: { e
     groundedT: 0,
     guardOpen: 0,
     phase: 0,
+    takeDirect: 1,
+    takeReturn: 1,
     mate: 0,
     ringT: 0,
     ringX: 0,

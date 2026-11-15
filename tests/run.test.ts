@@ -34,7 +34,7 @@ function tick(s: Session, bots: Bot[], unhurt = false): void {
 }
 
 describe('the route', () => {
-  it('is twelve chambers over two zones, within the limits of the design, for every seed', () => {
+  it('is twelve chambers over two zones and the Crater, within the limits of the design, for every seed', () => {
     const orders = new Set<string>();
     for (let i = 0; i < 300; i++) {
       const r = planRoute(`route-${i}`);
@@ -43,7 +43,9 @@ describe('the route', () => {
       expect(r.length).toBe(RUN_LENGTH);
       expect(r.map((s) => s.n)).toEqual(Array.from({ length: RUN_LENGTH }, (_, n) => n + 1));
       expect(r.slice(0, 6).every((s) => s.zone === 'outer')).toBe(true);
-      expect(r.slice(6).every((s) => s.zone === 'inner')).toBe(true);
+      expect(r.slice(6, 11).every((s) => s.zone === 'inner')).toBe(true);
+      // the road ends in the Crater, where the Bell hangs
+      expect(r[11].zone).toBe('crater');
       // it opens with a fight, each zone ends with a camp and then its boss
       expect(kinds[0]).toBe('fight');
       expect([kinds[4], kinds[5]]).toEqual(['camp', 'miniboss']);
@@ -76,7 +78,13 @@ describe('the route', () => {
     const at = (kind: Stop['kind'], n: number): Stop => ({ n, kind, zone: 'outer', look: 'court', shape: 'court', size: 24, name: '' });
     const fight = flowFor(at('fight', 4), 1, CONTENT);
     expect(flowFor(at('elite', 4), 1, CONTENT).budget).toBeGreaterThan(fight.budget);
-    expect(flowFor(at('boss', 4), 1, CONTENT).budget).toBeGreaterThan(flowFor(at('elite', 4), 1, CONTENT).budget);
+    // the two that end a zone are one great Echo each, and pay the most
+    const elite = flowFor(at('elite', 4), 1, CONTENT);
+    const mini = flowFor(at('miniboss', 6), 1, CONTENT);
+    const last = flowFor(at('boss', 12), 1, CONTENT);
+    expect([mini.boss, last.boss]).toEqual(['carillon', 'toll']);
+    expect(mini.clearBonus).toBeGreaterThan(elite.clearBonus);
+    expect(last.clearBonus).toBeGreaterThan(mini.clearBonus);
     expect(flowFor(at('solo', 4), 1, CONTENT).waves).toBe(1);
     expect(flowFor(at('camp', 4), 1, CONTENT).waves).toBe(0);
     // three players face more than one

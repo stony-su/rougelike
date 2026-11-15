@@ -37,7 +37,7 @@ export const BOSS = 'toll';
 /** The share of their health everyone gets back on walking into a camp. */
 export const CAMP_HEAL = 0.35;
 
-const ZONE_NAMES: Record<ZoneId, string> = { outer: 'Reedwater', inner: 'Stormshelf' };
+const ZONE_NAMES: Record<ZoneId, string> = { outer: 'Reedwater', inner: 'Stormshelf', crater: 'The Crater' };
 const SHAPE_NAMES: Record<RoomShape, string> = { court: 'Court', cross: 'Crossing', lobes: 'Twin Halls', ring: 'Ring', cavern: 'Hollow' };
 
 function shuffled<T>(items: readonly T[], rng: Rng): T[] {
@@ -66,7 +66,8 @@ export function planRoute(seed: string): Stop[] {
   let lastLook: RoomLook = rng.chance(0.5) ? 'court' : 'survey';
   let sameLook = 0;
   kinds.forEach((kind, i) => {
-    const zone: ZoneId = i < outer.length ? 'outer' : 'inner';
+    // the last chamber is the Crater itself
+    const zone: ZoneId = kind === 'boss' ? 'crater' : i < outer.length ? 'outer' : 'inner';
     // never the same look three chambers running
     let look: RoomLook = rng.chance(0.5) ? 'court' : 'survey';
     if (look === lastLook && sameLook >= 2) look = look === 'court' ? 'survey' : 'court';

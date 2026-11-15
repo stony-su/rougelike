@@ -24,6 +24,8 @@ export const KEYS: Record<ZoneId, ZoneKey> = {
   outer: { name: 'G major pentatonic', tonic: pitch(-14), mode: [0, 2, 4, 7, 9] },
   // The Inner Ring is the Cinder Terraces: a tone lower, and minor. F minor pentatonic.
   inner: { name: 'F minor pentatonic', tonic: pitch(-16), mode: [0, 3, 5, 7, 10] },
+  // The Crater is the Bell's own: lower again, and bare. D, with only its fourths and fifths and the note between.
+  crater: { name: 'D suspended', tonic: pitch(-19), mode: [0, 2, 5, 7, 10] },
 };
 
 /** A Rally has this many notes: one for every point it can hold. */

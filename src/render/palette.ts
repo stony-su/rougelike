@@ -164,6 +164,28 @@ export const ZONES: Record<ZoneId, ZoneTheme> = {
     bumper: 0x4f7fb0,
     bumperHot: 0xcdefff,
   },
+  // The Crater: black stone and gold, where the Bell hangs
+  crater: {
+    id: 'crater',
+    name: 'The Crater',
+    voidColor: 0x070604,
+    ground: 0x211c13,
+    groundDark: 0x19150e,
+    wallTop: 0x8a7440,
+    wallLeft: 0x5e4f2b,
+    wallRight: 0x4b3f23,
+    sideLeft: 0x16130c,
+    sideRight: 0x100e09,
+    pitWall: 0x14110a,
+    pitDeep: 0x050403,
+    contour: 0x6e5a28,
+    accent: 0xffd766,
+    highlight: 0xfff4d0,
+    inkWash: 0x8a62b8,
+    inkDark: 0x33214d,
+    bumper: 0xa8842f,
+    bumperHot: 0xfff0b0,
+  },
 };
 
 /** '#rrggbb' for Pixi options that want a CSS string. */

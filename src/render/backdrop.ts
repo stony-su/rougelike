@@ -102,7 +102,7 @@ void main() {
   finalColor = vec4(col * (0.5 + 0.5 * vig), 1.0);
 }`;
 
-const STYLE: Record<ZoneId, number> = { outer: 0, inner: 1 };
+const STYLE: Record<ZoneId, number> = { outer: 0, inner: 1, crater: 2 };
 const RIPPLES = 8;
 
 interface Ripple {

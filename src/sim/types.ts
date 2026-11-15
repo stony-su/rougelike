@@ -297,6 +297,12 @@ export interface Enemy {
   guardOpen: number;
   /** The phase of the fight a boss is in, from 0. Always 0 for anything else. */
   phase: number;
+  /**
+   * What it takes of a blow that is not a Return, and of one that is: 1 for nearly everything. A
+   * boss's brain changes them with its phases.
+   */
+  takeDirect: number;
+  takeReturn: number;
   /** The id of the other of a Tethered pair of elites, or 0. */
   mate: number;
   /** A Resonant elite's ring: seconds until it lands (0 when none is coming), and where. */

@@ -3,7 +3,9 @@
 // are kept in the order of the alphabet, so two people adding two brains change different lines.
 import type { BossBrain } from '../boss';
 import { CARILLON_BRAIN } from './carillon';
+import { TOLL_BRAIN } from './toll';
 
 export const BRAINS: Readonly<Record<string, BossBrain>> = {
   [CARILLON_BRAIN.id]: CARILLON_BRAIN,
+  [TOLL_BRAIN.id]: TOLL_BRAIN,
 };

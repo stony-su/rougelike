@@ -5,8 +5,8 @@
 import type { BossBrain } from './boss';
 import type { HarmonyDef, TuningDef } from './mods';
 
-/** The two halves of a run: the Outer Ring and the Inner Ring. */
-export type ZoneId = 'outer' | 'inner';
+/** Where a chamber lies: the Outer Ring, the Inner Ring, or the Crater at the middle, where the Bell hangs. */
+export type ZoneId = 'outer' | 'inner' | 'crater';
 export type RoomKind = 'combat' | 'arena';
 /**
  * How a chamber is dressed, whatever its colours. 'court': a quiet checker with round posts.
