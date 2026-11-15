@@ -32,8 +32,8 @@ function classShown(ev: SimEvent): ClassId | null {
     case 'whirl':
       return 'sword';
     case 'loose':
-    case 'stoneThrow':
-    case 'stonePlant':
+    case 'hook':
+    case 'hookLand':
       return 'bow';
     case 'jab':
     case 'chargeFull':

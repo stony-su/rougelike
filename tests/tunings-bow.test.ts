@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { grantTuning } from '../src/sim/player';
 import { arrowSpec, spawnProjectile } from '../src/sim/projectiles';
-import { BODY, BOW, RINGSTONE, STRING } from '../src/sim/tuning';
+import { BOW, HOOK, SIM_HZ, STRING } from '../src/sim/tuning';
 import type { Enemy, Player, Projectile, SimEvent, World } from '../src/sim/types';
 import { BTN, PRESS, Pad, dummy, eventsOf, openWorld, place, run } from './helpers';
 
@@ -253,108 +253,115 @@ describe('Chain', () => {
   });
 });
 
-describe('Stonework', () => {
-  /** Throw a stone at a point and let it land. */
-  const plant = (w: World, p: Player, pad: Pad, x: number, y: number): void => {
-    p.specialCd = 0;
-    pad.aimAt(p, x, y);
-    run(w, 30, pad.tap(PRESS.special));
+describe('the Line', () => {
+  /** Fire the line at a point and play on until the Bow has landed (or `most` ticks have gone); returns what happened. */
+  const hook = (w: World, p: Player, pad: Pad, x: number, y: number, most = 60): SimEvent[] => {
+    pad.aimAt(p, x, y).tap(PRESS.special);
+    const ev: SimEvent[] = [];
+    for (let t = 0; t < most; t++) {
+      ev.push(...run(w, 1, pad));
+      if (t > 1 && p.state !== 'special') break;
+    }
+    return ev;
   };
 
-  it('Twin Stones: two stand at once, for twice as long, and at rank II the next comes sooner', () => {
-    const two = (tunings: Record<string, number>): { stones: number; life: number; cd: number } => {
-      const { w, p, pad } = held(tunings);
-      plant(w, p, pad, 9.5, 6.5);
-      plant(w, p, pad, 6.5, 9.5);
-      const cd = p.specialCd;
-      return { stones: w.stones.length, life: w.stones[w.stones.length - 1].life, cd };
-    };
-    const plain = two({});
-    expect(plain.stones).toBe(1);
-    expect(plain.life).toBeGreaterThan(RINGSTONE.life - 1);
-    const twin = two({ 'twin-stones': 1 });
-    expect(twin.stones).toBe(2);
-    expect(twin.life).toBeGreaterThan(RINGSTONE.life * 2 - 1);
-    expect(twin.cd).toBeGreaterThan(RINGSTONE.cooldown - 1);
-    const quick = two({ 'twin-stones': 2 });
-    expect(quick.cd).toBeLessThanOrEqual(RINGSTONE.cooldown * 0.75);
-    expect(quick.cd).toBeGreaterThan(RINGSTONE.cooldown * 0.75 - 1);
-    // a third sends the oldest away: never more than two
-    const { w, p, pad } = held({ 'twin-stones': 1 });
-    plant(w, p, pad, 9.5, 6.5);
-    plant(w, p, pad, 6.5, 9.5);
-    plant(w, p, pad, 3.5, 6.5);
-    expect(w.stones).toHaveLength(2);
-    expect(w.stones.some((s) => Math.abs(s.x - 9.5) < 0.2 && Math.abs(s.y - 6.5) < 0.2)).toBe(false);
-  });
-
-  it('Resonant Stone: a stone sends things on harder, and pulses when it is struck', () => {
-    const through = (tunings: Record<string, number>): { far: Enemy; near: Enemy; ev: SimEvent[] } => {
-      const { w, p, pad } = held(tunings);
-      const far = dummy(w, 10.5, 2.5, 1000);
-      // beside the stone, but further from it than the one the arrow is sent at
-      plant(w, p, pad, 10.5, 6.5);
-      const near = dummy(w, 11.9, 7.4, 1000);
-      far.x = far.px = 10.5;
-      far.y = far.py = 5.2;
-      // an arrow that skips to nobody, so that only the stone's own doing is seen
-      arrow(w, p, [8, 6.5], [10.5, 6.5]);
-      return { far, near, ev: run(w, 60, pad) };
-    };
-    const plain = through({});
-    expect(lost(plain.far)).toBeCloseTo(BOW.damage * (1 + BOW.bounceBonus) * (1 + BODY.stoneBoost));
-    expect(lost(plain.near)).toBe(0);
-    for (const [rank, boost, pulse] of [
-      [1, 0.8, 8],
-      [2, 1.1, 12],
-      [3, 1.4, 16],
+  it('Long Line: the line reaches further, and is ready sooner', () => {
+    for (const [rank, further, sooner] of [
+      [0, 0, 0],
+      [1, 2, 0.1],
+      [2, 3, 0.2],
+      [3, 4, 0.3],
     ]) {
-      const r = through({ 'resonant-stone': rank });
-      expect(lost(r.near)).toBeCloseTo(pulse);
-      // the pulse reaches the one the arrow is sent at as well, and then the arrow lands on it
-      expect(lost(r.far)).toBeCloseTo(BOW.damage * (1 + BOW.bounceBonus) * (1 + boost) + pulse);
-      expect(eventsOf(r.ev, 'burst')[0]).toMatchObject({ what: 'stone', radius: STRING.pulseRadius });
+      const { w, p, pad } = held(rank ? { 'long-line': rank } : {});
+      // from one end of the room, at a point far beyond the other
+      place(p, 1.6, 6.5);
+      const ev = hook(w, p, pad, 40, 6.5);
+      expect(eventsOf(ev, 'hookLand')).toHaveLength(1);
+      expect(p.x).toBeCloseTo(1.6 + HOOK.range + further, 6);
+      expect(p.specialCd).toBeLessThanOrEqual(HOOK.cooldown * (1 - sooner));
+      expect(p.specialCd).toBeGreaterThan(HOOK.cooldown * (1 - sooner) - 1);
     }
   });
 
-  it('Lodestone: a planted stone draws the Echoes near it in', () => {
-    const drawn = (tunings: Record<string, number>, away: number): number => {
+  it('Barbed Line: what the line passes takes more, and is thrown harder', () => {
+    const passed = (tunings: Record<string, number>): { hurt: number; speed: number } => {
       const { w, p, pad } = held(tunings);
-      plant(w, p, pad, 10.5, 6.5);
-      const e = dummy(w, 10.5 + away, 6.5, 1000);
-      run(w, 60, pad);
-      return 10.5 + away - e.x;
+      const e = dummy(w, 9, 6.5 + 0.3, 1000);
+      const ev = hook(w, p, pad, 12.5, 6.5);
+      return { hurt: lost(e), speed: eventsOf(ev, 'launch').find((l) => l.id === e.id)?.speed ?? 0 };
     };
-    expect(drawn({}, 2.6)).toBe(0);
-    expect(drawn({ lodestone: 1 }, 2.6)).toBeCloseTo(1.5, 1);
-    expect(drawn({ lodestone: 3 }, 3.8)).toBeCloseTo(2.5, 1);
-    // out of its reach, nothing; and it stops short of the stone itself
-    expect(drawn({ lodestone: 1 }, 3.4)).toBe(0);
-    const { w, p, pad } = held({ lodestone: 3 });
-    plant(w, p, pad, 10.5, 6.5);
-    const e = dummy(w, 12, 6.5, 1000);
-    run(w, 240, pad);
-    expect(e.x - 10.5).toBeGreaterThan(RINGSTONE.radius + e.radius);
+    const plain = passed({});
+    expect(plain.hurt).toBe(HOOK.damage);
+    expect(plain.speed).toBeCloseTo(HOOK.impulse);
+    for (const [rank, damage, harder] of [
+      [1, 14, 1.3],
+      [2, 20, 1.6],
+      [3, 26, 1.9],
+    ]) {
+      const r = passed({ 'barbed-line': rank });
+      expect(r.hurt).toBe(damage);
+      expect(r.speed).toBeCloseTo(HOOK.impulse * harder);
+    }
   });
 
-  it('Bell Tower (Twin Stones and Resonant Stone): an arrow goes between two stones before it is let go', () => {
-    const tolls = (tunings: Record<string, number>): { offStone: number; bursts: number; hit: boolean } => {
-      const { w, p, pad } = held(tunings);
-      plant(w, p, pad, 10.5, 6.5);
-      plant(w, p, pad, 10.5, 10.5);
-      const e = dummy(w, 13.5, 3.5, 1000);
-      pad.aimAt(p, 10.5, 6.5);
-      const ev = run(w, 120, pad.tap(PRESS.attack));
-      return { offStone: eventsOf(ev, 'ricochet').filter((r) => r.off === 'stone').length, bursts: eventsOf(ev, 'burst').length, hit: e.hp < 1000 };
-    };
-    // two stones without the Harmony: the first sends the arrow straight at the Echo
-    const twin = tolls({ 'twin-stones': 1 });
-    expect(twin).toEqual({ offStone: 1, bursts: 0, hit: true });
-    const tower = tolls({ 'twin-stones': 1, 'resonant-stone': 1 });
-    // there and back four times, then on to the Echo: five meetings with a stone, a pulse at each
-    expect(tower.offStone).toBe(1 + STRING.towerMost);
-    expect(tower.bursts).toBe(1 + STRING.towerMost);
-    expect(tower.hit).toBe(true);
+  it('Full Quiver: more arrows leave at once after the line, and each of them has a ricochet more', () => {
+    for (const [rank, arrows] of [
+      [0, 3],
+      [1, 4],
+      [3, 6],
+    ]) {
+      const { w, p, pad } = held(rank ? { 'full-quiver': rank } : {});
+      hook(w, p, pad, 10.5, 6.5);
+      expect(p.quiver).toBe(arrows);
+      // hold the string: the ones that were ready go one on the heels of another, the next after a rest
+      pad.aimAt(p, 2, 6.5).hold(BTN.attack, true);
+      const at: number[] = [];
+      const bounces: number[] = [];
+      for (let t = 0; t < 120 && at.length < arrows + 1; t++) {
+        const before = w.projectiles.length;
+        if (eventsOf(run(w, 1, pad), 'loose').length === 0) continue;
+        at.push(t);
+        bounces.push(w.projectiles[before].bounces);
+      }
+      const quick = Math.ceil(HOOK.quick * SIM_HZ);
+      for (let i = 1; i < arrows; i++) expect(at[i] - at[i - 1], `rank ${rank}, arrow ${i}`).toBeLessThanOrEqual(quick);
+      expect(at[arrows] - at[arrows - 1]).toBeGreaterThanOrEqual(Math.round(BOW.interval * SIM_HZ) - 1);
+      expect(bounces.slice(0, arrows)).toEqual(Array.from({ length: arrows }, () => BOW.bounces + (rank ? 1 : 0)));
+      expect(bounces[arrows]).toBe(BOW.bounces);
+    }
+  });
+
+  it('Slingshot (Long Line and Barbed Line): for a moment after landing the line can be fired once more for nothing', () => {
+    const { w, p, pad } = held({ 'long-line': 1, 'barbed-line': 1 });
+    expect(p.mods.slingshot).toBe(1);
+    hook(w, p, pad, 10.5, 6.5);
+    expect(p.hookFree).toBeCloseTo(HOOK.again, 1);
+    const wait = p.specialCd;
+    expect(wait).toBeGreaterThan(1);
+    // again, though the wait has hardly begun: it goes, and the wait is neither spent again nor forgiven
+    const second = hook(w, p, pad, 10.5, 10.5);
+    expect(eventsOf(second, 'hook')).toHaveLength(1);
+    expect(eventsOf(second, 'refused')).toHaveLength(0);
+    expect(p.y).toBeCloseTo(10.5, 6);
+    expect(p.specialCd).toBeLessThan(wait);
+    expect(p.specialCd).toBeGreaterThan(wait - 1);
+    // the one that was for nothing gives no other
+    expect(p.hookFree).toBe(0);
+    const third = hook(w, p, pad, 6.5, 10.5, 5);
+    expect(eventsOf(third, 'hook')).toHaveLength(0);
+    expect(eventsOf(third, 'refused')).toHaveLength(1);
+
+    // left too long, the moment is gone
+    const late = held({ 'long-line': 1, 'barbed-line': 1 });
+    hook(late.w, late.p, late.pad, 10.5, 6.5);
+    run(late.w, Math.round(HOOK.again * SIM_HZ) + 3, late.pad);
+    expect(eventsOf(hook(late.w, late.p, late.pad, 10.5, 10.5, 5), 'refused')).toHaveLength(1);
+
+    // and without the Harmony there is no second line at all
+    const plain = held({ 'long-line': 1 });
+    hook(plain.w, plain.p, plain.pad, 10.5, 6.5);
+    expect(plain.p.hookFree).toBe(0);
+    expect(eventsOf(hook(plain.w, plain.p, plain.pad, 10.5, 10.5, 5), 'refused')).toHaveLength(1);
   });
 });
 
@@ -413,18 +420,18 @@ describe('the Bow’s Tunings as a set', () => {
     for (const t of own) builds.set(t.build, (builds.get(t.build) ?? 0) + 1);
     expect([...builds.entries()].sort()).toEqual([
       ['Chain', 3],
+      ['Line', 3],
       ['Pinball', 3],
-      ['Stonework', 3],
       ['Wildcard', 1],
     ]);
-    expect(own.filter((t) => t.locked).map((t) => t.id)).toEqual(['lodestone']);
+    expect(own.filter((t) => t.locked).map((t) => t.id)).toEqual(['full-quiver']);
     const ids = new Set(own.map((t) => t.id));
     expect(
       CONTENT.harmonies
         .filter((h) => h.parents.every((id) => ids.has(id)))
         .map((h) => h.id)
         .sort(),
-    ).toEqual(['bell-tower', 'chain-reaction', 'trick-shot']);
+    ).toEqual(['chain-reaction', 'slingshot', 'trick-shot']);
     for (const t of own) expect(t.text.length).toBe(t.maxRank);
     // no two of them wear the same emblem
     expect(new Set(own.map((t) => t.icon)).size).toBe(own.length);

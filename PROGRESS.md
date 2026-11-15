@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 87% complete.** 42 of 52 tasks are done, 0 in progress, 10 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 90% complete.** 43 of 52 tasks are done, 0 in progress, 9 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 17.7% | 89% |
 | 6 | Menus, saving, sound | 3.9% | 100% |
 | 7 | Polish and balance | 3.1% | 75% |
-| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 24% |
+| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 42% |
 
 ## In progress
 
@@ -28,7 +28,6 @@ Nothing at the moment.
 - [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.2% of the game)
 - [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.8% of the game)
 - [T82](tasks/T82-card-layout.md) **Cards that fit their words; a wider camp and a wider between-runs screen** (0.8% of the game)
-- [T86](tasks/T86-specials.md) **Three specials to choose from for the Sword and for the Bow** (2.4% of the game)
 - [T87](tasks/T87-camp-place.md) **The camp as a place: a merchant, and a pool to walk into** (1.6% of the game)
 - [T88](tasks/T88-terrain-and-traps.md) **More terrain and more traps** (1.6% of the game)
 - [T89](tasks/T89-plain-words.md) **Plain words through the whole game** (1.2% of the game)
@@ -83,6 +82,7 @@ Nothing.
 - [T83](tasks/T83-cooldown-and-ability-text.md) The special's cooldown under the hero, and what every upgrade does on Tab or on hover
 - [T84](tasks/T84-fist-stomp.md) The Fist's stomp: safe through it, and a follow-up
 - [T85](tasks/T85-dash-chains.md) Dash into attack for everyone; dash into heavy into jab for the Fist
+- [T86](tasks/T86-specials.md) A new special for the Sword and for the Bow
 
 ## Future plans: designed, kept for later
 

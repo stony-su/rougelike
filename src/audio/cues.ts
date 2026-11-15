@@ -209,20 +209,16 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       const note = noteOf(zone, RICOCHET_STEP + clamp(ev.n, 1, RICOCHET_MOST));
       here(out, at, 'ricochet', ev.x, ev.y, 0.9 * whose(ev.by), { note });
       if (ev.off === 'bumper') here(out, at, 'bumperRing', ev.x, ev.y, 0.6 * whose(ev.by));
-      else if (ev.off === 'stone') here(out, at, 'stoneRing', ev.x, ev.y, 0.8 * whose(ev.by));
       break;
     }
     case 'skip':
       here(out, at, 'skip', ev.fromX, ev.fromY, whose(ev.by));
       break;
-    case 'stoneThrow':
-      here(out, at, 'stoneThrow', ev.x, ev.y, whose(ev.player));
+    case 'hook':
+      here(out, at, 'hookFire', ev.x, ev.y, whose(ev.player));
       break;
-    case 'stonePlant':
-      here(out, at, 'stonePlant', ev.x, ev.y, whose(ev.player));
-      break;
-    case 'stoneEnd':
-      here(out, at, 'stoneEnd', ev.x, ev.y, 0.7);
+    case 'hookLand':
+      here(out, at, 'hookLand', ev.x, ev.y, whose(ev.player));
       break;
 
     // ---- the Fist
@@ -277,11 +273,10 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       break;
     }
     case 'wallSlam': {
-      // harder is louder and lower; a bumper rings bright and a Ringstone rings like glass over the thud
+      // harder is louder and lower; a bumper rings bright over the thud
       const hard = clamp(ev.speed / 22, 0, 1);
       here(out, at, 'wallSlam', ev.x, ev.y, (0.25 + 0.75 * hard) * hand(ev.by), { pitch: (ev.off === 'post' ? 1.5 : 1.25) - 0.45 * hard });
       if (ev.off === 'bumper') here(out, at, 'bumperRing', ev.x, ev.y, (0.5 + 0.5 * hard) * hand(ev.by));
-      else if (ev.off === 'stone') here(out, at, 'stoneRing', ev.x, ev.y, (0.5 + 0.5 * hard) * hand(ev.by));
       break;
     }
     case 'carom': {
@@ -383,12 +378,12 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       here(out, at, 'shockwave', ev.x, ev.y, clamp(ev.radius / 2.5, 0.5, 1));
       break;
     case 'duet':
-      // two players, one bounce: the stone's ring over whatever the bounce itself sounded like
-      here(out, at, 'stoneRing', ev.x, ev.y, ev.a === at.slot || ev.b === at.slot ? 0.9 : 0.6);
+      // two players, one bounce: a ring of glass over whatever the bounce itself sounded like
+      here(out, at, 'glassRing', ev.x, ev.y, ev.a === at.slot || ev.b === at.slot ? 0.9 : 0.6);
       break;
     case 'revive':
       here(out, at, 'specialReady', ev.x, ev.y, 1);
-      here(out, at, 'stonePlant', ev.x, ev.y, 0.7);
+      here(out, at, 'glassSet', ev.x, ev.y, 0.7);
       break;
 
     // ---- Tunings
@@ -400,7 +395,7 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       here(out, at, 'shockwave', ev.x, ev.y, clamp(ev.radius / 2.5, 0.5, 1) * whose(ev.by));
       break;
     case 'bolt':
-      here(out, at, 'stoneRing', ev.toX, ev.toY, 0.6 * whose(ev.by));
+      here(out, at, 'glassRing', ev.toX, ev.toY, 0.6 * whose(ev.by));
       break;
     case 'heal':
       if (ev.player === at.slot) flat(out, at, 'pickupBig', 0.6);
@@ -430,7 +425,7 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       here(out, at, ev.kind === 'knell' ? 'windEcho' : 'tick', ev.x, ev.y, 0.8);
       break;
     case 'trapStrike':
-      here(out, at, ev.kind === 'spikes' ? 'armorBreak' : ev.kind === 'knell' ? 'stoneRing' : 'piperVolley', ev.x, ev.y, ev.kind === 'spikes' ? 0.6 : 0.9);
+      here(out, at, ev.kind === 'spikes' ? 'armorBreak' : ev.kind === 'knell' ? 'glassRing' : 'piperVolley', ev.x, ev.y, ev.kind === 'spikes' ? 0.6 : 0.9);
       break;
     case 'bellCrack':
       here(out, at, 'reflectPerfect', ev.x, ev.y, 1);
@@ -482,9 +477,8 @@ export const SAMPLE_EVENTS: { readonly [K in SimEvent['type']]: Extract<SimEvent
   rallyBreak: { type: 'rallyBreak', player: 0, value: 8 },
   duet: { type: 'duet', kind: 'bank', a: 0, b: 1, x: 0, y: 0 },
   revive: { type: 'revive', player: 0, by: 1, x: 0, y: 0 },
-  stoneThrow: { type: 'stoneThrow', id: 1, player: 0, x: 0, y: 0 },
-  stonePlant: { type: 'stonePlant', id: 1, player: 0, x: 0, y: 0 },
-  stoneEnd: { type: 'stoneEnd', id: 1, x: 0, y: 0 },
+  hook: { type: 'hook', player: 0, x: 0, y: 0, toX: 6, toY: 0 },
+  hookLand: { type: 'hookLand', player: 0, x: 6, y: 0 },
   bombThrow: { type: 'bombThrow', id: 1, x: 0, y: 0 },
   bombLand: { type: 'bombLand', id: 1, x: 0, y: 0 },
   bombBat: { type: 'bombBat', id: 1, player: 0, x: 0, y: 0 },

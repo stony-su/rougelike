@@ -176,15 +176,14 @@ function loose(p: PoseWriter, a: AnimInput): void {
   p.part('cloak').rot += (v === 2 ? 0.7 : 0.25) * kick;
 }
 
-/** Throwing the Ringstone: a quick overhand throw with the string hand. */
-function throwStone(p: PoseWriter, a: AnimInput): void {
-  const t = ease(a.phase);
-  pointArm(p, 'armNear', lerp(a.aim - 2.3, a.aim + 0.5, t));
-  p.part('armNear').z = t < 0.4 ? -6 : 0;
-  pointArm(p, 'armFar', 1.5);
-  p.part('bow').rot = -0.9;
-  p.part('torso').rot += lerp(-0.2, 0.26, t);
-  p.part('hips').x += 3 * t;
+/** On the Hook Shot's line: thrown forward as in a dash, both hands out ahead on the line, the cloak streaming behind. */
+function hauled(p: PoseWriter, a: AnimInput): void {
+  dashPose(p, a);
+  pointArm(p, 'armNear', a.aim - 0.12);
+  pointArm(p, 'armFar', a.aim + 0.1);
+  p.part('armFar').z = 5;
+  p.part('bow').rot = -0.2;
+  p.part('cloak').rot = 1.3;
 }
 
 export const stringAnimator: Animator = (p, a) => {
@@ -202,15 +201,16 @@ export const stringAnimator: Animator = (p, a) => {
     p.part('cloak').rot = 1.1;
     return 50;
   }
+  if (a.state === 'special') {
+    hauled(p, a);
+    return 50;
+  }
   locomotion(p, a);
   cloakFollow(p, a);
   carry(p, a);
   switch (a.state) {
     case 'attack':
       loose(p, a);
-      return 60;
-    case 'special':
-      throwStone(p, a);
       return 60;
     case 'hurt':
       hurtPose(p, a);

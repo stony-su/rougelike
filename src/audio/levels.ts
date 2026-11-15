@@ -25,9 +25,9 @@ export const TRIM: Partial<Record<SoundId, number>> = {
   rallyChord: 0.82, // 0.63, 0.240
   reflect: 0.74, // 1.32, 0.150
   reflectPerfect: 0.79, // 1.23, 0.235
-  riposte: 0.57, // 1.71, 0.221
-  stonePlant: 0.81, // 1.20, 0.241
-  stoneRing: 0.93, // 0.80, 0.210
+  ward: 0.57, // 1.71, 0.221
+  glassSet: 0.81, // 1.20, 0.241
+  glassRing: 0.93, // 0.80, 0.210
   breakSlam: 0.63, // 1.55, 0.308
   wallSlam: 0.83, // 1.18, 0.165
   bumperRing: 0.84, // 1.16, 0.187

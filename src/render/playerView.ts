@@ -104,6 +104,13 @@ export class PlayerView {
       this.squash = 0.9;
     } else if (ev.type === 'whirl' && ev.player === this.slot) {
       this.squash = 0.7;
+    } else if (ev.type === 'hook' && ev.player === this.slot) {
+      // pulled along the line it leaves the same trail of itself a dash does
+      this.ghostsLeft = GHOSTS;
+      this.ghostTimer = 0;
+      this.squash = 1;
+    } else if (ev.type === 'hookLand' && ev.player === this.slot) {
+      this.squash = -0.6;
     }
   }
 
@@ -128,9 +135,10 @@ export class PlayerView {
     this.ready.position.set(x * TILE, y * TILE);
     this.drawSpecial(p, dt);
 
-    // Facing: along the aim; along the dash while dashing; along the blow while it is being struck.
+    // Facing: along the aim; along the dash while dashing; along the blow while it is being struck; along the line while the Bow is on it.
     const busy = p.state === 'attack' || p.state === 'release';
-    const committed = busy && p.classId !== 'bow';
+    const hauled = p.classId === 'bow' && p.state === 'special';
+    const committed = (busy && p.classId !== 'bow') || hauled;
     let fx = Math.cos(committed ? p.actAngle : p.aim);
     let fy = Math.sin(committed ? p.actAngle : p.aim);
     if (p.state === 'dash') {
@@ -211,7 +219,7 @@ export class PlayerView {
     this.rig.setSquash(1 + st * 0.16, 1 - st * 0.12);
 
     this.drawOver(p, time, dt);
-    this.updateGhosts(sx, sy, x, y, dt, p.state === 'dash');
+    this.updateGhosts(sx, sy, x, y, dt, p.state === 'dash' || hauled);
   }
 
   /**

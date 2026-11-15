@@ -1,12 +1,11 @@
-// Things that are thrown and then sit in the chamber: bombs and Ringstones.
+// Things that are thrown and then sit in the chamber: bombs.
 // A bomb is a spiked seed with a bright belt and a burning cap. It arcs through the air, lands,
 // and counts down: a ring on the floor closes on it, its glow beats faster, and it swells before
-// it goes. Struck by a player it takes that player's colour. A Ringstone is a ring hanging over
-// the floor in its owner's colour.
+// it goes. Struck by a player it takes that player's colour.
 import { Container, Graphics, GraphicsContext } from 'pixi.js';
 import { TILE, depthKey, projX, projY } from '../core/iso';
 import { lerp, mixColor } from '../core/math';
-import type { Bomb, Ringstone, World } from '../sim/types';
+import type { Bomb, World } from '../sim/types';
 import type { Sortable } from './depth';
 import { DANGER, DANGER_HOT, ECHO, PLAYER_COLORS, PLAYER_PALE, RIM, WHITE } from './palette';
 import { star } from './rig/solids';
@@ -45,11 +44,6 @@ function sparkContext(): GraphicsContext {
     .fill(0xffffff);
 }
 
-function stoneContext(): GraphicsContext {
-  // a ring of pale stone seen from above and a little to the side, with a bright inner edge
-  return new GraphicsContext().ellipse(0, 0, 21, 12.5).stroke({ width: 7, color: 0xffffff }).ellipse(0, -1.6, 21, 12.5).stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
-}
-
 interface BombView {
   c: Container;
   body: Graphics;
@@ -62,22 +56,10 @@ interface BombView {
   seen: number;
 }
 
-interface StoneView {
-  c: Container;
-  ring: Graphics;
-  core: Graphics;
-  shadow: Graphics;
-  glow: Graphics;
-  sort: Sortable;
-  seen: number;
-}
-
 export class ObjectViews {
   private readonly bombs = new Map<number, BombView>();
-  private readonly stones = new Map<number, StoneView>();
   private readonly bombCtx = bombContext();
   private readonly sparkCtx = sparkContext();
-  private readonly stoneCtx = stoneContext();
   private frame = 0;
 
   constructor(private readonly stage: Stage) {}
@@ -85,19 +67,10 @@ export class ObjectViews {
   update(w: World, alpha: number, time: number): void {
     this.frame++;
     for (const b of w.bombs) if (!b.dead) this.bomb(b, alpha, time);
-    for (const s of w.stones) if (!s.dead) this.stone(s, alpha, time);
     for (const [id, v] of this.bombs) {
       if (v.seen === this.frame) continue;
       this.dropBomb(v);
       this.bombs.delete(id);
-    }
-    for (const [id, v] of this.stones) {
-      if (v.seen === this.frame) continue;
-      this.stage.depth.remove(v.sort);
-      v.c.destroy({ children: true });
-      v.shadow.destroy();
-      v.glow.destroy();
-      this.stones.delete(id);
     }
   }
 
@@ -108,14 +81,7 @@ export class ObjectViews {
 
   clear(): void {
     for (const v of this.bombs.values()) this.dropBomb(v);
-    for (const v of this.stones.values()) {
-      this.stage.depth.remove(v.sort);
-      v.c.destroy({ children: true });
-      v.shadow.destroy();
-      v.glow.destroy();
-    }
     this.bombs.clear();
-    this.stones.clear();
   }
 
   private dropBomb(v: BombView): void {
@@ -184,45 +150,5 @@ export class ObjectViews {
         .arc(0, 0, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left)
         .stroke({ width: 5, color: pale, alpha: 0.9, cap: 'round' });
     }
-  }
-
-  private stone(s: Ringstone, alpha: number, time: number): void {
-    let v = this.stones.get(s.id);
-    const color = PLAYER_COLORS[s.owner] ?? RIM;
-    if (!v) {
-      const c = new Container();
-      const ring = new Graphics(this.stoneCtx);
-      ring.tint = mixColor(RIM, color, 0.35);
-      const core = new Graphics().ellipse(0, 0, 21, 12.5).stroke({ width: 2.5, color: 0xffffff });
-      core.tint = PLAYER_PALE[s.owner] ?? RIM;
-      c.addChild(ring, core);
-      const shadow = new Graphics().circle(0, 0, 0.4 * T).fill({ color: 0x000000, alpha: 0.3 });
-      this.stage.decals.addChild(shadow);
-      const glow = new Graphics().ellipse(0, 0, 30, 18).fill({ color: 0xffffff, alpha: 0.5 });
-      glow.tint = color;
-      this.stage.fxGlow.addChild(glow);
-      v = { c, ring, core, shadow, glow, sort: this.stage.depth.add(c, depthKey(s.x, s.y), 0.1), seen: 0 };
-      this.stones.set(s.id, v);
-    }
-    v.seen = this.frame;
-    const x = lerp(s.px, s.x, alpha);
-    const y = lerp(s.py, s.y, alpha);
-    // it hangs over the floor, bobbing; struck, it rings: a quick swell that dies away
-    const rung = Math.max(0, 1 - s.rungT / 0.35);
-    const z = s.flying ? 0.7 : 0.42 + Math.sin(time * 2.2 + s.id) * 0.05;
-    const sx = projX(x, y);
-    const sy = projY(x, y, z);
-    v.c.position.set(sx, sy);
-    v.c.rotation = s.flying ? time * 12 : 0;
-    v.c.scale.set(1 + rung * 0.35);
-    v.sort.depth = depthKey(x, y);
-    v.shadow.position.set(x * T, y * T);
-    v.glow.position.set(sx, sy);
-    v.glow.alpha = 0.28 + 0.1 * Math.sin(time * 3 + s.id) + rung * 0.6;
-    v.glow.scale.set(1 + rung * 0.6);
-    // in its last second it flickers, so nobody plans a shot off a stone that is about to go
-    const fading = !s.flying && s.life < 1;
-    v.c.alpha = fading ? 0.45 + 0.45 * Math.abs(Math.sin(time * 16)) : 1;
-    v.core.alpha = 0.6 + rung * 0.4;
   }
 }

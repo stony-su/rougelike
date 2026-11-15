@@ -340,7 +340,6 @@ export class Game {
       telegraphs: w.telegraphs.length,
       projectiles: w.projectiles.length,
       bombs: w.bombs.length,
-      stones: w.stones.length,
       trails: this.trails.count,
       stats: w.stats,
       frameMs: { median: q(this.frameTimes, 0.5), p95: q(this.frameTimes, 0.95), max: q(this.frameTimes, 1), samples: this.frameTimes.length },

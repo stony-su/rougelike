@@ -19,7 +19,7 @@ import { previewArrow, spawnProjectile } from '../src/sim/projectiles';
 import { addRally } from '../src/sim/rally';
 import { buildRoom, groundAt, isClear } from '../src/sim/room';
 import { laneAngle } from '../src/sim/telegraphs';
-import { BODY, BOMB, BOW, BREAK, DT, DUET, FIST, HAYMAKER, PLAYER, RALLY, REFLECT, RINGSTONE, SWORD, WHIRL } from '../src/sim/tuning';
+import { BODY, BOMB, BOW, BREAK, DT, DUET, FIST, HAYMAKER, HOOK, PLAYER, RALLY, REFLECT, SWORD, WHIRL } from '../src/sim/tuning';
 import { emptyInput } from '../src/sim/types';
 import type { ClassId, Enemy, World } from '../src/sim/types';
 import { createWorld, stepWorld } from '../src/sim/world';
@@ -485,81 +485,202 @@ describe('the Bow', () => {
   });
 });
 
-describe('the Ringstone', () => {
-  it('is thrown to the aimed point, stops short of walls, and only one stands at a time', () => {
+describe('the Hook Shot', () => {
+  /** Ticks a pull of `far` tiles takes from the press, with a few to spare. */
+  const pull = (far: number): number => Math.round((HOOK.windup + far / HOOK.speed) / DT) + 3;
+
+  it('a line fired at the aimed point pulls the Bow to it, straight, and costs its wait', () => {
     const w = openWorld(['bow']);
     const p = w.players[0];
-    const pad = new Pad().aimAt(p, 9.5, 6.5);
+    const pad = new Pad().aimAt(p, 11.5, 6.5);
     run(w, 1, pad);
-    const ev = run(w, 30, pad.tap(PRESS.special));
-    expect(eventsOf(ev, 'stoneThrow')).toHaveLength(1);
-    const planted = eventsOf(ev, 'stonePlant')[0];
-    expect(planted.x).toBeCloseTo(9.5, 1);
-    expect(planted.y).toBeCloseTo(6.5, 1);
-    expect(p.specialCd).toBeGreaterThan(RINGSTONE.cooldown - 1);
-    // a second one, thrown at the wall: the first goes, and this one stops against the wall
-    p.specialCd = 0;
-    pad.aimAt(p, 30, 6.5);
-    const ev2 = run(w, 40, pad.tap(PRESS.special));
-    expect(eventsOf(ev2, 'stoneEnd')).toHaveLength(1);
-    expect(w.stones).toHaveLength(1);
-    const s = w.stones[0];
-    expect(s.flying).toBe(false);
-    // no further than its reach, and it would have hit the wall at 15 first
-    expect(s.x - p.x).toBeLessThanOrEqual(RINGSTONE.range + 1e-6);
-    expect(s.x).toBeLessThanOrEqual(15 - RINGSTONE.radius);
-    expect(isClear(w.room, s.x, s.y, RINGSTONE.radius * 0.98)).toBe(true);
+    const first = run(w, 1, pad.tap(PRESS.special));
+    expect(eventsOf(first, 'hook')).toEqual([{ type: 'hook', player: p.slot, x: 6.5, y: 6.5, toX: 11.5, toY: 6.5 }]);
+    expect(p.state).toBe('special');
+    // the line flies first: the Bow has not moved yet
+    expect(p.x).toBe(6.5);
+    const ev: typeof first = [];
+    let straight = true;
+    for (let t = 0; t < pull(5) && eventsOf(ev, 'hookLand').length === 0; t++) {
+      ev.push(...run(w, 1, pad));
+      if (Math.abs(p.y - 6.5) > 1e-9) straight = false;
+    }
+    expect(straight).toBe(true);
+    expect(eventsOf(ev, 'hookLand')).toEqual([{ type: 'hookLand', player: p.slot, x: 11.5, y: 6.5 }]);
+    expect([p.x, p.y]).toEqual([11.5, 6.5]);
+    expect(p.state).toBe('idle');
+    expect(p.specialCd).toBeGreaterThan(HOOK.cooldown - 1);
+    // and it took about as long as the line is long
+    expect(ev.length).toBeLessThanOrEqual(pull(5));
   });
 
-  it('sends an arrow that hits it at the nearest Echo, harder, without using up a bounce', () => {
+  it('reaches no further than its range, and stops short of a wall with room to stand', () => {
+    const far = openWorld(['bow']);
+    const a = far.players[0];
+    place(a, 1.6, 6.5);
+    const padA = new Pad().aimAt(a, 30, 6.5);
+    run(far, 1, padA);
+    run(far, pull(HOOK.range) + 2, padA.tap(PRESS.special));
+    expect(a.x).toBeCloseTo(1.6 + HOOK.range, 6);
+
+    const near = openWorld(['bow']);
+    const b = near.players[0];
+    const padB = new Pad().aimAt(b, 30, 6.5);
+    run(near, 1, padB);
+    run(near, pull(HOOK.range) + 2, padB.tap(PRESS.special));
+    // the wall is at 15: the line stops there, and the Bow is set down against it
+    expect(b.x).toBeGreaterThan(14);
+    expect(b.x).toBeLessThanOrEqual(15 - b.radius);
+    expect(isClear(near.room, b.x, b.y, b.radius * 0.98)).toBe(true);
+    expect(b.state).toBe('idle');
+  });
+
+  it('goes over a pit, and is never set down in one', () => {
+    // the pit of the bounce room covers x 8..10, y 7..9
+    const over = bounceWorld('bow');
+    const p = over.players[0];
+    place(p, 6.2, 8);
+    const pad = new Pad().aimAt(p, 12.2, 8);
+    run(over, 1, pad);
+    pad.tap(PRESS.special);
+    let above = false;
+    for (let t = 0; t < pull(6) + 2; t++) {
+      run(over, 1, pad);
+      if (groundAt(over.room, p.x, p.y) === 'pit') above = true;
+    }
+    expect(above).toBe(true);
+    expect(p.x).toBeCloseTo(12.2, 6);
+    expect(p.hp).toBe(p.maxHp);
+    expect(isClear(over.room, p.x, p.y, p.radius * 0.98)).toBe(true);
+
+    // aimed at the middle of the pit: back along the line to the last of the floor
+    const into = bounceWorld('bow');
+    const q = into.players[0];
+    place(q, 5, 8);
+    const padQ = new Pad().aimAt(q, 9, 8);
+    run(into, 1, padQ);
+    const ev = run(into, pull(4) + 2, padQ.tap(PRESS.special));
+    expect(eventsOf(ev, 'hookLand')).toHaveLength(1);
+    expect(q.x).toBeGreaterThan(6.5);
+    expect(q.x).toBeLessThanOrEqual(8 - q.radius);
+    expect(isClear(into.room, q.x, q.y, q.radius * 0.98)).toBe(true);
+  });
+
+  it('with nowhere to be pulled to it is not fired, and costs nothing', () => {
     const w = openWorld(['bow']);
     const p = w.players[0];
-    const e = dummy(w, 10.5, 2.5, 1000);
+    place(p, 14.4, 6.5);
+    const pad = new Pad().aimAt(p, 30, 6.5);
+    run(w, 1, pad);
+    const ev = run(w, 3, pad.tap(PRESS.special));
+    expect(eventsOf(ev, 'hook')).toHaveLength(0);
+    expect(eventsOf(ev, 'refused')).toHaveLength(1);
+    expect(p.specialCd).toBe(0);
+    expect(p.state).toBe('idle');
+  });
+
+  it('nothing can hurt the Bow on the line, or for a moment after it lets go', () => {
+    const w = openWorld(['bow']);
+    const p = w.players[0];
+    const pad = new Pad().aimAt(p, 11.5, 6.5);
+    run(w, 1, pad);
+    run(w, 1, pad.tap(PRESS.special));
+    const safe = Math.round((HOOK.windup + 5 / HOOK.speed + HOOK.safe) / DT) - 2;
+    for (let t = 0; t < safe; t++) {
+      expect(damagePlayer(w, p, 10, p.x + 1, p.y, 0), `tick ${t}`).toBe(HURT_NONE);
+      run(w, 1, pad);
+    }
+    expect(p.hp).toBe(p.maxHp);
+    run(w, 6, pad);
+    expect(damagePlayer(w, p, 10, p.x + 1, p.y, 0)).toBe(HURT_TAKEN);
+  });
+
+  it('what it passes is struck once and knocked off the line, each to its own side', () => {
+    const w = openWorld(['bow']);
+    const p = w.players[0];
+    const left = dummy(w, 8.5, 6.5 - 0.3, 1000);
+    const right = dummy(w, 10, 6.5 + 0.3, 1000);
+    const clear = dummy(w, 9.2, 6.5 + 2.2, 1000);
+    const pad = new Pad().aimAt(p, 12.5, 6.5);
+    run(w, 1, pad);
+    const ev = run(w, pull(6) + 2, pad.tap(PRESS.special));
+    expect(1000 - left.hp).toBe(HOOK.damage);
+    expect(1000 - right.hp).toBe(HOOK.damage);
+    expect(clear.hp).toBe(1000);
+    const hits = eventsOf(ev, 'hit');
+    expect(hits.map((h) => [h.target, h.kind, h.by])).toEqual([
+      [left.id, 'direct', p.slot],
+      [right.id, 'direct', p.slot],
+    ]);
+    // thrown: off the line to the side each stood on, and a little the way the Bow was going
+    const thrown = eventsOf(ev, 'launch');
+    expect(thrown.map((l) => l.id)).toEqual([left.id, right.id]);
+    expect(thrown[0].speed).toBeCloseTo(HOOK.impulse / THRUM.mass);
+    expect(hits[0].dy).toBeLessThan(0);
+    expect(hits[1].dy).toBeGreaterThan(0);
+    expect(hits[0].dx).toBeGreaterThan(0);
+    expect(hits[1].dx).toBeGreaterThan(0);
+    // the Bow itself went straight on to the end of its line
+    expect([p.x, p.y]).toEqual([12.5, 6.5]);
+  });
+
+  it('once it has landed the next three arrows leave at once, and then the string rests as it always does', () => {
+    const w = openWorld(['bow']);
+    const p = w.players[0];
     const pad = new Pad().aimAt(p, 10.5, 6.5);
     run(w, 1, pad);
-    run(w, 30, pad.tap(PRESS.special));
-    expect(w.stones[0].flying).toBe(false);
-    const ev = run(w, 60, pad.tap(PRESS.attack));
-    const turn = eventsOf(ev, 'ricochet')[0];
-    expect(turn).toMatchObject({ off: 'stone', n: 1 });
-    const hit = eventsOf(ev, 'hit')[0];
-    expect(hit).toMatchObject({ target: e.id, kind: 'return' });
-    expect(1000 - e.hp).toBeCloseTo(BOW.damage * (1 + BOW.bounceBonus) * (1 + BODY.stoneBoost), 6);
-    expect(w.stones[0].rungT).toBeLessThan(1);
+    pad.tap(PRESS.special).hold(BTN.attack, true);
+    const at: number[] = [];
+    let landed = -1;
+    for (let t = 0; t < 90; t++) {
+      const ev = run(w, 1, pad);
+      if (eventsOf(ev, 'hookLand').length > 0) landed = t;
+      if (eventsOf(ev, 'loose').length > 0) at.push(t);
+    }
+    expect(landed).toBeGreaterThan(0);
+    // the first on the tick it lands, and two more as fast as the hand can let them go
+    expect(at[0]).toBe(landed);
+    const quick = Math.ceil(HOOK.quick / DT);
+    expect(at[1] - at[0]).toBeLessThanOrEqual(quick);
+    expect(at[2] - at[1]).toBeLessThanOrEqual(quick);
+    // the fourth waits out the string's own rest
+    expect(at[3] - at[2]).toBeGreaterThanOrEqual(Math.round(BOW.interval / DT) - 1);
+    expect(p.quiver).toBe(0);
   });
 
-  it('fades after its time', () => {
-    const w = openWorld(['bow']);
-    const pad = new Pad().aimAt(w.players[0], 9.5, 6.5);
-    run(w, 1, pad);
-    run(w, 30, pad.tap(PRESS.special));
-    expect(w.stones).toHaveLength(1);
-    const ev = run(w, Math.round(RINGSTONE.life / DT) + 5, pad);
-    expect(eventsOf(ev, 'stoneEnd')).toHaveLength(1);
-    expect(w.stones).toHaveLength(0);
-  });
-
-  it('sends a launched body at the nearest other Echo', () => {
+  it('the arrows it makes ready do not keep', () => {
     const w = openWorld(['bow']);
     const p = w.players[0];
-    place(p, 2, 12);
-    const pad = new Pad().aimAt(p, 2, 4.5);
+    const pad = new Pad().aimAt(p, 10.5, 6.5);
     run(w, 1, pad);
-    run(w, 40, pad.tap(PRESS.special));
-    const stone = w.stones[0];
-    expect(stone.flying).toBe(false);
-    const body = dummy(w, stone.x + 3, stone.y, 1000);
-    const other = dummy(w, stone.x + 1.6, stone.y + 2.4, 1000);
-    // launched at the stone, away from the other Echo
-    body.lvx = -14;
-    body.state = 'launched';
-    body.launchBy = p.slot;
-    const ev = run(w, 120, pad);
-    expect(eventsOf(ev, 'wallSlam').some((s) => s.off === 'stone')).toBe(true);
-    const cm = eventsOf(ev, 'carom')[0];
-    expect(cm).toMatchObject({ a: body.id, b: other.id });
-    // the carom it was sent into carried the boost of the stone
-    expect(1000 - other.hp).toBeCloseTo(BODY.caromDamage * cm.speed * (1 + BODY.stoneBoost), 6);
+    run(w, pull(4) + 1, pad.tap(PRESS.special));
+    expect(p.quiver).toBe(HOOK.quiver);
+    run(w, Math.round(HOOK.quiverTime / DT) + 2, pad);
+    expect(p.quiver).toBe(0);
+    pad.hold(BTN.attack, true);
+    const at: number[] = [];
+    for (let t = 0; t < 40; t++) if (eventsOf(run(w, 1, pad), 'loose').length > 0) at.push(t);
+    expect(at[1] - at[0]).toBeGreaterThanOrEqual(Math.round(BOW.interval / DT) - 1);
+  });
+
+  it('a dash asked for on the line does not cut the Bow loose from it', () => {
+    const w = bounceWorld('bow');
+    const p = w.players[0];
+    place(p, 6.2, 8);
+    const pad = new Pad().aimAt(p, 12.2, 8);
+    run(w, 1, pad);
+    run(w, 6, pad.tap(PRESS.special));
+    // part of the way over the pit
+    expect(p.state).toBe('special');
+    expect(p.x).toBeGreaterThan(6.2);
+    pad.move(0, 1).tap(PRESS.dash);
+    let loose = false;
+    for (let t = 0; t < pull(6); t++) {
+      run(w, 1, pad);
+      if (groundAt(w.room, p.x, p.y) === 'pit' && p.state !== 'special') loose = true;
+    }
+    expect(loose).toBe(false);
+    expect(isClear(w.room, p.x, p.y, p.radius * 0.98)).toBe(true);
   });
 });
 
@@ -903,6 +1024,8 @@ function playChamber(classes: ClassId[], makeBot: (c: ClassId) => Bot, seed: num
     );
     w.events.length = 0;
     for (const p of w.players) {
+      // the Bow on its line is over whatever lies under the line; where it is set down is floor like anywhere else
+      if (p.classId === 'bow' && p.state === 'special') continue;
       if (groundAt(w.room, p.x, p.y) !== 'floor' || !isClear(w.room, p.x, p.y, p.radius * 0.9)) throw new Error(`a ${p.classId} player left the floor at tick ${ticks}`);
     }
     for (const e of w.enemies) {

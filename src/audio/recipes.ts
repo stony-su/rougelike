@@ -6,7 +6,7 @@
 //   the Bow     plucked string: a sawtooth whose top is damped away at once, over a triangle
 //   the Fist    drum and palm: a sine that starts sharp and drops as a drumhead does, under a slap
 //   Echoes      breath (noise that swells and sweeps), reed (a damped, wavering sawtooth), stone (dull knocks)
-//   the land    glass for the Ringstone, bells for what is won
+//   the land    glass for what two players make between them, bells for what is won
 //
 // THE MODEL
 //   A sound is a short list of LAYERS. A layer is a TONE (an oscillator whose pitch slides) or a
@@ -30,13 +30,13 @@ import { KEYS, toneOf } from './scale';
 export const SOUND_GROUPS = [
   { name: 'Rally', sounds: ['rallySword', 'rallyBow', 'rallyFist', 'rallyChord', 'rallyBreak'] },
   { name: 'Sword', sounds: ['swing1', 'swing2', 'swing3', 'hitSword', 'reflect', 'reflectPerfect', 'whirl'] },
-  { name: 'Bow', sounds: ['loose', 'hitBow', 'ricochet', 'skip', 'stoneThrow', 'stonePlant', 'stoneRing', 'stoneEnd'] },
+  { name: 'Bow', sounds: ['loose', 'hitBow', 'ricochet', 'skip', 'hookFire', 'hookLand'] },
   { name: 'Fist', sounds: ['jab1', 'jab2', 'jab3', 'hitFist', 'chargeFull', 'haymaker', 'breakSlam', 'palmSlap'] },
   { name: 'Bodies', sounds: ['launch', 'wallSlam', 'bumperRing', 'carom', 'ringOut', 'climbOut', 'land', 'stagger', 'armorBreak', 'clang', 'tick'] },
   { name: 'Bombs', sounds: ['bombThrow', 'bombLand', 'bombBat', 'bombBurst'] },
   { name: 'Echoes', sounds: ['spawn', 'windThrum', 'windPiper', 'windBurr', 'windEcho', 'thrumLunge', 'piperVolley', 'echoAttack', 'echoSlam', 'stun', 'echoDeath'] },
   { name: 'Players', sounds: ['dash', 'dashReady', 'specialReady', 'refused', 'hurt', 'down', 'ward'] },
-  { name: 'The run', sounds: ['pickup', 'pickupBig', 'waveStart', 'roomClear', 'shockwave'] },
+  { name: 'The run', sounds: ['pickup', 'pickupBig', 'waveStart', 'roomClear', 'shockwave', 'glassRing', 'glassSet'] },
   { name: 'Interface', sounds: ['uiMove', 'uiConfirm', 'uiBack', 'uiError', 'uiBuy', 'uiTake'] },
 ] as const;
 
@@ -242,7 +242,7 @@ const steel = (decay: number, gain: number, delay = 0): Layer[] => [
   partial(5.404, decay * 0.2, gain * 0.22, { delay }),
 ];
 
-/** Glass: the partials of a struck bowl, with a softer start. The voice of the Ringstone. */
+/** Glass: the partials of a struck bowl, with a softer start. */
 const glass = (decay: number, gain: number, delay = 0): Layer[] => [
   partial(1, decay, gain, { attack: 0.004, delay }),
   partial(2.32, decay * 0.5, gain * 0.3, { delay }),
@@ -456,13 +456,30 @@ export const RECIPES: Record<SoundId, Recipe> = {
       noise('bandpass', 3200, 2400, 0.01, 0.25, { q: 2 }),
     ],
   },
-  stoneThrow: {
+  // The Hook Shot's line leaving: the string let go with something heavy on it, and the line paying out after it.
+  hookFire: {
+    home: at(0, 1),
     layers: [
-      tone('sine', 520, 1500, 0.2, 0.3, { attack: 0.03, vibrato: { rate: 24, depth: 70 } }), // the stone spinning away
-      noise('bandpass', 900, 3000, 0.18, 0.3, { q: 1.5, attack: 0.04 }),
+      tone('triangle', 1.06, 1, 0.16, 0.55, { tuned: true, slide: 0.04 }), // the string
+      tone('sawtooth', 1, 1, 0.06, 0.2, { tuned: true, damp: [6, 1.5] }),
+      noise('bandpass', 1400, 5200, 0.16, 0.4, { q: 2.2, attack: 0.02 }), // the line running out, rising as it goes
+      noise('bandpass', 6400, 5200, 0.012, 0.3, { q: 2, delay: 0.06 }), // and biting where it lands
+      tone('sine', 2100, 2100, 0.05, 0.1, { delay: 0.06 }),
     ],
   },
-  stonePlant: {
+  // The Bow set down at the end of its line: feet on the floor, and the string, slack again, humming.
+  hookLand: {
+    space: 0.2,
+    home: at(7, 1),
+    layers: [
+      tone('sine', 190, 80, 0.09, 0.5), // the landing
+      noise('lowpass', 1300, 380, 0.05, 0.3),
+      ...pluck(0.22, 0.4, 0.01),
+      partial(2, 0.1, 0.1, { delay: 0.01 }),
+    ],
+  },
+  // Glass set down: a teammate stood up again.
+  glassSet: {
     space: 0.4,
     home: at(0, 2),
     layers: [
@@ -471,23 +488,13 @@ export const RECIPES: Record<SoundId, Recipe> = {
       noise('lowpass', 1500, 400, 0.04, 0.3),
     ],
   },
-  // A Ringstone rung by a shot or a body: glass, a fifth above the note it was planted on.
-  stoneRing: {
+  // Glass rung: two players' bounce, a knell in the floor, lightning arriving. A fifth above the note of the place.
+  glassRing: {
     space: 0.4,
     home: at(7, 2),
     layers: [
       ...glass(0.8, 0.6),
       noise('bandpass', 7000, 6000, 0.012, 0.2, { q: 2 }), // what struck it
-    ],
-  },
-  stoneEnd: {
-    space: 0.3,
-    home: at(7, 2),
-    layers: [
-      partial(1, 0.2, 0.4), // the fifth, then back down to the note it was planted on, and gone
-      partial(2.32, 0.08, 0.1),
-      partial(2 / 3, 0.35, 0.4, { delay: 0.08 }),
-      partial((2 / 3) * 2.32, 0.12, 0.1, { delay: 0.08 }),
     ],
   },
 

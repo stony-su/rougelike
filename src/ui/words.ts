@@ -33,8 +33,9 @@ export const CLASS_WORDS: Readonly<Record<ClassId, ClassWords>> = {
     name: 'The String',
     weapon: 'Bow',
     attack: 'Arrows bounce off walls and skip from one Echo to the next, harder with every bounce. The dotted line is the path the arrow will take.',
-    specialName: 'Ringstone',
-    special: 'Ringstone. A stone that sends shots and flung bodies on to the nearest Echo.',
+    specialName: 'Hook Shot',
+    special:
+      'Hook Shot. Fire a line where you aim and be pulled along it, over pits and through Echoes, which it knocks aside. Nothing can hurt you on the way, and your next three arrows after landing leave at once.',
     plays: 'Read the angles of the room.',
   },
   fist: {

@@ -140,7 +140,6 @@ export class Fx {
       case 'waveStart':
       case 'refused':
       case 'rallyBreak':
-      case 'stoneThrow':
       case 'bombThrow':
         // told by the HUD, a sound, or the thing itself
         break;
@@ -228,7 +227,7 @@ export class Fx {
         break;
       case 'wallSlam': {
         const hard = Math.min(1, ev.speed / 22);
-        const color = ev.off === 'bumper' ? this.theme.bumperHot : ev.off === 'stone' ? paleOf(ev.by) : colorOf(ev.by);
+        const color = ev.off === 'bumper' ? this.theme.bumperHot : colorOf(ev.by);
         this.ripple(ev.x, ev.y, color, 0.5 + hard * 1.3);
         if (ev.speed > 4) {
           ps.sparks(ev.x, ev.y, 0.5, ev.nx, ev.ny, RIM, 4 + Math.round(hard * 10), 0.8 + hard);
@@ -281,12 +280,20 @@ export class Fx {
         ps.sparks(ev.x, ev.y, 0.8, 0, -1, paleOf(ev.player), 12, 1.1);
         ps.flash(ev.x, ev.y, 0.7, paleOf(ev.player), 140, 0.2);
         break;
-      case 'stonePlant':
-        this.ripple(ev.x, ev.y, colorOf(ev.player), 1.1);
-        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 5);
+      case 'hook': {
+        // the line leaves the Bow and bites where it is made fast
+        const d = Math.hypot(ev.toX - ev.x, ev.toY - ev.y) || 1;
+        ps.flash(ev.x, ev.y, 0.7, paleOf(ev.player), 60, 0.1);
+        ps.dust(ev.x, ev.y, -(ev.toX - ev.x) / d, -(ev.toY - ev.y) / d, this.theme.highlight, 5);
+        ps.sparks(ev.toX, ev.toY, 0.4, -(ev.toX - ev.x) / d, -(ev.toY - ev.y) / d, paleOf(ev.player), 6, 1);
+        ps.ring(ev.toX, ev.toY, colorOf(ev.player), 0.5, 0.15, 0.2, 0.9);
         break;
-      case 'stoneEnd':
-        ps.ring(ev.x, ev.y, RIM, 0.5, 0.1, 0.3, 0.5);
+      }
+      case 'hookLand':
+        this.ripple(ev.x, ev.y, colorOf(ev.player), 1.1);
+        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 8);
+        ps.flash(ev.x, ev.y, 0.5, paleOf(ev.player), 90, 0.12);
+        if (ev.player === this.localSlot) this.camera.kick(0.014);
         break;
       case 'bombLand':
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 5);

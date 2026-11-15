@@ -235,27 +235,37 @@ const DRAW: Record<string, Drawer> = {
       .lineTo(0.6 * s, 0.9 * s)
       .stroke({ width: Math.max(1.5, s * 0.1), color, cap: 'round', alpha: 0.7 });
   },
-  /** Two Ringstones. */
-  stones(g, s, color, pale) {
-    for (const [x, y, c] of [
-      [-0.38, 0.22, color],
-      [0.4, -0.2, pale],
-    ] as const) {
-      g.circle(x * s, y * s, 0.42 * s).stroke({ width: Math.max(2, s * 0.16), color: c });
-      g.circle(x * s, y * s, 0.13 * s).fill(c);
+  /** A line run out, with a hook at the end of it. */
+  hook(g, s, color, pale) {
+    const w = Math.max(2, s * 0.15);
+    g.moveTo(-0.85 * s, 0.75 * s)
+      .lineTo(0.2 * s, -0.3 * s)
+      .stroke({ width: w, color, cap: 'round' });
+    g.moveTo(0.2 * s, -0.3 * s)
+      .quadraticCurveTo(0.95 * s, -1.05 * s, 0.86 * s, -0.05 * s)
+      .quadraticCurveTo(0.8 * s, 0.35 * s, 0.42 * s, 0.3 * s)
+      .stroke({ width: w * 1.15, color: pale, cap: 'round', join: 'round' });
+    g.poly(pts([0.42, 0.3, 0.6, 0.02, 0.2, 0.08], s)).fill(pale);
+    g.circle(-0.85 * s, 0.75 * s, 0.13 * s).fill(pale);
+  },
+  /** A line with barbs along it. */
+  barb(g, s, color, pale) {
+    const w = Math.max(2, s * 0.15);
+    g.moveTo(-0.85 * s, 0.6 * s)
+      .lineTo(0.85 * s, -0.6 * s)
+      .stroke({ width: w, color, cap: 'round' });
+    for (const x of [-0.42, 0.08, 0.58]) {
+      const y = -x * (0.6 / 0.85);
+      g.poly(pts([x, y, x - 0.44, y - 0.1, x - 0.1, y + 0.36], s)).fill(pale);
     }
   },
-  /** A horseshoe magnet, pulling. */
-  magnet(g, s, color, pale) {
-    const w = Math.max(2.5, s * 0.26);
-    g.moveTo(-0.5 * s, -0.7 * s)
-      .lineTo(-0.5 * s, 0.1 * s)
-      .quadraticCurveTo(-0.5 * s, 0.7 * s, 0, 0.7 * s)
-      .quadraticCurveTo(0.5 * s, 0.7 * s, 0.5 * s, 0.1 * s)
-      .lineTo(0.5 * s, -0.7 * s)
-      .stroke({ width: w, color, join: 'round' });
-    g.rect(-0.63 * s, -0.86 * s, 0.26 * s, 0.26 * s).fill(pale);
-    g.rect(0.37 * s, -0.86 * s, 0.26 * s, 0.26 * s).fill(pale);
+  /** Arrows standing ready in their case. */
+  quiver(g, s, color, pale) {
+    g.poly(pts([-0.44, -0.12, 0.44, -0.12, 0.3, 0.9, -0.3, 0.9], s)).fill(color);
+    for (const x of [-0.25, 0, 0.25]) {
+      g.rect((x - 0.04) * s, -0.72 * s, 0.08 * s, 0.6 * s).fill(pale);
+      g.poly(pts([x, -0.98, x + 0.14, -0.68, x - 0.14, -0.68], s)).fill(pale);
+    }
   },
   /** A broad, heavy arrowhead. */
   heavy(g, s, color, pale) {
@@ -327,14 +337,6 @@ const DRAW: Record<string, Drawer> = {
       const cx = Math.cos(a);
       const cy = Math.sin(a);
       g.poly([(0.1 + cx * 0.75) * s, cy * 0.75 * s, (0.1 + cx * 0.2 - cy * 0.2) * s, (cy * 0.2 + cx * 0.2) * s, (0.1 + cx * 0.2 + cy * 0.2) * s, (cy * 0.2 - cx * 0.2) * s]).fill(c);
-    }
-  },
-  /** A stone that rings: a middle, and arcs going out to either side. */
-  pulse(g, s, color, pale) {
-    g.circle(0, 0, 0.3 * s).fill(color);
-    for (const r of [0.55, 0.85]) {
-      g.poly(round(0, 0, r, 8, s, -0.7, 0.7)).stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round', join: 'round', alpha: r > 0.7 ? 0.7 : 1 });
-      g.poly(round(0, 0, r, 8, s, Math.PI - 0.7, Math.PI + 0.7)).stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round', join: 'round', alpha: r > 0.7 ? 0.7 : 1 });
     }
   },
   /** One ball driven into another. */
