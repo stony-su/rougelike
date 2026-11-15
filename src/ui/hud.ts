@@ -234,8 +234,11 @@ export class Hud {
     this.bannerLife = seconds;
   }
 
-  /** `me` is this laptop's own player; the others in the world get small frames. */
-  update(w: World, me: Player | undefined, dt: number): void {
+  /**
+   * `me` is this laptop's own player; the others get small frames. `team` is everyone in the run,
+   * wherever they are: at a fork the others are in chambers of their own, and are shown all the same.
+   */
+  update(w: World, me: Player | undefined, dt: number, team: readonly Player[] = w.players): void {
     if (me) this.updateVitals(me, dt);
     this.vitals.visible = me !== undefined;
 
@@ -256,7 +259,7 @@ export class Hud {
 
     // teammates
     let n = 0;
-    for (const p of w.players) {
+    for (const p of team) {
       if (me && p.slot === me.slot) continue;
       let mf = this.mateFrames[n];
       if (!mf) {

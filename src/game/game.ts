@@ -30,6 +30,7 @@ import { Trails } from '../render/trails';
 import { EXPERT, NOVICE, botCamp, botPick, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
 import { DRAFT_TICKS } from '../sim/draft';
+import { FORK, forkDone } from '../sim/fork';
 import { activeHarmonies } from '../sim/mods';
 import { aimAngleOf } from '../sim/input';
 import { runSoFar, stopOf, worldOf } from '../sim/session';
@@ -41,6 +42,7 @@ import { DraftScreen } from '../ui/draftScreen';
 import { Hud } from '../ui/hud';
 import { Label } from '../ui/label';
 import { TuningRow } from '../ui/tuningRow';
+import { Waiting } from '../ui/waiting';
 import { CampFlow } from './campFlow';
 import { cardInfo } from './cardInfo';
 import type { Driver } from './driver';
@@ -137,6 +139,8 @@ export class Game {
   private readonly camp = new CampFlow();
   private readonly campHint: Label;
   private readonly wager = new WagerFlow();
+  /** At a fork: who the road is waiting for, once this laptop's player is done. */
+  private readonly waiting = new Waiting();
   private draftKey = '';
   private pickSent = '';
   private lastMouseX = -1;
@@ -206,7 +210,7 @@ export class Game {
     this.pausedLabel.visible = false;
     this.campHint = new Label('', { size: 10, color: CHIME, tracking: 0.24, align: 'center' });
     this.campHint.visible = false;
-    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.campHint, this.draft.root, this.camp.screen.root, this.wager.screen.root, this.pausedLabel);
+    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.campHint, this.draft.root, this.waiting.root, this.camp.screen.root, this.wager.screen.root, this.pausedLabel);
 
     if (opts.debug) {
       BitmapFont.install({
@@ -249,6 +253,7 @@ export class Game {
     this.draft.destroy();
     this.camp.destroy();
     this.wager.destroy();
+    this.waiting.destroy();
     this.bossBar.destroy();
     this.held.destroy();
     this.textures.destroy();
@@ -352,6 +357,7 @@ export class Game {
     this.wager.screen.layout(this.viewW, this.viewH);
     this.campHint.position.set(this.viewW / 2, this.viewH - 118);
     this.bossBar.layout(this.viewW);
+    this.waiting.layout(this.viewW);
     // to the right of the health panel, along the bottom
     this.held.root.position.set(372, this.viewH - 70);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.22);
@@ -409,7 +415,9 @@ export class Game {
     if (stop) {
       const hard = stop.kind === 'elite' || stop.kind === 'miniboss' || stop.kind === 'boss';
       // a chamber the party wagered on says so before anything else
-      this.hud.banner(w.flow.discord ? 'Brittle: the Wager is on' : stop.kind === 'elite' ? `Elite: ${room.name}` : room.name, hard ? DANGER : PAPER, w.flow.discord ? 3 : 2.4);
+      // a side-chamber each of the party walks alone says so
+      const alone = this.session.worlds.length > 1;
+      this.hud.banner(w.flow.discord ? 'Brittle: the Wager is on' : alone ? 'On your own' : stop.kind === 'elite' ? `Elite: ${room.name}` : room.name, hard ? DANGER : PAPER, w.flow.discord ? 3 : 2.4);
     }
   }
 
@@ -510,10 +518,13 @@ export class Game {
       case 'waveStart':
         if (ev.wave > 1) this.hud.banner(`Wave ${ev.wave}`, PAPER, 1.2);
         break;
-      case 'playerDown':
-        if (w.players.every((p) => p.state === 'down')) this.hud.banner('Everyone is down', DANGER, 2.2);
-        else if (ev.player === this.localSlot) this.hud.banner(w.players.length > 1 ? 'Down: crawl to a teammate' : 'You are down', DANGER, 2.6);
+      case 'playerDown': {
+        // the party may be apart, each in a chamber of their own
+        const everyone = this.session.worlds.flatMap((x) => x.players);
+        if (everyone.every((p) => p.state === 'down')) this.hud.banner('Everyone is down', DANGER, 2.2);
+        else if (ev.player === this.localSlot) this.hud.banner(w.players.length > 1 ? 'Down: crawl to a teammate' : everyone.length > 1 ? 'Down: the others go on' : 'You are down', DANGER, 2.6);
         break;
+      }
       case 'revive':
         if (ev.player === this.localSlot) this.hud.banner('Back on your feet', PAPER, 1.4);
         break;
@@ -675,7 +686,18 @@ export class Game {
       );
     }
     this.hud.setRun(s.route.length);
-    this.hud.update(w, me, dt);
+    // at a fork the party is apart: the others' frames stay, and once this player is done the road says who it waits for
+    const apart = s.worlds.length > 1;
+    this.hud.update(
+      w,
+      me,
+      dt,
+      s.worlds.flatMap((x) => x.players).sort((a, b) => a.slot - b.slot),
+    );
+    const mine = s.drafts[this.localSlot];
+    const done = apart && !ended && forkDone(w) && (!mine || mine.offers.length === 0);
+    const still = done ? s.worlds.filter((x) => !forkDone(x)).flatMap((x) => x.players.map((p) => s.config.players[p.slot]?.name ?? `P${p.slot + 1}`)) : [];
+    this.waiting.set(still, still.length === 1 && s.forkFor >= 0 ? 1 - s.forkFor / FORK.wait : -1);
     this.hud.setNet(this.driver.net());
     // together, a stopped game says who stopped it; alone, the menu that stopped it says so itself
     this.pausedLabel.visible = paused && !ended && this.driver.coop && !this.menuUp;

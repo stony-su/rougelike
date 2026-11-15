@@ -15,6 +15,7 @@ import type { CampSeat } from './camp';
 import { standing } from './combat';
 import type { ContentRegistry } from './defs';
 import { DRAFT_TICKS, newDraft, rollOffers } from './draft';
+import { FORK, forkDone, isFork } from './fork';
 import type { Draft } from './draft';
 import { grantTuning } from './player';
 import { buildRoom, randomFloorPoint } from './room';
@@ -132,8 +133,13 @@ export interface Session {
   lastSeq: number[];
   /** Ticks since every player went down, or -1. The run is lost when it runs out. */
   downFor: number;
-  /** Ticks since the current chamber was cleared, or -1. */
+  /** Ticks since the chamber the party is in was over (cleared; or, apart, everyone done or fetched), or -1. */
   clearFor: number;
+  /** For each world: its players have been dealt the cards its clearing pays. */
+  paid: boolean[];
+  /** Apart: ticks the party has been apart, and ticks since all but one of them were done, or -1. */
+  apartFor: number;
+  forkFor: number;
   /** For each slot, the Tunings that player is being offered (draft.ts). */
   drafts: Draft[];
   /** For each slot, what that player has in front of them at a camp (camp.ts). */
@@ -176,11 +182,34 @@ const fresh = (s: Session): Entrant[] =>
   });
 
 /** The chamber of the stop the party is at, built by the generator from the seed. */
-function openStop(s: Session, content: ContentRegistry, entrants: Entrant[]): World {
+function openStop(s: Session, content: ContentRegistry, entrants: Entrant[], own = ''): World {
   const stop = s.route[s.stop];
-  const seed = `${s.config.seed}/${s.attempt}/${stop.n}`;
+  // a chamber of one's own is seeded by whose it is, so no two of the party walk into the same one
+  const seed = `${s.config.seed}/${s.attempt}/${stop.n}${own}`;
   const room = buildRoom(generateRoom(seed, roomSpec(stop)));
   return createWorld(room, seed, content, { chamber: stop.n, entrants, flow: flowFor(stop, entrants.length, content), inputDelay: s.config.inputDelay });
+}
+
+/**
+ * Put the party into the stop it is at: one chamber for all of them, or at a fork a chamber for
+ * each, and note where everyone is.
+ */
+function enter(s: Session, content: ContentRegistry, entrants: Entrant[]): void {
+  s.worlds = isFork(s.route[s.stop], entrants.length) ? entrants.map((en) => openStop(s, content, [en], `/own${en.slot}`)) : [openStop(s, content, entrants)];
+  settle(s);
+}
+
+/** After the worlds have changed: who is in which, and nothing paid or waited for yet. */
+function settle(s: Session): void {
+  s.where = s.config.players.map((_, slot) =>
+    Math.max(
+      0,
+      s.worlds.findIndex((w) => w.players.some((p) => p.slot === slot)),
+    ),
+  );
+  s.paid = s.worlds.map(() => false);
+  s.apartFor = s.worlds.length > 1 ? 0 : -1;
+  s.forkFor = -1;
 }
 
 /** A chamber of the practice ladder: the hand-built rooms, taken in turn. */
@@ -204,8 +233,10 @@ function begin(s: Session, content: ContentRegistry): void {
   s.pausedBy = -1;
   s.drafts = s.config.players.map((_, slot) => newDraft(boonsOf(s, slot).rerolls));
   s.wager = noWager(s.config.players.length);
-  s.worlds = [s.config.practice ? openPractice(s, content, 1, fresh(s)) : openStop(s, content, fresh(s))];
-  s.where = s.config.players.map(() => 0);
+  if (s.config.practice) {
+    s.worlds = [openPractice(s, content, 1, fresh(s))];
+    settle(s);
+  } else enter(s, content, fresh(s));
   arrive(s, content);
 }
 
@@ -243,6 +274,9 @@ export function createSession(config: SessionConfig, content: ContentRegistry): 
     lastSeq: config.players.map(() => 0),
     downFor: -1,
     clearFor: -1,
+    paid: [],
+    apartFor: -1,
+    forkFor: -1,
     drafts: [],
     camps: [],
     campFor: -1,
@@ -376,17 +410,25 @@ function carry(w: World): Entrant[] {
   });
 }
 
+/** Everyone, from wherever they are, in the order of their seats: the party as it walks on together. */
+function gather(s: Session): Entrant[] {
+  const out: Entrant[] = [];
+  for (const w of s.worlds) out.push(...carry(w));
+  return out.sort((a, b) => a.slot - b.slot);
+}
+
 /** The chamber is cleared and the quiet after it is over: on to the next stop, or the run is won. */
 function advance(s: Session, content: ContentRegistry): void {
-  const w = s.worlds[0];
-  bank(s.totals, w, true);
+  // the stop is behind the party, whichever of its chambers each of them was in
+  s.worlds.forEach((w, i) => bank(s.totals, w, i === 0));
   if (s.stop >= s.route.length - 1) {
     s.phase = 'won';
     s.endedFor = 0;
     return;
   }
+  const party = gather(s);
   s.stop++;
-  s.worlds[0] = openStop(s, content, carry(w));
+  enter(s, content, party);
   arrive(s, content);
 }
 
@@ -420,21 +462,33 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
   }
 
   const w = s.worlds[0];
-  if (s.config.stress === 0 && w.flow.phase === 'cleared') {
-    if (s.clearFor < 0) {
-      s.clearFor = 0;
-      if (!s.config.practice) openDrafts(s, content, w);
+  if (s.config.stress === 0) {
+    // every chamber that has just been cleared pays the players in it their cards
+    s.worlds.forEach((world, i) => {
+      if (world.flow.phase !== 'cleared' || s.paid[i]) return;
+      s.paid[i] = true;
+      if (!s.config.practice) openDrafts(s, content, world);
       // a wagered chamber is beaten: the Discord lifts
-      if (s.wager.on && w.flow.discord) lift(w, s.wager);
-    } else {
-      s.clearFor++;
-    }
+      if (s.wager.on && world.flow.discord) lift(world, s.wager);
+    });
     // whoever is still looking at their cards when the time is up is given the first
     for (const d of s.drafts) {
       if (d.offers.length === 0) continue;
       d.timer--;
       if (d.timer <= 0) pick(s, s.drafts.indexOf(d), 0, content);
     }
+  }
+  // Is the stop over? Together, when the chamber is cleared. Apart, when everyone is done; once all
+  // but one are, the last has a while and is then fetched as they stand; and nobody is apart for ever.
+  let over = w.flow.phase === 'cleared';
+  if (s.worlds.length > 1) {
+    const left = s.worlds.filter((world) => !forkDone(world)).length;
+    s.apartFor++;
+    if (left <= 1) s.forkFor++;
+    over = left === 0 || (left === 1 && s.forkFor >= FORK.wait) || s.apartFor >= FORK.most;
+  }
+  if (s.config.stress === 0 && over) {
+    s.clearFor = s.clearFor < 0 ? 0 : s.clearFor + 1;
     const chosen = s.drafts.every((d) => d.offers.length === 0);
     // A camp is left when everyone is ready; once the first is, the others have a while and no longer.
     let stay = false;
@@ -453,8 +507,10 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
     if (s.clearFor >= CLEAR_BEAT && !stay && chosen) {
       s.clearFor = -1;
       // Everyone walks on with what they have, and the fallen stand up again.
-      if (s.config.practice) s.worlds[0] = openPractice(s, content, w.chamber + 1, carry(w));
-      else advance(s, content);
+      if (s.config.practice) {
+        s.worlds = [openPractice(s, content, w.chamber + 1, carry(w))];
+        settle(s);
+      } else advance(s, content);
     }
   }
 
@@ -464,7 +520,7 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
     if (s.downFor >= DOWN_BEAT) {
       if (s.config.practice) restart(s, content);
       else {
-        bank(s.totals, s.worlds[0], false);
+        for (const world of s.worlds) bank(s.totals, world, false);
         s.phase = 'lost';
         s.endedFor = 0;
       }

@@ -38,7 +38,9 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 That makes 42 Tunings and 12 Harmonies; a fresh save drafts from 21 as any class, and the Attunement opens one more for each class and can issue each class one to begin with.
 
-What is not here yet: the solo side-chambers (a side-chamber is a short shared fight for now). [PROGRESS.md](PROGRESS.md) lists all of it.
+- **Each their own way.** Three times a run the road forks: at a side-chamber every player walks into a short chamber of their own, at the same moment, fights it alone and is paid for it alone, and the party meets again in the next chamber it shares. Whoever finishes first sees who the road is waiting for; once only one is left they have twenty seconds, and going down alone costs the prize, not the run. Alone, a side-chamber is simply a short fight.
+
+What is not here yet: the three kinds of side-chamber (Proving, Cache, Echo Duel): for now every side-chamber is a short fight. [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 

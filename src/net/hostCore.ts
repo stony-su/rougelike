@@ -38,6 +38,8 @@ export interface HostOptions {
   seed?: string;
   /** Development: keep this many enemies alive. */
   stress?: number;
+  /** Development: begin every game at this chamber instead of the first. */
+  startAt?: number;
   /** Called when a laptop's hash disagrees with the referee's. */
   onDesync?: (info: { tick: number; slot: number; theirs: number; ours: number }) => void;
   /** Called a moment later with where that laptop's game differed from the referee's: the first few fields, as paths. */
@@ -262,6 +264,7 @@ export class HostCore {
       buildId: this.opts.buildId,
       inputDelay,
       stress: this.opts.stress ?? 0,
+      startAt: this.opts.startAt,
     };
     this.session = createSession(this.config, this.content);
     this.relay = new RelayCore(this.seats.length);

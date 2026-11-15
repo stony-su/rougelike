@@ -74,9 +74,9 @@ class Net {
   /** Where a drifted laptop's game differed from the referee's, as the host worked it out. */
   readonly diffs: string[][] = [];
 
-  constructor(seed: number, hostSeed = 'lan') {
+  constructor(seed: number, hostSeed = 'lan', startAt?: number) {
     this.rng = new Rng(seed);
-    this.host = new HostCore(CONTENT, { buildId: 'test', seed: hostSeed, onDesync: () => this.desyncs++, onDiff: (d) => this.diffs.push(d.fields) });
+    this.host = new HostCore(CONTENT, { buildId: 'test', seed: hostSeed, startAt, onDesync: () => this.desyncs++, onDiff: (d) => this.diffs.push(d.fields) });
   }
 
   at(time: number, fn: () => void): void {
@@ -305,6 +305,27 @@ describe('a game over a rough network', () => {
     const w = laptops[0].core.world();
     expect(w?.stats.kills).toBeGreaterThan(3);
     expect(w?.stats.returns).toBeGreaterThan(0);
+  });
+
+  it('stay in step through a fork, each in a chamber of their own, and through the meeting after it', async () => {
+    // the seventh chamber is always a side-chamber: the game begins there, already apart
+    const net = new Net(31, 'fork', 7);
+    const laptops = await party(net);
+    const apart = laptops[0].core.session;
+    expect(apart?.worlds.length).toBe(3);
+    // each laptop draws the chamber its own player is in
+    expect(new Set(laptops.map((l) => l.core.world()?.room.id)).size).toBe(3);
+    let together = false;
+    for (let t = 0; t < 110 && !together; t++) {
+      net.run(1000);
+      together = laptops.every((l) => (l.core.session?.stop ?? 0) >= 7);
+    }
+    expect(together).toBe(true);
+    net.run(1500);
+    for (const l of laptops) expect(l.core.session?.worlds.length).toBe(1);
+    expect(new Set(laptops.map((l) => l.core.world()?.room.id)).size).toBe(1);
+    expect(agree(laptops)).toBeGreaterThan(600);
+    expect(net.desyncs).toBe(0);
   });
 
   it('a laptop that freezes for a while runs to catch up and is still in step', async () => {
