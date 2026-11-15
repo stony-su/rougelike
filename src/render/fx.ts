@@ -388,6 +388,24 @@ export class Fx {
       case 'afterimage':
         ps.ring(ev.x, ev.y, paleOf(ev.player), 0.2, 1.3, 0.3, 0.8);
         break;
+      case 'clang':
+        ps.sparks(ev.x, ev.y, 0.7, 0, 0, RIM, 8, 1.2);
+        ps.ring(ev.x, ev.y, RIM, 0.2, 0.9, 0.2, 0.8);
+        break;
+      case 'grounded':
+        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 10);
+        ps.ring(ev.x, ev.y, RIM, 0.2, 1.3, 0.3, 0.8);
+        this.shake(ev.x, ev.y, 0.2);
+        break;
+      case 'takeoff':
+        ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 6);
+        break;
+      case 'bossPhase':
+        ps.flash(ev.x, ev.y, 0.6, DANGER_HOT, 420, 0.3);
+        ps.ring(ev.x, ev.y, DANGER, 0.5, 9, 0.8, 0.9);
+        ps.ring(ev.x, ev.y, RIM, 0.3, 5, 0.6, 0.8);
+        this.shake(ev.x, ev.y, 0.8);
+        break;
       default: {
         // Adding a simulation event without deciding how it looks is a compile error here.
         const unhandled: never = ev;

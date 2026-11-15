@@ -252,7 +252,7 @@ export class Hud {
     // what is happening in this chamber
     const f = w.flow;
     this.titleHead.text = this.runLength > 0 ? `Chamber ${w.chamber} of ${this.runLength}` : `Chamber ${w.chamber}`;
-    this.titleNote.text = f.kind === 'camp' ? 'Camp' : f.phase === 'fight' ? `Wave ${Math.max(1, f.wave)} of ${f.waves}` : 'Cleared';
+    this.titleNote.text = f.kind === 'camp' ? 'Camp' : f.phase !== 'fight' ? 'Cleared' : f.boss ? (w.content.enemies[f.boss]?.name ?? 'Boss') : `Wave ${Math.max(1, f.wave)} of ${f.waves}`;
 
     // teammates
     let n = 0;

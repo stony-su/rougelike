@@ -311,4 +311,12 @@ export const SCALING = {
   /** Per extra player: ordinary enemy health, and the threat budget of a wave. */
   coopHp: 0.35,
   coopBudget: 0.55,
+  /** Per extra player: a boss's health. A boss's health does not grow with the depth of its chamber. */
+  coopBossHp: 0.6,
+};
+
+/** Numbers of the traits an Echo's definition may carry. */
+export const TRAIT = {
+  /** Seconds a flyer lies stunned when it is knocked out of the air. */
+  groundStun: 0.9,
 };

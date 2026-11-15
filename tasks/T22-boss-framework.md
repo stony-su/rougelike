@@ -1,7 +1,7 @@
 ---
 id: T22
 title: Boss framework and Echo traits
-status: claimed
+status: done
 owner: stony-su
 milestone: 4
 weight: 2
@@ -30,9 +30,8 @@ touches:
 The hooks that let each boss and each special Echo be built in files of its own.
 
 - **Traits on `EnemyDef`**: `shield` (a frontal arc that blows clang off; a full Haymaker or a Riposte opens it for a moment), `flying` (out of reach of ground blows until grounded), and `anchored` (cannot be launched, but takes the damage of bodies launched into it).
-- **Boss brains**: `src/sim/boss.ts` defines the interface (`start`, `step`, phases); `src/sim/bosses/index.ts` lists the brains, one line each; an Echo whose definition names a brain is run by it instead of the ordinary attack cycle. A change of phase is an event and a moment the whole party shares.
+- **Boss brains**: `src/sim/boss.ts` defines the interface (`start`, `always`, `decide`) and the phases; `src/sim/bosses/index.ts` lists the brains, one line each; an Echo whose definition names a brain is run by it instead of the ordinary attack cycle, and may still use the moves of its definition through `startMove` in `src/sim/ai.ts`. A change of phase is an event and a moment the whole party shares.
 - **Boss chambers**: no waves; cleared when the boss falls; boss health is multiplied by 1 + 0.6 for each extra player.
-- **Elite hook**: an elite's trait id is looked up in a table of small hooks (on spawn, on hit, on launch, on death) that T43 fills.
 - A boss bar at the top of the HUD.
 
 ## Done when

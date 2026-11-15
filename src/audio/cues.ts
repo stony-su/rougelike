@@ -413,6 +413,22 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       here(out, at, 'dashReady', ev.x, ev.y, whose(ev.player));
       break;
 
+    // ---- traits and bosses
+    case 'clang':
+      here(out, at, 'guard', ev.x, ev.y, whose(ev.by));
+      break;
+    case 'grounded':
+      here(out, at, 'land', ev.x, ev.y, 1);
+      here(out, at, 'stun', ev.x, ev.y, 0.7);
+      break;
+    case 'takeoff':
+      here(out, at, 'climbOut', ev.x, ev.y, 0.7);
+      break;
+    case 'bossPhase':
+      flat(out, at, 'waveStart', 1);
+      here(out, at, 'shockwave', ev.x, ev.y, 1);
+      break;
+
     default: {
       // Adding a simulation event without deciding how it sounds is a compile error here.
       const unhandled: never = ev;
@@ -485,6 +501,10 @@ export const SAMPLE_EVENTS: { readonly [K in SimEvent['type']]: Extract<SimEvent
   heal: { type: 'heal', player: 0, amount: 3, x: 0, y: 0 },
   ward: { type: 'ward', player: 0, x: 0, y: 0 },
   afterimage: { type: 'afterimage', player: 0, x: 0, y: 0 },
+  clang: { type: 'clang', id: 1, by: 0, x: 0, y: 0 },
+  grounded: { type: 'grounded', id: 1, x: 0, y: 0 },
+  takeoff: { type: 'takeoff', id: 1, x: 0, y: 0 },
+  bossPhase: { type: 'bossPhase', id: 1, kind: 'toll', phase: 1, x: 0, y: 0 },
 };
 
 /** A copy of an event moved to another place in the chamber. An event that happens nowhere comes back unchanged. */

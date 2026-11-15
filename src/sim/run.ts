@@ -2,7 +2,7 @@
 // seed so that every laptop walks the same road. A stop says what a chamber is for and what the
 // generator should build for it; the session turns stops into worlds, one at a time.
 import { Rng } from '../core/rng';
-import type { RoomLook, ZoneId } from './defs';
+import type { ContentRegistry, RoomLook, ZoneId } from './defs';
 import { createFlow } from './flow';
 import type { RoomFlow } from './flow';
 import { ROOM_SHAPES } from './roomgen';
@@ -31,6 +31,9 @@ export interface Stop {
 }
 
 export const RUN_LENGTH = 12;
+/** The Echoes that hold the last chamber of each zone, by id. Until one exists, its chamber is the hardest fight of the zone instead. */
+export const MINIBOSS = 'carillon';
+export const BOSS = 'toll';
 /** The share of their health everyone gets back on walking into a camp. */
 export const CAMP_HEAL = 0.35;
 
@@ -104,9 +107,16 @@ export function roomSpec(stop: Stop): RoomSpec {
 }
 
 /** How a stop's chamber runs: its waves, how much each may spend, and what clearing it pays. */
-export function flowFor(stop: Stop, players: number): RoomFlow {
+export function flowFor(stop: Stop, players: number, content: ContentRegistry): RoomFlow {
   const f = createFlow(stop.n, players);
   f.kind = stop.kind;
+  const boss = stop.kind === 'miniboss' ? MINIBOSS : stop.kind === 'boss' ? BOSS : '';
+  if (boss && content.enemies[boss]) {
+    f.boss = boss;
+    f.waves = 1;
+    f.clearBonus *= stop.kind === 'boss' ? 4 : 3;
+    return f;
+  }
   switch (stop.kind) {
     case 'elite':
       f.budget *= 1.4;

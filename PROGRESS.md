@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 58% complete.** 10 of 35 tasks are done, 1 in progress, 11 ready to take, 13 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 60% complete.** 11 of 35 tasks are done, 2 in progress, 15 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -12,14 +12,15 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 18% | 100% |
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 12% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 13.5% | 100% |
-| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 16% |
+| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 24% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 14.5% | 17% |
 | 6 | Menus, saving, sound | 5% | 0% |
 | 7 | Polish and balance | 4% | 0% |
 
 ## In progress
 
-- [T22](tasks/T22-boss-framework.md) **Boss framework and Echo traits**: stony-su
+- [T40](tasks/T40-echo-gong.md) **Echo: the Gong**: stony-su
+- [T41](tasks/T41-echo-cairn.md) **Echo: the Cairn**: stony-su
 
 ## To do: ready to take
 
@@ -28,6 +29,10 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T30](tasks/T30-tunings-sword.md) **Tunings: the Sword (ten, and three Harmonies)** (2.5% of the game)
 - [T31](tasks/T31-tunings-bow.md) **Tunings: the Bow (ten, and three Harmonies)** (2.5% of the game)
 - [T32](tasks/T32-tunings-fist.md) **Tunings: the Fist (ten, and three Harmonies)** (2.5% of the game)
+- [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (1% of the game)
+- [T43](tasks/T43-elites.md) **Elites: five traits and their aura** (1.5% of the game)
+- [T44](tasks/T44-boss-carillon.md) **Mini-boss: the Carillon** (2.5% of the game)
+- [T45](tasks/T45-boss-toll.md) **Final boss: the Toll, in three phases** (3.5% of the game)
 - [T50](tasks/T50-camp.md) **Camp: the Tuner (shop) and the Still Pool (rest)** (2% of the game)
 - [T51](tasks/T51-wager.md) **The Wager, and the Brittle Discord** (1% of the game)
 - [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5% of the game)
@@ -38,12 +43,6 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 ## To do: waiting on other tasks
 
 - [T24](tasks/T24-saving-attunement.md) **Saving and the Attunement (permanent progression)** (2%): needs T23
-- [T40](tasks/T40-echo-gong.md) **Echo: the Gong** (1%): needs T22
-- [T41](tasks/T41-echo-cairn.md) **Echo: the Cairn** (1%): needs T22
-- [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (1%): needs T22
-- [T43](tasks/T43-elites.md) **Elites: five traits and their aura** (1.5%): needs T22
-- [T44](tasks/T44-boss-carillon.md) **Mini-boss: the Carillon** (2.5%): needs T22
-- [T45](tasks/T45-boss-toll.md) **Final boss: the Toll, in three phases** (3.5%): needs T22
 - [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.5%): needs T21
 - [T60](tasks/T60-controls-page.md) **Controls page: keyboard and controller** (1%): needs T23
 - [T61](tasks/T61-settings-rumble.md) **Settings and controller rumble** (1%): needs T23
@@ -61,6 +60,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T10](tasks/T10-run-route.md) Run route: twelve generated chambers over two zones
 - [T11](tasks/T11-follow-camera.md) Camera that follows your own player
 - [T20](tasks/T20-upgrade-engine.md) Upgrade engine: Tunings on players, a draft after every fight
+- [T22](tasks/T22-boss-framework.md) Boss framework and Echo traits
 - [T33](tasks/T33-tunings-common.md) Tunings: the common twelve, and three Harmonies
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 

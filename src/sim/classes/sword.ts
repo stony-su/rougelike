@@ -7,7 +7,7 @@ import type { Vec2 } from '../../core/exact';
 import { pointInSector } from '../../core/geom';
 import { pushBody, relaunch } from '../bodies';
 import { BOMB_TOUCH, batBomb } from '../bombs';
-import { damageEnemy, freezeBody, hittable } from '../combat';
+import { damageEnemy, freezeBody, hittable, outOfReach } from '../combat';
 import { rest, shift, walk } from '../move';
 import { returnShot } from '../projectiles';
 import { addRally, rallyMul } from '../rally';
@@ -53,7 +53,7 @@ function resolveSwing(w: World, p: Player): void {
   let hits = 0;
   // Iterate over a snapshot: effects triggered by hits may add enemies later.
   for (const e of w.enemies.slice()) {
-    if (!hittable(e) || e.airborne) continue;
+    if (!hittable(e) || outOfReach(e)) continue;
     if (!pointInSector(e.x, e.y, p.x, p.y, p.actAngle, half, reach, e.radius)) continue;
     // Push away from the player rather than along the aim, so a wide swing fans a crowd outward.
     let kx = e.x - p.x;

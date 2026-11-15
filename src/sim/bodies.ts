@@ -5,7 +5,7 @@
 import type { Vec2 } from '../core/exact';
 import { HIT_BUMPER, HIT_POST, SKIN, castCircle, circleTime, newHit, pushOut, slideCircle } from './cast';
 import type { Hit } from './cast';
-import { damageEnemy, hittable, interruptEnemy, stunEnemy } from './combat';
+import { damageEnemy, hittable, interruptEnemy, outOfReach, stunEnemy } from './combat';
 import { reflectFixed, reflectFree } from './geo';
 import { addRally, rallyMul } from './rally';
 import { groundAt, nearestFloor } from './room';
@@ -94,7 +94,7 @@ export function relaunch(w: World, e: Enemy, dx: number, dy: number, speedMul: n
  * (three times that while it is staggered). Returns true if the body is now in flight.
  */
 export function pushBody(w: World, e: Enemy, dx: number, dy: number, impulse: number, by: number): boolean {
-  if (!hittable(e) || impulse <= 0) return false;
+  if (!hittable(e) || impulse <= 0 || e.def.anchored) return false;
   let dv = impulse / e.def.mass;
   if (e.staggered > 0) dv *= BODY.staggerLaunchMul;
   e.lvx += dx * dv;
@@ -107,7 +107,7 @@ export function pushBody(w: World, e: Enemy, dx: number, dy: number, impulse: nu
  * down, and far easier to launch.
  */
 export function addStagger(w: World, e: Enemy, n: number): void {
-  if (!hittable(e) || isLight(e.def.mass) || e.staggered > 0) return;
+  if (!hittable(e) || isLight(e.def.mass) || e.staggered > 0 || e.def.anchored) return;
   // fresh from one daze it keeps its feet for a moment, or a quick pair of hands could hold it down for ever
   if (e.stunImmune > 0 && e.state !== 'stun') return;
   e.stagger += n;
@@ -230,13 +230,15 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   const big = vn > HITSTOP.caromBig;
 
   // The striker keeps a share of the closing speed: onward if it is the heavier, back if the lighter.
-  const keep = (e.def.mass >= o.def.mass ? BODY.caromKeep : -BODY.caromKeep) * vn;
+  // Something anchored is a wall that can be hurt: the striker always comes back off it, and it does not move.
+  const fixed = !!o.def.anchored;
+  const keep = (!fixed && e.def.mass >= o.def.mass ? BODY.caromKeep : -BODY.caromKeep) * vn;
   e.lvx += (on + keep - en) * nx;
   e.lvy += (on + keep - en) * ny;
   // a light body met head-on by a faster one is thrown back hard, but no harder than anything else flies
   capSpeed(e);
   // The struck body takes its share, weighted by the masses.
-  let gain = BODY.caromPass * vn * (e.def.mass / o.def.mass);
+  let gain = fixed ? 0 : BODY.caromPass * vn * (e.def.mass / o.def.mass);
   if (o.staggered > 0) gain *= BODY.staggerLaunchMul;
   gain = Math.min(gain, BODY.caromMaxGain * vn);
   o.lvx += nx * gain;
@@ -253,7 +255,7 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   bounceDamage(w, o, amount, 'carom', by, nx, ny, big);
   bounceDamage(w, e, amount, 'carom', by, -nx, -ny, big);
   creditBounce(w, e, cx, cy);
-  if (!o.dead && !settle(w, o, by, e.links + 1)) {
+  if (!o.dead && !fixed && !settle(w, o, by, e.links + 1)) {
     // too heavy to fly from that: it staggers instead
     addStagger(w, o, 1);
   }
@@ -288,7 +290,7 @@ function fly(w: World, e: Enemy, dt: number, s: BodyScratch): void {
     }
     if (e.links < BODY.maxLinks) {
       for (const o of w.enemies) {
-        if (o === e || !hittable(o) || o.airborne) continue;
+        if (o === e || !hittable(o) || outOfReach(o)) continue;
         if ((e.caromLock > 0 && e.caromWith === o.id) || (o.caromLock > 0 && o.caromWith === e.id)) continue;
         const tb = circleTime(e.x, e.y, dx, dy, o.x, o.y, e.radius + o.radius);
         if (tb < 0 || tb > t) continue;

@@ -24,7 +24,8 @@ import type { Enemy, Player, World } from './types';
 
 export const SPAWN_TIME = 0.75;
 
-function setState(e: Enemy, s: Enemy['state'], dur = 0): void {
+/** Put an enemy into a state of the attack cycle. Brains use it for attacks of their own making. */
+export function setState(e: Enemy, s: Enemy['state'], dur = 0): void {
   e.state = s;
   e.stateTime = 0;
   e.stateDur = dur;
@@ -67,7 +68,7 @@ function answerRiposte(w: World, e: Enemy, p: Player): void {
 }
 
 /** Keep the current target unless it is down or someone else is clearly closer. */
-function chooseTarget(w: World, e: Enemy): Player | null {
+export function chooseTarget(w: World, e: Enemy): Player | null {
   const near = nearestPlayer(w, e.x, e.y);
   if (!near) return null;
   const cur = playerBySlot(w, e.target);
@@ -89,8 +90,9 @@ function chooseTarget(w: World, e: Enemy): Player | null {
 
 export function spawnEnemy(w: World, def: EnemyDef, x: number, y: number, o: { elite?: string | null; hpMul?: number; instant?: boolean } = {}): Enemy {
   const depth = Math.max(0, w.chamber - 1);
-  const crowd = 1 + SCALING.coopHp * Math.max(0, w.players.length - 1);
-  const hp = Math.round(def.hp * (1 + SCALING.hpPerChamber * depth) * crowd * (o.hpMul ?? 1));
+  // a boss's health is written for its own chamber, and grows with the party in its own way
+  const crowd = 1 + (def.boss ? SCALING.coopBossHp : SCALING.coopHp) * Math.max(0, w.players.length - 1);
+  const hp = Math.round(def.hp * (def.boss ? 1 : 1 + SCALING.hpPerChamber * depth) * crowd * (o.hpMul ?? 1));
   const near = nearestPlayer(w, x, y);
   const e: Enemy = {
     id: w.nextId++,
@@ -141,7 +143,10 @@ export function spawnEnemy(w: World, def: EnemyDef, x: number, y: number, o: { e
     lastHitY: 0,
     mem: [0, 0, 0, 0],
     armor: 1,
-    airborne: false,
+    airborne: !!def.flying,
+    groundedT: 0,
+    guardOpen: 0,
+    phase: 0,
     freeze: 0,
     status: newStatus(),
     dead: false,
@@ -196,6 +201,15 @@ function chooseMove(w: World, e: Enemy, dist: number, clear: number): number {
     if (r <= 0) return i;
   }
   return -1;
+}
+
+/**
+ * Begin one of the enemy's own moves against a player: the warning goes down, and the wind-up,
+ * the action and the recovery follow by themselves. A brain calls this to use a move from its
+ * definition.
+ */
+export function startMove(w: World, e: Enemy, index: number, p: Player): void {
+  beginWindup(w, e, index, p);
 }
 
 function beginWindup(w: World, e: Enemy, index: number, p: Player): void {
@@ -476,19 +490,37 @@ export function stepEnemies(w: World, dt: number): void {
     e.hurtT += dt;
     if (e.stunImmune > 0) e.stunImmune -= dt;
     for (let i = 0; i < e.cooldowns.length; i++) if (e.cooldowns[i] > 0) e.cooldowns[i] -= dt;
+    if (e.guardOpen > 0) e.guardOpen = Math.max(0, e.guardOpen - dt);
     if (e.state !== 'spawn') {
       stepStatus(w, e, dt);
+      if (e.dead) continue;
+    }
+    // a flyer that was knocked down takes off again once it has its feet
+    if (e.def.flying && !e.airborne && (e.state === 'idle' || e.state === 'move')) {
+      e.groundedT -= dt;
+      if (e.groundedT <= 0) {
+        e.airborne = true;
+        w.events.push({ type: 'takeoff', id: e.id, x: e.x, y: e.y });
+      }
+    }
+    const brain = e.def.brain ? w.content.brains[e.def.brain] : undefined;
+    if (brain && e.state !== 'spawn') {
+      brain.always(w, e, dt);
       if (e.dead) continue;
     }
 
     const m = e.move >= 0 ? e.def.moves[e.move] : undefined;
     switch (e.state) {
       case 'spawn':
-        if (e.stateTime >= e.stateDur) setState(e, 'idle');
+        if (e.stateTime >= e.stateDur) {
+          setState(e, 'idle');
+          if (brain) brain.start(w, e);
+        }
         break;
       case 'idle':
       case 'move':
-        locomote(w, e, dt, s);
+        if (brain) brain.decide(w, e, dt);
+        else locomote(w, e, dt, s);
         break;
       case 'windup':
         if (!m) {

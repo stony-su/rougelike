@@ -1,8 +1,8 @@
 ---
 id: T40
 title: Echo: the Gong
-status: open
-owner:
+status: claimed
+owner: stony-su
 milestone: 4
 weight: 1
 needs: [T22]

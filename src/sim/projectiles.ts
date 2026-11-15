@@ -180,6 +180,7 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
     crit: pr.perfect,
     heavy: pr.returned,
     freeze: pr.perfect ? HITSTOP.perfect : HITSTOP.light,
+    shot: true,
   });
   if (sent) addRally(w, pr.owner, pr.perfect ? RALLY.weight.perfect : pr.returned ? RALLY.weight.sent : RALLY.weight.arrow, e.x, e.y);
   // a Duet counts for the other player too: whoever banked the arrow, or whoever launched the body

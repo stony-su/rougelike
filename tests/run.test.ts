@@ -74,13 +74,13 @@ describe('the route', () => {
 
   it('asks more of the party where the design says so', () => {
     const at = (kind: Stop['kind'], n: number): Stop => ({ n, kind, zone: 'outer', look: 'court', shape: 'court', size: 24, name: '' });
-    const fight = flowFor(at('fight', 4), 1);
-    expect(flowFor(at('elite', 4), 1).budget).toBeGreaterThan(fight.budget);
-    expect(flowFor(at('boss', 4), 1).budget).toBeGreaterThan(flowFor(at('elite', 4), 1).budget);
-    expect(flowFor(at('solo', 4), 1).waves).toBe(1);
-    expect(flowFor(at('camp', 4), 1).waves).toBe(0);
+    const fight = flowFor(at('fight', 4), 1, CONTENT);
+    expect(flowFor(at('elite', 4), 1, CONTENT).budget).toBeGreaterThan(fight.budget);
+    expect(flowFor(at('boss', 4), 1, CONTENT).budget).toBeGreaterThan(flowFor(at('elite', 4), 1, CONTENT).budget);
+    expect(flowFor(at('solo', 4), 1, CONTENT).waves).toBe(1);
+    expect(flowFor(at('camp', 4), 1, CONTENT).waves).toBe(0);
     // three players face more than one
-    expect(flowFor(at('fight', 4), 3).budget).toBeGreaterThan(fight.budget);
+    expect(flowFor(at('fight', 4), 3, CONTENT).budget).toBeGreaterThan(fight.budget);
   });
 });
 

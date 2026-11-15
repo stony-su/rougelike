@@ -271,6 +271,12 @@ export interface Enemy {
   armor: number;
   /** In the air: out of reach of ground attacks. */
   airborne: boolean;
+  /** A flyer knocked out of the air: seconds until it takes off again. */
+  groundedT: number;
+  /** Seconds its shield stays open after a blow that broke its guard. */
+  guardOpen: number;
+  /** The phase of the fight a boss is in, from 0. Always 0 for anything else. */
+  phase: number;
   /** Per-body hit-stop: ticks this enemy stays frozen. */
   freeze: number;
   status: EnemyStatus;
@@ -504,7 +510,13 @@ export type SimEvent =
   /** An Echo Ward turned a downing blow aside. */
   | { type: 'ward'; player: number; x: number; y: number }
   /** A dash carried a player through an attack (Afterimage). */
-  | { type: 'afterimage'; player: number; x: number; y: number };
+  | { type: 'afterimage'; player: number; x: number; y: number }
+  /** A blow rang off a shield and did nothing. */
+  | { type: 'clang'; id: number; by: number; x: number; y: number }
+  /** A flyer was knocked out of the air, and later took off again. */
+  | { type: 'grounded'; id: number; x: number; y: number }
+  | { type: 'takeoff'; id: number; x: number; y: number }
+  | { type: 'bossPhase'; id: number; kind: string; phase: number; x: number; y: number };
 
 export type SimEventType = SimEvent['type'];
 

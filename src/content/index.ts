@@ -6,6 +6,7 @@
 // else is working on. Files are taken in the order of their
 // names, so every laptop builds the same registry.
 import type { ContentRegistry, EnemyDef, RoomTemplate } from '../sim/defs';
+import { BRAINS } from '../sim/bosses';
 import type { TuningSet } from '../sim/mods';
 
 function gathered<T>(found: Record<string, T>): T[] {
@@ -24,4 +25,5 @@ export const CONTENT: ContentRegistry = {
   enemies: Object.fromEntries(enemies.map((d) => [d.id, d])),
   tunings: Object.fromEntries(tunings.flatMap((set) => set.tunings).map((t) => [t.id, t])),
   harmonies: tunings.flatMap((set) => set.harmonies),
+  brains: BRAINS,
 };

@@ -130,7 +130,7 @@ function openStop(s: Session, content: ContentRegistry, entrants: Entrant[]): Wo
   const stop = s.route[s.stop];
   const seed = `${s.config.seed}/${s.attempt}/${stop.n}`;
   const room = buildRoom(generateRoom(seed, roomSpec(stop)));
-  return createWorld(room, seed, content, { chamber: stop.n, entrants, flow: flowFor(stop, entrants.length), inputDelay: s.config.inputDelay });
+  return createWorld(room, seed, content, { chamber: stop.n, entrants, flow: flowFor(stop, entrants.length, content), inputDelay: s.config.inputDelay });
 }
 
 /** A chamber of the practice ladder: the hand-built rooms, taken in turn. */

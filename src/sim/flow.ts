@@ -41,6 +41,8 @@ export interface RoomFlow {
   clearedFor: number;
   /** Chimes paid for clearing. */
   clearBonus: number;
+  /** The id of the boss this chamber holds instead of waves, or '' for none. */
+  boss: string;
 }
 
 export const MAGNET_RADIUS = 2.4;
@@ -58,6 +60,7 @@ export function createFlow(chamber: number, players: number): RoomFlow {
     pickups: [],
     clearedFor: 0,
     clearBonus: 10 + 2 * chamber,
+    boss: '',
   };
 }
 
@@ -133,6 +136,13 @@ function spawnSpots(w: World, n: number): Vec2[] {
 function sendWave(w: World): void {
   const f = w.flow;
   f.wave++;
+  const boss = f.boss ? w.content.enemies[f.boss] : undefined;
+  if (boss) {
+    // the boss stands at the focus of its chamber, and whatever else arrives, it calls itself
+    spawnEnemy(w, boss, w.room.rewardSpot.x, w.room.rewardSpot.y);
+    w.events.push({ type: 'waveStart', wave: f.wave });
+    return;
+  }
   const defs = composeWave(w, f.budget);
   const spots = spawnSpots(w, defs.length);
   const spawned: Enemy[] = [];

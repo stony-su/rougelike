@@ -35,6 +35,7 @@ import type { Session } from '../sim/session';
 import { hashSession } from '../sim/snapshot';
 import type { ClassId, Player, SimEvent, World } from '../sim/types';
 import type { CardInfo } from '../ui/cards';
+import { BossBar } from '../ui/bossBar';
 import { DraftScreen } from '../ui/draftScreen';
 import { Hud } from '../ui/hud';
 import { Label } from '../ui/label';
@@ -113,6 +114,7 @@ export class Game {
   private readonly endHint: Label;
   private endShown = '';
   /** The cards this laptop's player is choosing from; the offer on screen, and the one already answered. */
+  private readonly bossBar = new BossBar();
   private readonly draft = new DraftScreen();
   private draftKey = '';
   private pickSent = '';
@@ -182,7 +184,7 @@ export class Game {
     this.endNote = new Label('', { size: 11, color: PAPER, tracking: 0.2, align: 'center' });
     this.endHint = new Label('Enter or A: go again', { size: 11, color: CHIME, tracking: 0.2, align: 'center' });
     for (const l of [this.endHead, this.endNote, this.endHint]) l.visible = false;
-    this.stage.ui.addChild(this.hud.root, this.draft.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
+    this.stage.ui.addChild(this.hud.root, this.bossBar.root, this.draft.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
 
     if (opts.debug) {
       BitmapFont.install({
@@ -225,6 +227,7 @@ export class Game {
     this.numbers.destroy();
     this.hud.destroy();
     this.draft.destroy();
+    this.bossBar.destroy();
     this.textures.destroy();
     this.stage.root.destroy({ children: true });
   }
@@ -314,6 +317,7 @@ export class Game {
     for (const x of this.extras) x.resize?.(this.viewW, this.viewH);
     this.hud.layout(this.viewW, this.viewH);
     this.draft.layout(this.viewW, this.viewH);
+    this.bossBar.layout(this.viewW);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.4);
     this.endHead.position.set(this.viewW / 2, this.viewH * 0.3);
     this.endNote.position.set(this.viewW / 2, this.viewH * 0.3 + 78);
@@ -611,6 +615,7 @@ export class Game {
     if (this.opts.backdrop) this.backdrop.update(dt, this.camera, this.viewW, this.viewH);
     this.ambient.update(dt);
     for (const x of this.extras) x.update?.(dt, w, alpha, this.time);
+    this.bossBar.update(w, dt);
     this.hud.setRun(s.route.length);
     this.hud.update(w, me, dt);
     this.hud.setNet(this.driver.net());

@@ -7,7 +7,7 @@ import type { Vec2 } from '../../core/exact';
 import { pointInSector } from '../../core/geom';
 import { addStagger, pushBody } from '../bodies';
 import { BOMB_TOUCH, batBomb } from '../bombs';
-import { damageEnemy, freezeBody, hittable } from '../combat';
+import { damageEnemy, freezeBody, hittable, outOfReach } from '../combat';
 import { rest, shift, walk } from '../move';
 import { slapShot } from '../projectiles';
 import { addRally, rallyMul } from '../rally';
@@ -57,7 +57,7 @@ function resolveJab(w: World, p: Player): void {
   const ay = dsin(p.actAngle);
   let hits = 0;
   for (const e of w.enemies.slice()) {
-    if (!hittable(e) || e.airborne) continue;
+    if (!hittable(e) || outOfReach(e)) continue;
     if (!pointInSector(e.x, e.y, p.x, p.y, p.actAngle, FIST.halfArc, FIST.reach, e.radius)) continue;
     let kx = e.x - p.x;
     let ky = e.y - p.y;
@@ -157,7 +157,7 @@ function inReach(w: World, p: Player): Enemy | null {
   let best: Enemy | null = null;
   let bd = Infinity;
   for (const e of w.enemies) {
-    if (!hittable(e) || e.airborne) continue;
+    if (!hittable(e) || outOfReach(e)) continue;
     if (!pointInSector(e.x, e.y, p.x, p.y, p.actAngle, HAYMAKER.halfArc, HAYMAKER.reach, e.radius)) continue;
     const d = (e.x - p.x) * (e.x - p.x) + (e.y - p.y) * (e.y - p.y);
     if (d < bd || (d === bd && best !== null && e.id < best.id)) {
@@ -183,7 +183,8 @@ function tryPunch(w: World, p: Player): boolean {
   const full = f >= 1;
   let amount = HAYMAKER.damage + HAYMAKER.damagePerCharge * f;
   if (full) amount *= rallyMul(w, p.slot);
-  damageEnemy(w, e, amount, { kind: full ? 'return' : 'direct', by: p.slot, dx: ax, dy: ay, heavy: true, crit: full, freeze: full ? HITSTOP.perfect : HITSTOP.heavy });
+  // a full one is heavy enough to open a shield
+  damageEnemy(w, e, amount, { kind: full ? 'return' : 'direct', by: p.slot, dx: ax, dy: ay, heavy: true, crit: full, freeze: full ? HITSTOP.perfect : HITSTOP.heavy, breaks: full });
   if (full) addRally(w, p.slot, RALLY.weight.perfect, e.x, e.y);
   if (!e.dead) pushBody(w, e, ax, ay, HAYMAKER.impulse + HAYMAKER.impulsePerCharge * f, p.slot);
   freezeBody(p, HITSTOP.heavy);
@@ -223,7 +224,7 @@ function resolveBreak(w: World, p: Player): void {
   w.events.push({ type: 'breakSlam', player: p.slot, x: p.x, y: p.y, radius: BREAK.radius });
   let hits = 0;
   for (const e of w.enemies.slice()) {
-    if (!hittable(e) || e.airborne) continue;
+    if (!hittable(e) || outOfReach(e)) continue;
     let dx = e.x - p.x;
     let dy = e.y - p.y;
     const rr = BREAK.radius + e.radius;

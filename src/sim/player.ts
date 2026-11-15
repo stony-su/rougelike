@@ -7,7 +7,7 @@ import { BOW_KIT } from './classes/bow';
 import { FIST_KIT } from './classes/fist';
 import type { Kit } from './classes/kit';
 import { SWORD_KIT } from './classes/sword';
-import { damageEnemy, hittable } from './combat';
+import { damageEnemy, hittable, outOfReach } from './combat';
 import type { ContentRegistry } from './defs';
 import { aimAngleOf, aimDistOf, moveInto } from './input';
 import { baseMods, computeMods } from './mods';
@@ -155,7 +155,7 @@ function startDash(w: World, p: Player, move: Vec2): void {
 /** Ram: a dash knocks aside every Echo it passes, once each. */
 function ram(w: World, p: Player): void {
   for (const e of w.enemies) {
-    if (!hittable(e) || e.airborne || p.dashHit.includes(e.id)) continue;
+    if (!hittable(e) || outOfReach(e) || p.dashHit.includes(e.id)) continue;
     const dx = e.x - p.x;
     const dy = e.y - p.y;
     const reach = p.radius + e.radius + TUNE.ramReach;

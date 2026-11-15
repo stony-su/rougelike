@@ -1,9 +1,9 @@
 // Damage, stun and hit-stop: the rules every attack goes through. Blows that move a body are in
 // bodies.ts; this file only takes health away and says what happened.
-import { dhypot } from '../core/dmath';
+import { dcos, dhypot, dsin } from '../core/dmath';
 import { applyBurn, applyChill, clearElements } from './conditions';
 import { removeTelegraph } from './telegraphs';
-import { FREEZE, KNOCK_DECAY, PLAYER, RALLY, RIPOSTE, STUN_IMMUNITY, TUNE } from './tuning';
+import { FREEZE, KNOCK_DECAY, PLAYER, RALLY, RIPOSTE, STUN_IMMUNITY, TRAIT, TUNE } from './tuning';
 import type { Enemy, HitKind, Player, World } from './types';
 
 /**
@@ -36,7 +36,17 @@ export interface HitSource {
   crit?: boolean;
   /** Ticks the struck body freezes. */
   freeze?: number;
+  /** Heavy enough to open a shield and land anyway (a full Haymaker). */
+  breaks?: boolean;
+  /** It flew here: an arrow, or a shot sent back. Such a thing knocks a flyer out of the air. */
+  shot?: boolean;
 }
+
+/** In the air and out of reach of ground blows. A flyer comes within reach while it swoops in its own attack. */
+export const outOfReach = (e: Enemy): boolean => e.airborne && e.state !== 'attack';
+
+/** True while an Echo that carries a shield has it up: it is on guard, not in the middle of its own blow or paying for one. */
+export const onGuard = (e: Enemy): boolean => !!e.def.shield && e.guardOpen <= 0 && e.staggered <= 0 && (e.state === 'idle' || e.state === 'move' || e.state === 'windup');
 
 /** A Return is a hit delivered by something sent back: a returned shot, a slam, a carom, a ring-out. */
 export const isReturn = (kind: HitKind): boolean => kind === 'return' || kind === 'slam' || kind === 'carom' || kind === 'ringout';
@@ -80,6 +90,24 @@ function riders(w: World, e: Enemy, p: Player): void {
 /** Deal damage to an enemy. Returns true if it died. */
 export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource): boolean {
   if (!hittable(e)) return false;
+  // A shield: a blow or a shot that meets it from the front does nothing, unless it is heavy enough to open it.
+  const sh = e.def.shield;
+  if (sh && onGuard(e) && (src.kind === 'direct' || src.kind === 'return') && -(src.dx * dcos(e.facing) + src.dy * dsin(e.facing)) > dcos(sh.arc)) {
+    if (!src.breaks) {
+      w.events.push({ type: 'clang', id: e.id, by: src.by, x: e.x, y: e.y });
+      return false;
+    }
+    e.guardOpen = sh.open;
+    w.events.push({ type: 'armorBreak', id: e.id, x: e.x, y: e.y });
+  }
+  // A flyer: anything shot at it, or a blow that catches it in its swoop, knocks it out of the air.
+  let felled = false;
+  if (e.def.flying && e.airborne && (src.shot || e.state === 'attack')) {
+    e.airborne = false;
+    e.groundedT = e.def.flying.grounded;
+    felled = true;
+    w.events.push({ type: 'grounded', id: e.id, x: e.x, y: e.y });
+  }
   let crit = !!src.crit;
   const p = src.by >= 0 ? bySlot(w, src.by) : null;
   const returned = isReturn(src.kind);
@@ -130,7 +158,10 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
     killed,
   });
   if (killed) killEnemy(w, e);
-  else if (p && returned) riders(w, e, p);
+  else {
+    if (felled) stunEnemy(w, e, TRAIT.groundStun, true);
+    if (p && returned) riders(w, e, p);
+  }
   return killed;
 }
 
@@ -162,7 +193,8 @@ export function interruptEnemy(w: World, e: Enemy): void {
  * `force` ignores the immunity (a stagger, a climb out of a pit).
  */
 export function stunEnemy(w: World, e: Enemy, seconds: number, force = false): boolean {
-  if (!hittable(e) || e.state === 'launched') return false;
+  // a boss is never stunned: nothing may take its turns away
+  if (!hittable(e) || e.state === 'launched' || e.def.boss) return false;
   if (!force && e.stunImmune > 0) return false;
   interruptEnemy(w, e);
   e.state = 'stun';
