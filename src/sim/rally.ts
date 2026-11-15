@@ -91,6 +91,14 @@ export function addRally(w: World, slot: number, weight: number, x: number, y: n
       overtone(w, p);
     }
   }
+  // Chorus: enough Rally gained, and the next swing is a Ring Cut
+  if (m.chorusEvery > 0) {
+    p.chorusAcc += weight;
+    if (p.chorusAcc >= m.chorusEvery) {
+      p.chorusAcc -= m.chorusEvery;
+      p.ringReady = true;
+    }
+  }
   if (m.stormEvery > 0) {
     p.stormAcc += weight;
     if (p.stormAcc >= m.stormEvery) {

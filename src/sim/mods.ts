@@ -51,6 +51,8 @@ export interface Mods {
   /** Share of the Riposte's cooldown given back when it lands (0.5 with no Tuning). */
   encoreRefund: number;
   encoreDash: number;
+  /** Health a landed Riposte gives back. */
+  encoreHeal: number;
   /** Damage of the crescent the third swing throws, and its bounces. 0 = none. */
   crescent: number;
   crescentBounces: number;
@@ -155,6 +157,7 @@ export function baseMods(): Mods {
     counterMark: 0,
     encoreRefund: 0.5,
     encoreDash: 0,
+    encoreHeal: 0,
     crescent: 0,
     crescentBounces: 0,
     refork: 0,

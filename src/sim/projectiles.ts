@@ -4,17 +4,18 @@
 //
 // One function moves a shot for one tick. The aim preview runs that same function on a ghost
 // shot with nobody in the room, so the path drawn is, bit for bit, the path flown.
-import { dcos, dsin } from '../core/dmath';
+import { datan2, dcos, dsin } from '../core/dmath';
 import type { Vec2 } from '../core/exact';
 import { nearestEcho, pushBody } from './bodies';
 import { BOMB_TOUCH, detonateBomb } from './bombs';
 import { HIT_BUMPER, HIT_POST, SKIN, castCircle, circleTime, newHit } from './cast';
 import type { Hit } from './cast';
-import { HURT_GUARDED, HURT_TAKEN, damageEnemy, damagePlayer, hittable, standing } from './combat';
+import { HURT_GUARDED, HURT_TAKEN, damageEnemy, damagePlayer, hittable, standing, stunEnemy } from './combat';
+import { applyMark } from './conditions';
 import { reflectFixed, reflectFree } from './geo';
 import type { Geo } from './geo';
 import { addRally, rallyMul } from './rally';
-import { BODY, BOW, BREAK, DT, DUET, HITSTOP, RALLY, REFLECT, RINGSTONE } from './tuning';
+import { BODY, BOW, BREAK, DT, DUET, EDGE, HITSTOP, RALLY, REFLECT, RINGSTONE } from './tuning';
 import type { Bomb, BounceKind, Enemy, Player, Projectile, Ringstone, World } from './types';
 
 /** No shot ever flies faster than this, however many bumpers it meets. */
@@ -67,6 +68,9 @@ function make(id: number, o: ShotSpec): Projectile {
     boost: 0,
     homing: 0,
     assist: -1,
+    turn: 0,
+    struck: 0,
+    struckAt: -999,
     hits: [],
     dead: false,
   };
@@ -115,7 +119,8 @@ export function destroyProjectile(w: World, p: Projectile): void {
  * bank once off a wall, and a perfect one goes through everything.
  */
 export function returnShot(w: World, pr: Projectile, p: Player, angle: number, perfect: boolean, homing: number): void {
-  const sp = Math.min(MAX_SHOT_SPEED, Math.max(REFLECT.minSpeed, Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy) * REFLECT.speedMul));
+  // Clean Return: it flies faster still, and goes through what it meets
+  const sp = Math.min(MAX_SHOT_SPEED, Math.max(REFLECT.minSpeed, Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy) * REFLECT.speedMul) * p.mods.returnSpeed);
   pr.vx = dcos(angle) * sp;
   pr.vy = dsin(angle) * sp;
   pr.faction = 'player';
@@ -127,13 +132,63 @@ export function returnShot(w: World, pr: Projectile, p: Player, angle: number, p
   pr.bounced = 0;
   pr.skips = 0;
   pr.skipped = 0;
-  pr.pierce = perfect ? 99 : 0;
+  pr.pierce = perfect ? 99 : p.mods.returnPierce;
   pr.range = REFLECT.range;
   pr.life = REFLECT.range / sp + 0.1;
   pr.boost = 0;
   pr.homing = homing;
+  pr.turn = 0;
+  pr.struck = 0;
+  pr.struckAt = w.tick;
   pr.hits.length = 0;
   w.events.push({ type: 'reflect', player: p.slot, id: pr.id, x: pr.x, y: pr.y, perfect });
+}
+
+/**
+ * Second Voice: a shot that has just been sent back, and is flying where it was sent, splits into
+ * a fan about that line. Each shot of the fan carries a share of the whole. Hall of Mirrors lets
+ * each bank once more. An orb is one thing and stays one.
+ */
+export function fanOut(w: World, pr: Projectile, p: Player): void {
+  const extra = pr.kind === 'orb' ? 0 : p.mods.returnSplit;
+  if (extra <= 0) return;
+  const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy);
+  const at = datan2(pr.vy, pr.vx);
+  pr.damage *= EDGE.splitShare - EDGE.splitStep * extra;
+  pr.bounces += p.mods.hallOfMirrors;
+  for (let i = 0; i <= extra; i++) {
+    const a = at - EDGE.splitFan / 2 + (EDGE.splitFan * i) / extra;
+    let shot = pr;
+    if (i > 0) {
+      shot = { ...pr, id: w.nextId++, hits: [] };
+      w.projectiles.push(shot);
+      w.events.push({ type: 'projectileSpawn', id: shot.id, kind: shot.kind, x: shot.x, y: shot.y });
+    }
+    shot.vx = dcos(a) * sp;
+    shot.vy = dsin(a) * sp;
+  }
+}
+
+/**
+ * Tuning Fork: the Sword strikes one of its own shots on again, along `angle`. It hits harder for
+ * it and has its whole range again. Standing Wave: a crescent also grows, in size and in speed.
+ */
+export function restrikeShot(w: World, pr: Projectile, p: Player, angle: number): void {
+  const grow = p.mods.standingWave > 0 && pr.kind === 'crescent' ? EDGE.waveGrow : 1;
+  const sp = Math.min(MAX_SHOT_SPEED, Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy) * grow);
+  pr.vx = dcos(angle) * sp;
+  pr.vy = dsin(angle) * sp;
+  pr.radius = Math.min(Math.max(pr.radius, EDGE.waveMaxRadius), pr.radius * grow);
+  pr.damage *= 1 + p.mods.refork;
+  pr.range = Math.max(pr.range, REFLECT.range);
+  pr.life = pr.range / sp + 0.1;
+  // struck on by a blade, it is a Return from here on
+  pr.returned = true;
+  pr.homing = 0;
+  pr.struck++;
+  pr.struckAt = w.tick;
+  pr.hits.length = 0;
+  w.events.push({ type: 'reflect', player: p.slot, id: pr.id, x: pr.x, y: pr.y, perfect: false });
 }
 
 /**
@@ -196,13 +251,22 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
     shot: true,
   });
   if (sent) addRally(w, pr.owner, pr.perfect ? RALLY.weight.perfect : pr.returned ? RALLY.weight.sent : RALLY.weight.arrow, e.x, e.y);
+  let stunned = false;
+  if (pr.perfect && !e.dead) {
+    // Counterweight: a perfect return stuns what it strikes where it stands, and marks it for everyone
+    for (const pl of w.players) {
+      if (pl.slot !== pr.owner || pl.mods.counterStun <= 0) continue;
+      stunned = stunEnemy(w, e, pl.mods.counterStun) || stunned;
+      applyMark(e, pl.mods.counterMark, EDGE.markTime);
+    }
+  }
   // a Duet counts for the other player too: whoever banked the arrow, or whoever launched the body
   if (pr.assist >= 0 && pr.assist !== pr.owner) addRally(w, pr.assist, RALLY.weight.arrow, e.x, e.y);
   if (oop && launcher >= 0 && launcher !== pr.owner) {
     addRally(w, launcher, RALLY.weight.arrow, e.x, e.y);
     w.events.push({ type: 'duet', kind: 'alleyoop', a: launcher, b: pr.owner, x: e.x, y: e.y });
   }
-  if (!e.dead) {
+  if (!e.dead && !stunned) {
     pushBody(w, e, ux, uy, (pr.returned ? REFLECT.impulse : BOW.impulse) + (oop ? DUET.oopArrowImpulse : 0), pr.owner);
     if (oop && launcher >= 0 && launcher !== pr.owner) e.assistBy = launcher;
   }
@@ -288,8 +352,22 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
       const tl = Math.sqrt(tx * tx + ty * ty);
       if (tl > 1e-6) {
         const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy);
-        pr.vx = (tx / tl) * sp;
-        pr.vy = (ty / tl) * sp;
+        const ux = tx / tl;
+        const uy = ty / tl;
+        // near its mark it turns as tightly as it must, so it never circles what it is after
+        const step = Math.max(pr.turn, (2 * sp) / tl) * dt;
+        const dot = sp > 1e-9 ? (pr.vx * ux + pr.vy * uy) / sp : 1;
+        if (pr.turn <= 0 || dot >= dcos(step)) {
+          pr.vx = ux * sp;
+          pr.vy = uy * sp;
+        } else {
+          // it comes round at its own rate, the shorter way
+          const c = dcos(step);
+          const s = dsin(step) * (pr.vx * uy - pr.vy * ux >= 0 ? 1 : -1);
+          const nx = pr.vx * c - pr.vy * s;
+          pr.vy = pr.vx * s + pr.vy * c;
+          pr.vx = nx;
+        }
       }
     } else {
       pr.homing = 0;
@@ -464,6 +542,7 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
         const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy);
         pr.vx = (bx / bl) * sp;
         pr.vy = (by / bl) * sp;
+        fanOut(w, pr, player);
       } else if (res === HURT_TAKEN) {
         end(w, pr, true, null);
       } else {

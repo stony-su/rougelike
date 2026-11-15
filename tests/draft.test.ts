@@ -35,10 +35,15 @@ const BLADES: TuningDef[] = [
   blade('w1', 'Wildcard', 1),
   blade('locked', 'Gamma', 2, { locked: true }),
 ];
+/** The Tunings anyone can take. The engine is tested on these and on the stand-ins above, so what the real classes hold does not matter here. */
+const COMMON = Object.fromEntries(Object.entries(CONTENT.tunings).filter(([, t]) => t.owner === 'common'));
 const WITH_BLADES: ContentRegistry = {
   ...CONTENT,
-  tunings: { ...CONTENT.tunings, ...Object.fromEntries(BLADES.map((t) => [t.id, t])) },
-  harmonies: [...CONTENT.harmonies, { id: 'ab', name: 'AB', parents: ['a1', 'b1'], text: 'both', effects: [{ mod: 'hallOfMirrors', op: 'set', v: [1] }] }],
+  tunings: { ...COMMON, ...Object.fromEntries(BLADES.map((t) => [t.id, t])) },
+  harmonies: [
+    ...CONTENT.harmonies.filter((h) => h.parents.every((id) => COMMON[id])),
+    { id: 'ab', name: 'AB', parents: ['a1', 'b1'], text: 'both', effects: [{ mod: 'hallOfMirrors', op: 'set', v: [1] }] },
+  ],
 };
 const ownerOf = (id: string): string => WITH_BLADES.tunings[id].owner;
 

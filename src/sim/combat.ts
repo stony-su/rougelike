@@ -1,9 +1,10 @@
 // Damage, stun and hit-stop: the rules every attack goes through. Blows that move a body are in
 // bodies.ts; this file only takes health away and says what happened.
 import { dcos, dhypot, dsin } from '../core/dmath';
+import { pushBody } from './bodies';
 import { applyBurn, applyChill, clearElements } from './conditions';
 import { removeTelegraph } from './telegraphs';
-import { BOSS, FREEZE, KNOCK_DECAY, PLAYER, RALLY, RIPOSTE, STUN_IMMUNITY, TRAIT, TUNE } from './tuning';
+import { BOSS, EDGE, FREEZE, KNOCK_DECAY, PLAYER, RALLY, RIPOSTE, STUN_IMMUNITY, TRAIT, TUNE } from './tuning';
 import type { Enemy, HitKind, Player, World } from './types';
 
 /**
@@ -239,6 +240,31 @@ export const HURT_TAKEN = 1;
 /** It landed in a Riposte: no damage was done, and whoever struck should answer for it. */
 export const HURT_GUARDED = 2;
 
+/** A Riposte has caught something: what the guard gives back to whoever held it, once for each guard. */
+function landRiposte(w: World, p: Player): void {
+  const m = p.mods;
+  // part of the wait comes back (all of it with Encore), and with Encore a dash and a little health
+  p.specialCd *= 1 - m.encoreRefund;
+  if (m.encoreDash > 0) p.dashCharges = Math.min(p.dashMaxCharges, p.dashCharges + m.encoreDash);
+  if (m.encoreHeal > 0 && p.hp < p.maxHp) {
+    const before = p.hp;
+    p.hp = Math.min(p.maxHp, p.hp + m.encoreHeal);
+    w.events.push({ type: 'heal', player: p.slot, amount: p.hp - before, x: p.x, y: p.y });
+  }
+  // Tempered Riposte: the next swings are doubled
+  p.buffSwings = m.riposteBuff;
+  // Answer in Kind: it bursts, and throws back what stands near
+  if (m.answerInKind > 0) {
+    const near = w.enemies.filter((e) => hittable(e) && (e.x - p.x) * (e.x - p.x) + (e.y - p.y) * (e.y - p.y) <= (EDGE.answerRadius + e.radius) * (EDGE.answerRadius + e.radius));
+    burstAt(w, p.x, p.y, EDGE.answerRadius, EDGE.answerDamage, p.slot, 'answer');
+    for (const e of near) {
+      if (e.dead) continue;
+      const d = dhypot(e.x - p.x, e.y - p.y) || 1;
+      pushBody(w, e, (e.x - p.x) / d, (e.y - p.y) / d, EDGE.answerImpulse, p.slot);
+    }
+  }
+}
+
 /**
  * Hurt a player from a source at (sx, sy). Returns HURT_TAKEN if damage was done, HURT_GUARDED if
  * it landed in a Riposte (the caller sends the blow back), HURT_NONE if it passed harmlessly.
@@ -248,7 +274,7 @@ export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy
   if (p.guardT > 0) {
     if (!p.guardHit) {
       p.guardHit = true;
-      p.specialCd *= 1 - RIPOSTE.refund;
+      landRiposte(w, p);
     }
     p.iframes = Math.max(p.iframes, p.guardT + RIPOSTE.iframes);
     w.events.push({ type: 'riposte', player: p.slot, x: p.x, y: p.y });

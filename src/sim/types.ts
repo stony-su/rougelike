@@ -191,6 +191,14 @@ export interface Player {
   /** Rally gained since the last Overtone ring, and since the last Storm lightning. */
   overtoneAcc: number;
   stormAcc: number;
+  /** Chorus: Rally gained toward the next Ring Cut, whether one is ready, and whether the swing in hand is one. */
+  chorusAcc: number;
+  ringReady: boolean;
+  ringNow: boolean;
+  /** Tempered Riposte: swings still to be doubled after a landed Riposte. */
+  buffSwings: number;
+  /** Bladesong: how much quicker than a plain one the swing in hand is. Its times are divided by this. */
+  actHaste: number;
   /** Sustain: seconds toward the next point of Rally lost. */
   sustainT: number;
   /** Echo Ward: downing blows it will still turn aside in this chamber. */
@@ -380,6 +388,11 @@ export interface Projectile {
   homing: number;
   /** A second player who sent it on its way (an arrow banked off a blade), or -1: they share its Returns. */
   assist: number;
+  /** How fast it comes round toward what it is flying home to, in radians a second; 0 turns at once. */
+  turn: number;
+  /** Tuning Fork: how often its owner has struck it on again, and the tick of the last time (or of its making). */
+  struck: number;
+  struckAt: number;
   /** Ids of what it has struck since it last bounced off the chamber, so a skip or a pierce never strikes twice. */
   hits: number[];
   dead: boolean;

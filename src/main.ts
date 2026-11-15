@@ -61,7 +61,13 @@ if (params.has('selftest')) {
     const host = params.has('solo') ? null : await findHost();
     // An address that names a class, a team, a chamber or a bot skips the title: it begins a run
     // alone at once, or on a hosted page sits down in the lobby. Otherwise the game opens on its title.
-    const direct = ['class', 'team', 'autopilot', 'practice', 'stop', 'stress', 'seats'].some((k) => params.has(k));
+    const direct = ['class', 'team', 'autopilot', 'practice', 'stop', 'stress', 'seats', 'tunings'].some((k) => params.has(k));
+    // ?tunings=ringing-edge:3,chorus begins holding those (development: to see what a Tuning does)
+    const tunings: Record<string, number> = {};
+    for (const part of (params.get('tunings') ?? '').split(',')) {
+      const [id, rank] = part.trim().split(':');
+      if (id) tunings[id] = Math.max(1, Number(rank) || 1);
+    }
     const app = new App(pixi, {
       debug: params.has('debug'),
       seed: params.get('seed') ?? String(Math.floor(Math.random() * 1e9)),
@@ -76,6 +82,7 @@ if (params.has('selftest')) {
       direct,
       practice: params.has('practice'),
       startAt: Number(params.get('stop') ?? 1) || 1,
+      tunings: params.has('tunings') ? tunings : null,
     });
     hooks.app = app;
     Object.defineProperty(hooks, 'game', { get: () => app.game, enumerable: true });

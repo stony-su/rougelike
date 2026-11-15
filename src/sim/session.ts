@@ -55,6 +55,8 @@ export interface SessionConfig {
   practice?: boolean;
   /** Development: begin the run at this chamber (1 to 12) instead of the first. */
   startAt?: number;
+  /** Development: every player begins holding these Tunings (id to rank), where their class may hold them. */
+  tunings?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -149,6 +151,18 @@ const CLEAR_BEAT = Math.round(3 * SIM_HZ);
 
 const noStats = (): RunStats => ({ chambers: 0, kills: 0, damageDealt: 0, damageTaken: 0, returns: 0, bestRally: 0 });
 
+/** The Tunings a development address asked for, kept to those that exist and to ranks they have. */
+function heldBy(asked: Readonly<Record<string, number>> | undefined, content: ContentRegistry): Record<string, number> | undefined {
+  if (!asked) return undefined;
+  const out: Record<string, number> = {};
+  for (const id of Object.keys(asked).sort()) {
+    const t = content.tunings[id];
+    const rank = Math.round(asked[id]);
+    if (t && rank >= 1) out[id] = Math.min(t.maxRank, rank);
+  }
+  return out;
+}
+
 /** What a player brings to every run. */
 const boonsOf = (s: Session, slot: number): Boons => s.config.players[slot]?.boons ?? noBoons();
 
@@ -156,7 +170,9 @@ const boonsOf = (s: Session, slot: number): Boons => s.config.players[slot]?.boo
 const fresh = (s: Session): Entrant[] =>
   s.config.players.map((p, slot) => {
     const b = boonsOf(s, slot);
-    return { slot, classId: p.classId, maxHp: PLAYER.maxHp + b.health, chimes: b.chimes, tunings: b.issued ? { [b.issued]: 1 } : {}, boons: b };
+    const tunings: Record<string, number> = b.issued ? { [b.issued]: 1 } : {};
+    for (const id of Object.keys(s.config.tunings ?? {}).sort()) tunings[id] = Math.max(tunings[id] ?? 0, Math.round(s.config.tunings?.[id] ?? 0));
+    return { slot, classId: p.classId, maxHp: PLAYER.maxHp + b.health, chimes: b.chimes, tunings, boons: b };
   });
 
 /** The chamber of the stop the party is at, built by the generator from the seed. */
@@ -211,7 +227,7 @@ export function createSession(config: SessionConfig, content: ContentRegistry): 
   if (config.players.length < 1 || config.players.length > MAX_PLAYERS) throw new Error(`A session has 1 to ${MAX_PLAYERS} players`);
   const s: Session = {
     // what each player brings is held to what the Attunement can give, the same on every laptop
-    config: { ...config, players: config.players.map((p) => ({ ...p, boons: cleanBoons(p.boons, p.classId, content) })) },
+    config: { ...config, players: config.players.map((p) => ({ ...p, boons: cleanBoons(p.boons, p.classId, content) })), tunings: heldBy(config.tunings, content) },
     tick: 0,
     pausedBy: -1,
     attempt: 0,

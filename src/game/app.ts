@@ -43,6 +43,8 @@ export interface AppOptions extends GameOptions {
   startAt: number;
   /** The address fixed the seed: every run alone uses it. */
   fixedSeed: boolean;
+  /** Development: begin every run alone holding these Tunings (id to rank). */
+  tunings: Record<string, number> | null;
 }
 
 /** The picture behind the menus when no game is: the Crater's standing rings. */
@@ -260,7 +262,7 @@ export class App implements ScreenHost {
     this.banked = key;
     this.state.gained = 0;
     const mine = s.config.players[this.driver.localSlot];
-    if (!mine || s.config.practice || s.config.stress > 0 || (s.config.startAt ?? 1) > 1) return;
+    if (!mine || s.config.practice || s.config.stress > 0 || (s.config.startAt ?? 1) > 1 || s.config.tunings) return;
     const miniboss = s.route.findIndex((r) => r.kind === 'miniboss') + 1;
     this.state.gained = bankRun(this.save, mine.classId, runSoFar(s), s.phase === 'won', s.played, miniboss);
     storeSave(browserStore(), this.save);
@@ -372,7 +374,9 @@ export class App implements ScreenHost {
     const seed = this.opts.fixedSeed ? this.opts.seed : String(Math.floor(Math.random() * 1e9));
     // this player brings what they have earned; bot companions bring nothing
     const players = team.map((classId, slot) => ({ name: `Player ${slot + 1}`, classId, boons: slot === 0 ? boonsFor(this.save, classId, CONTENT) : undefined }));
-    this.begin(new SoloDriver({ seed, players, buildId: BUILD_ID, inputDelay: 0, stress: this.opts.stress, practice: this.opts.practice, startAt: this.opts.startAt }));
+    this.begin(
+      new SoloDriver({ seed, players, buildId: BUILD_ID, inputDelay: 0, stress: this.opts.stress, practice: this.opts.practice, startAt: this.opts.startAt, tunings: this.opts.tunings ?? undefined }),
+    );
   }
 
   /** The co-op lobby of the host this page was served by. */

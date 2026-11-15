@@ -255,6 +255,33 @@ export const REVIVE = {
   decay: 0.5,
 };
 
+/** What the Sword's Tunings do, beyond the numbers on their cards. */
+export const EDGE = {
+  /** Second Voice: the fan a return splits into, and what each shot of it carries of the whole (less for each one more). */
+  splitFan: deg(20),
+  splitShare: 0.75,
+  splitStep: 0.05,
+  /** Counterweight: how long its mark lasts. */
+  markTime: 4,
+  /** Ringing Edge: the crescent the third swing throws. */
+  crescentSpeed: 14,
+  crescentRadius: 0.4,
+  crescentRange: 18,
+  /** Tuning Fork: seconds before the same shot can be struck on again, and how often it can be. */
+  reforkGap: 0.25,
+  reforkMost: 5,
+  /** Standing Wave: what a crescent grows by each time it is struck on, in size and in speed, and the most it grows to. */
+  waveGrow: 1.25,
+  waveMaxRadius: 1.2,
+  /** Chorus: the Ring Cut. */
+  ringReach: 2.6,
+  ringDamage: 16,
+  /** Answer in Kind: the burst of a landed Riposte. */
+  answerRadius: 2.5,
+  answerDamage: 12,
+  answerImpulse: 10,
+};
+
 /** Duets: bounces two players make between them. Each counts as a Return for both. */
 export const DUET = {
   /** An ally's arrow through a sword swing: re-aimed, harder, with one more ricochet and one pierce. */

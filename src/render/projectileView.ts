@@ -45,7 +45,8 @@ export class ProjectileViews {
         v = this.make(p);
         this.views.set(p.id, v);
       }
-      const dress = `${p.faction}/${p.owner}/${p.perfect ? 'p' : p.returned ? 'r' : ''}/${p.kind}`;
+      // a crescent's size is part of how it looks (it grows when it is struck on)
+      const dress = `${p.faction}/${p.owner}/${p.perfect ? 'p' : p.returned ? 'r' : ''}/${p.kind}/${p.kind === 'crescent' ? p.radius : ''}`;
       if (v.dress !== dress) this.dress(v, p, dress);
       v.seen = this.frame;
       const x = lerp(p.px, p.x, alpha);
@@ -95,6 +96,16 @@ export class ProjectileViews {
       v.streak.scale.set(0.5, 5.2);
       v.glow.tint = mine ? (PLAYER_COLORS[p.owner] ?? RIM) : DANGER;
       v.glow.scale.set(2.3);
+      return;
+    }
+    if (p.kind === 'crescent') {
+      // a wave thrown off a blade: broad across the way it goes, and broader as it grows
+      const size = p.radius / 0.4;
+      v.streak.tint = PLAYER_PALE[p.owner] ?? RIM;
+      v.streak.scale.set(1.5 * size, 4.4 * size);
+      v.streak.rotation = Math.PI / 2;
+      v.glow.tint = PLAYER_COLORS[p.owner] ?? RIM;
+      v.glow.scale.set(1.5 * size);
       return;
     }
     if (p.faction === 'enemy') {

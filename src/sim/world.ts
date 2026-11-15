@@ -55,7 +55,12 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     const at = clampToFloor(room, room.start.x + off[0], room.start.y + off[1], PLAYER.radius, { x: 0, y: 0 });
     const p = createPlayer(en.slot, en.classId, at.x, at.y);
     // what they have built so far comes in with them; charges and wards are full again in a new chamber
-    p.tunings = { ...(en.tunings ?? {}) };
+    // only what this class may hold: its own Tunings, and the ones anyone can take
+    p.tunings = {};
+    for (const id of Object.keys(en.tunings ?? {}).sort()) {
+      const t = content.tunings[id];
+      if (t && (t.owner === en.classId || t.owner === 'common')) p.tunings[id] = en.tunings?.[id] ?? 0;
+    }
     if (en.boons) p.boons = { ...en.boons, unlocked: en.boons.unlocked.slice() };
     equip(p, content);
     p.dashCharges = p.dashMaxCharges;

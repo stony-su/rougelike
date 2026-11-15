@@ -137,6 +137,185 @@ const DRAW: Record<string, Drawer> = {
     for (let i = 0; i < 4; i++) g.roundRect((-0.6 + i * 0.31) * s, -0.72 * s, 0.27 * s, 0.42 * s, 0.1 * s).fill(pale);
     g.roundRect(-0.86 * s, -0.12 * s, 0.34 * s, 0.5 * s, 0.14 * s).fill(pale);
   },
+  /** An arrowhead with streaks behind it: something sent back, faster. */
+  fast(g, s, color, pale) {
+    g.poly(pts([0.9, 0, 0.1, -0.62, 0.1, -0.22, -0.2, -0.22, -0.2, 0.22, 0.1, 0.22, 0.1, 0.62], s)).fill(pale);
+    for (const y of [-0.5, 0, 0.5]) g.moveTo(-0.9 * s, y * s).lineTo((y === 0 ? -0.36 : -0.5) * s, y * s);
+    g.stroke({ width: Math.max(1.5, s * 0.13), color, cap: 'round' });
+  },
+  /** A wide arc held in front of a point: a broader guard. */
+  guard(g, s, color, pale) {
+    g.poly(round(0, 0.55, 1.15, 14, s, -Math.PI * 0.86, -Math.PI * 0.14)).stroke({ width: Math.max(2, s * 0.2), color, cap: 'round', join: 'round' });
+    g.poly(round(0, 0.55, 0.72, 12, s, -Math.PI * 0.8, -Math.PI * 0.2)).stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round', join: 'round', alpha: 0.8 });
+    g.circle(0, 0.55 * s, 0.16 * s).fill(pale);
+  },
+  /** One line that becomes three: a shot that splits. */
+  split(g, s, color, pale) {
+    const w = Math.max(1.8, s * 0.15);
+    g.moveTo(-0.85 * s, 0.6 * s)
+      .lineTo(-0.15 * s, 0.1 * s)
+      .stroke({ width: w, color, cap: 'round' });
+    for (const [x, y] of [
+      [0.1, -0.85],
+      [0.8, -0.5],
+      [0.85, 0.3],
+    ]) {
+      g.moveTo(-0.15 * s, 0.1 * s).lineTo(x * s, y * s);
+    }
+    g.stroke({ width: w, color: pale, cap: 'round' });
+    g.circle(-0.15 * s, 0.1 * s, 0.14 * s).fill(color);
+  },
+  /** An hourglass: a longer moment. */
+  hourglass(g, s, color, pale) {
+    g.poly(pts([-0.6, -0.85, 0.6, -0.85, 0.1, 0, 0.6, 0.85, -0.6, 0.85, -0.1, 0], s)).fill(color);
+    g.poly(pts([-0.36, 0.72, 0.36, 0.72, 0, 0.2], s)).fill(pale);
+    g.moveTo(-0.72 * s, -0.85 * s)
+      .lineTo(0.72 * s, -0.85 * s)
+      .moveTo(-0.72 * s, 0.85 * s)
+      .lineTo(0.72 * s, 0.85 * s)
+      .stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round' });
+  },
+  /** A mark: a ring with four ticks and a point in the middle. */
+  target(g, s, color, pale) {
+    const w = Math.max(1.5, s * 0.13);
+    g.circle(0, 0, 0.58 * s).stroke({ width: w, color });
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2;
+      g.moveTo(Math.cos(a) * 0.4 * s, Math.sin(a) * 0.4 * s).lineTo(Math.cos(a) * 0.92 * s, Math.sin(a) * 0.92 * s);
+    }
+    g.stroke({ width: w, color, cap: 'round' });
+    g.circle(0, 0, 0.17 * s).fill(pale);
+  },
+  /** An arrow that comes round again. */
+  again(g, s, color, pale) {
+    g.poly(round(0, 0, 0.62, 16, s, Math.PI * 0.25, Math.PI * 1.75)).stroke({ width: Math.max(2, s * 0.17), color, cap: 'round', join: 'round' });
+    g.poly(pts([0.2, -0.86, 0.86, -0.56, 0.34, -0.12], s)).fill(pale);
+  },
+  /** A crescent, thrown. */
+  crescent(g, s, color, pale) {
+    const outer = round(-0.25, 0, 0.9, 16, s, -Math.PI * 0.42, Math.PI * 0.42);
+    const inner = round(-0.7, 0, 0.95, 16, s, Math.PI * 0.3, -Math.PI * 0.3);
+    g.poly([...outer, ...inner]).fill(color);
+    g.poly(round(-0.25, 0, 0.9, 12, s, -Math.PI * 0.3, Math.PI * 0.3)).stroke({ width: Math.max(1.5, s * 0.1), color: pale, cap: 'round', join: 'round' });
+  },
+  /** A tuning fork. */
+  fork(g, s, color, pale) {
+    const w = Math.max(2, s * 0.17);
+    g.moveTo(-0.34 * s, -0.86 * s)
+      .lineTo(-0.34 * s, -0.1 * s)
+      .quadraticCurveTo(-0.34 * s, 0.26 * s, 0, 0.26 * s)
+      .quadraticCurveTo(0.34 * s, 0.26 * s, 0.34 * s, -0.1 * s)
+      .lineTo(0.34 * s, -0.86 * s)
+      .stroke({ width: w, color, cap: 'round', join: 'round' });
+    g.moveTo(0, 0.26 * s)
+      .lineTo(0, 0.9 * s)
+      .stroke({ width: w, color: pale, cap: 'round' });
+  },
+  /** A ring cut all the way round, with the blade that cut it. */
+  ringcut(g, s, color, pale) {
+    g.circle(0, 0, 0.78 * s).stroke({ width: Math.max(2, s * 0.16), color });
+    g.poly(pts([-0.5, 0.58, -0.62, 0.46, 0.4, -0.6, 0.7, -0.7, 0.6, -0.4], s)).fill(pale);
+  },
+  /** A burst: a star of eight points. */
+  burst(g, s, color, pale) {
+    g.star(0, 0, 8, 0.92 * s, 0.4 * s).fill(color);
+    g.circle(0, 0, 0.24 * s).fill(pale);
+  },
+  /** Two links of a chain: one thing leading to the next. */
+  chain(g, s, color, pale) {
+    const w = Math.max(2, s * 0.17);
+    g.roundRect(-0.9 * s, -0.34 * s, 1.0 * s, 0.68 * s, 0.34 * s).stroke({ width: w, color });
+    g.roundRect(-0.1 * s, -0.34 * s, 1.0 * s, 0.68 * s, 0.34 * s).stroke({ width: w, color: pale });
+  },
+  /** A pin driven into the ground. */
+  pin(g, s, color, pale) {
+    g.circle(0, -0.5 * s, 0.34 * s).fill(color);
+    g.poly(pts([-0.1, -0.2, 0.1, -0.2, 0, 0.9], s)).fill(pale);
+    g.moveTo(-0.6 * s, 0.9 * s)
+      .lineTo(0.6 * s, 0.9 * s)
+      .stroke({ width: Math.max(1.5, s * 0.1), color, cap: 'round', alpha: 0.7 });
+  },
+  /** Two Ringstones. */
+  stones(g, s, color, pale) {
+    for (const [x, y, c] of [
+      [-0.38, 0.22, color],
+      [0.4, -0.2, pale],
+    ] as const) {
+      g.circle(x * s, y * s, 0.42 * s).stroke({ width: Math.max(2, s * 0.16), color: c });
+      g.circle(x * s, y * s, 0.13 * s).fill(c);
+    }
+  },
+  /** A horseshoe magnet, pulling. */
+  magnet(g, s, color, pale) {
+    const w = Math.max(2.5, s * 0.26);
+    g.moveTo(-0.5 * s, -0.7 * s)
+      .lineTo(-0.5 * s, 0.1 * s)
+      .quadraticCurveTo(-0.5 * s, 0.7 * s, 0, 0.7 * s)
+      .quadraticCurveTo(0.5 * s, 0.7 * s, 0.5 * s, 0.1 * s)
+      .lineTo(0.5 * s, -0.7 * s)
+      .stroke({ width: w, color, join: 'round' });
+    g.rect(-0.63 * s, -0.86 * s, 0.26 * s, 0.26 * s).fill(pale);
+    g.rect(0.37 * s, -0.86 * s, 0.26 * s, 0.26 * s).fill(pale);
+  },
+  /** A broad, heavy arrowhead. */
+  heavy(g, s, color, pale) {
+    g.poly(pts([0, -0.92, 0.72, 0.2, 0.26, 0.2, 0.26, 0.9, -0.26, 0.9, -0.26, 0.2, -0.72, 0.2], s)).fill(color);
+    g.poly(pts([0, -0.5, 0.3, 0.02, -0.3, 0.02], s)).fill(pale);
+  },
+  /** A line going clean through a body. */
+  through(g, s, color, pale) {
+    g.circle(0, 0, 0.5 * s).fill({ color, alpha: 0.9 });
+    g.moveTo(-0.92 * s, 0)
+      .lineTo(0.5 * s, 0)
+      .stroke({ width: Math.max(2, s * 0.16), color: pale, cap: 'round' });
+    g.poly(pts([0.95, 0, 0.45, -0.32, 0.45, 0.32], s)).fill(pale);
+  },
+  /** Arrows flung outward from a middle: the break. */
+  breakout(g, s, color, pale) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      const c = Math.cos(a);
+      const n = Math.sin(a);
+      g.poly([c * 0.95 * s, n * 0.95 * s, (c * 0.5 - n * 0.2) * s, (n * 0.5 + c * 0.2) * s, (c * 0.5 + n * 0.2) * s, (n * 0.5 - c * 0.2) * s]).fill(i % 2 === 0 ? pale : color);
+    }
+    g.circle(0, 0, 0.26 * s).fill(color);
+  },
+  /** A wall, and the mark of something slammed into it. */
+  wall(g, s, color, pale) {
+    for (const [x, y, w] of [
+      [-0.9, -0.8, 0.85],
+      [0.05, -0.8, 0.85],
+      [-0.9, -0.22, 0.4],
+      [-0.4, -0.22, 0.85],
+      [0.55, -0.22, 0.35],
+      [-0.9, 0.36, 0.85],
+      [0.05, 0.36, 0.85],
+    ]) {
+      g.rect(x * s, y * s, w * s, 0.46 * s).fill(color);
+    }
+    g.star(0.12 * s, 0.05 * s, 6, 0.5 * s, 0.2 * s).fill(pale);
+  },
+  /** A body with a crack through it. */
+  crack(g, s, color, pale) {
+    g.circle(0, 0, 0.78 * s).fill(color);
+    g.moveTo(-0.1 * s, -0.78 * s)
+      .lineTo(0.14 * s, -0.3 * s)
+      .lineTo(-0.2 * s, 0)
+      .lineTo(0.16 * s, 0.34 * s)
+      .lineTo(-0.04 * s, 0.78 * s)
+      .stroke({ width: Math.max(1.5, s * 0.13), color: pale, cap: 'round', join: 'round' });
+  },
+  /** The ground shaking: a jagged line with rings rising off it. */
+  quake(g, s, color, pale) {
+    g.moveTo(-0.9 * s, 0.4 * s)
+      .lineTo(-0.5 * s, 0.1 * s)
+      .lineTo(-0.2 * s, 0.6 * s)
+      .lineTo(0.15 * s, 0.05 * s)
+      .lineTo(0.5 * s, 0.6 * s)
+      .lineTo(0.9 * s, 0.3 * s)
+      .stroke({ width: Math.max(2, s * 0.17), color, cap: 'round', join: 'round' });
+    for (const r of [0.3, 0.55]) g.poly(round(0, -0.1, r, 10, s, -Math.PI * 0.85, -Math.PI * 0.15)).stroke({ width: Math.max(1.5, s * 0.1), color: pale, cap: 'round', join: 'round' });
+  },
 };
 
 /** The emblems there are, for the test that every Tuning names one of them. */

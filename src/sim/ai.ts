@@ -14,12 +14,13 @@ import type { BodyScratch } from './bodies';
 import { throwBomb } from './bombs';
 import { castCircle, pushOut } from './cast';
 import { HURT_GUARDED, damagePlayer, standing, stunEnemy } from './combat';
+import { applyMark } from './conditions';
 import type { ActionSpec, EnemyDef, MoveSpec } from './defs';
 import { spawnProjectile } from './projectiles';
 import { steer } from './steer';
 import { newStatus, slowOf, stepStatus } from './status';
 import { addTelegraph, findTelegraph, laneAngle, telegraphCovers } from './telegraphs';
-import { ELITE, RIPOSTE, SCALING } from './tuning';
+import { EDGE, ELITE, RIPOSTE, SCALING } from './tuning';
 import type { Enemy, Player, World } from './types';
 
 export const SPAWN_TIME = 0.75;
@@ -63,7 +64,9 @@ function answerRiposte(w: World, e: Enemy, p: Player): void {
     dx = dcos(p.aim);
     dy = dsin(p.aim);
   }
-  stunEnemy(w, e, RIPOSTE.stun, true);
+  // Counterweight: a longer stun, and a mark that makes everyone's blows land harder
+  stunEnemy(w, e, Math.max(RIPOSTE.stun, p.mods.counterStun), true);
+  if (p.mods.counterMark > 0) applyMark(e, p.mods.counterMark, EDGE.markTime);
   pushBody(w, e, dx, dy, RIPOSTE.impulse, p.slot);
 }
 

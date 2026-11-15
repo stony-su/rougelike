@@ -145,6 +145,14 @@ export class Fx {
         // told by the HUD, a sound, or the thing itself
         break;
       case 'swing':
+        if (ev.halfArc > 3) {
+          // a Ring Cut goes all the way round: two rings thrown out from the blade to its reach
+          ps.ring(ev.x, ev.y, colorOf(ev.player), ev.reach * 0.35, ev.reach, 0.2, 0.95);
+          ps.ring(ev.x, ev.y, paleOf(ev.player), ev.reach * 0.15, ev.reach * 0.92, 0.26, 0.8);
+          ps.flash(ev.x, ev.y, 0.3, paleOf(ev.player), 150, 0.14);
+          if (ev.player === this.localSlot) this.camera.kick(0.014);
+          break;
+        }
         this.arc(this.swingCtx[ev.n] ?? this.swingCtx[0], ev.player, ev.x, ev.y, ev.angle, SWORD.windup[ev.n] ?? 0.07, ev.n === 2 ? 0.2 : 0.14, ev.n === 1 ? -1 : 1, ev.n === 2 ? 0.75 : 0.5);
         if (ev.n === 2) {
           // the finisher comes down on the floor in front: a second, wider arc, and the ground answers
