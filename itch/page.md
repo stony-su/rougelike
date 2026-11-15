@@ -7,7 +7,7 @@ Everything the page needs. `npm run itch` makes the two files to upload in `itch
 | Field | What to put |
 |---|---|
 | Title | RESOUND |
-| Short description or tagline | A co-op action roguelike where nothing you hit stays hit. Send it back. |
+| Short description or tagline | A co-op action roguelike where nothing you hit stays hit. Send it back. (Others: "Bounce shots, arrows and enemies back for double damage. Solo or co-op." / "Nothing you strike ever settles. Send it back.") |
 | Classification | Games |
 | Kind of project | **HTML** (you have a ZIP or HTML file that will be played in the browser) |
 | Release status | Released (or In development, if you mean to go on with it) |
@@ -40,38 +40,45 @@ Everything the page needs. `npm run itch` makes the two files to upload in `itch
 
 ## The words for the page
 
-> **Nothing you strike ever settles. Send it back.**
->
-> RESOUND is an isometric action roguelike for one to three players. Everything in it bounces: enemy shots come back off your blade, arrows bank off walls and skip from one enemy to the next, and a good punch throws an enemy into a wall, or into its friends. A hit that comes off a bounce lands two or three times as hard, and every one of them builds your Combo.
->
-> **Three ways to send it back**
->
-> - **Swordsman.** Every swing turns enemy shots round. The Whirlwind cuts everything near you, knocks shields open and sends a whole volley home.
-> - **Archer.** Arrows ricochet, and the dotted line shows where. The Hook Shot pulls you across the room, over pits and through enemies, and your next three arrows leave at once.
-> - **Brawler.** Jabs, a heavy punch you hold and let go, and a Stomp that pops a crowd outward. Line up bodies and walls.
->
-> **A run**
->
-> Twelve rooms across two zones, made new each time: fights, elites, a camp with a merchant and a healing pool, a gamble, the Carillon half way, and the Toll at the end. After every room you choose one of three upgrades, from 42, and pairs that belong together switch on a synergy. What you earn buys permanent upgrades between runs.
->
-> **Playing together**
->
-> Up to three players, each on a laptop of their own, on the same Wi-Fi. Download the co-op host below (it needs Node.js on one laptop), start it, and open the address it prints on the others. There is nothing to install on those. A fallen friend can be picked up.
->
-> **Controls**
->
-> | | Keyboard and mouse | Controller |
-> |---|---|---|
-> | Move, aim | W A S D, mouse | Left stick, right stick |
-> | Attack (hold it) | Left mouse | Right trigger |
-> | Special | Right mouse | Left trigger |
-> | Dash | Space | A |
-> | What you can do | Hold Tab | View |
-> | Menu | Esc or P | Start |
->
-> The game opens on a page that says how it is played. Chrome or Edge is best. Progress is kept in your browser.
->
-> Every picture is drawn in code and every sound is synthesized: there is not one image or audio file in it.
+Paste as it is; make the five headings bold in itch.io's editor.
+
+```
+Nothing you strike ever settles. Send it back.
+
+RESOUND is an isometric action roguelike for 1 to 3 players where everything bounces. Cut enemy shots back at whoever fired them, bank arrows off walls, and punch enemies into walls and into each other. Anything that hits after a bounce lands two to three times as hard, and every bounce builds your Combo.
+
+THREE WAYS TO FIGHT
+• Swordsman: every swing turns enemy shots around. Whirlwind spins through a crowd, knocks shields open and sends a whole volley home.
+• Archer: arrows ricochet off walls and skip between enemies, and a dotted line shows exactly where they will go. Hook Shot pulls you across the room, over pits and through enemies, and your next three arrows fire instantly.
+• Brawler: quick jabs, a heavy punch you charge and release, and a Stomp that blasts a crowd apart. Line up bodies and walls.
+
+EVERY RUN IS DIFFERENT
+• 12 rooms across two zones, generated fresh each run, with pits, bumpers and traps.
+• Five kinds of enemy, and elites with a twist of their own.
+• Camps with a merchant and a healing pool, and a gamble: take on a curse for a rare reward.
+• Two bosses: the Carillon halfway, and the Toll at the end.
+• Pick one of three upgrades after every room, and pair the right ones to switch on synergies.
+• Earn Stars on every run to buy permanent upgrades.
+
+PLAY TOGETHER
+Up to three players, each on their own laptop on the same Wi-Fi. Download the co-op host below (one laptop needs Node.js), start it, and everyone else opens the address it shows in their browser. Fallen teammates can be picked back up.
+
+CONTROLS
+Keyboard and mouse, or a controller.
+• Move: WASD / left stick
+• Aim: mouse / right stick
+• Attack: left click / right trigger (hold to keep firing or to charge a punch)
+• Special: right click / left trigger
+• Dash: Space / A
+• See what your abilities do: hold Tab / View
+• Menu: Esc / Start
+• Mute: M
+
+NOTES
+• Plays best in Chrome or Edge.
+• Your progress is saved in your browser.
+• Every picture is drawn in code and every sound is synthesized: there is not a single image or audio file in the game.
+```
 
 ## Before you publish
 
