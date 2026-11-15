@@ -51,8 +51,11 @@ export type ActionSpec =
   | { kind: 'lunge'; distance: number; speed: number; damage: number; knock: number }
   /** Hurt everyone inside the telegraph, at once. */
   | { kind: 'strike'; damage: number; knock: number }
-  /** Fire projectiles in a fan toward the target. */
-  | { kind: 'volley'; count: number; spread: number; speed: number; damage: number; range: number; radius: number; projectile: string }
+  /**
+   * Fire projectiles in a fan toward the target. `bounces` lets each bank off the chamber that
+   * many times. A projectile called 'orb' is heavy: any basic attack sends it home to its sender.
+   */
+  | { kind: 'volley'; count: number; spread: number; speed: number; damage: number; range: number; radius: number; projectile: string; bounces?: number }
   /** Throw a bomb at the warned circle: it lands after `flight` seconds and bursts `fuse` seconds later. */
   | { kind: 'lob'; damage: number; radius: number; flight: number; fuse: number };
 
@@ -110,6 +113,8 @@ export interface EnemyDef {
   brain?: string;
   /** The shares of its health, from high to low, at which the fight changes. */
   phases?: readonly number[];
+  /** Things on it that the party can break (bells, say): shown as pips by its health, with `mem[0]` of them gone. */
+  pips?: number;
 }
 
 // ---------------------------------------------------------------- registry

@@ -23,5 +23,7 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     testTimeout: 120_000,
+    // every test file runs in a process of its own; a few at a time is kinder to a laptop that is doing other things
+    maxWorkers: 4,
   },
 });

@@ -55,7 +55,9 @@ export class BossBar {
     this.ghost = Math.max(share, this.ghost - dt * 0.35);
     const left = -this.width / 2;
     // the frame and its notches are drawn once for each boss and width
-    const key = `${boss.id}/${this.width}`;
+    const pips = boss.def.pips ?? 0;
+    const broken = pips > 0 ? Math.min(pips, boss.mem[0] ?? 0) : 0;
+    const key = `${boss.id}/${this.width}/${broken}`;
     if (key !== this.marks) {
       this.marks = key;
       this.frame.clear();
@@ -66,6 +68,13 @@ export class BossBar {
         this.frame.moveTo(x, -6).lineTo(x, H + 6);
       }
       this.frame.stroke({ width: 2, color: UI.brass, alpha: 0.95 });
+      // what can be broken on it: whole ones bright, broken ones hollow
+      for (let i = 0; i < pips; i++) {
+        const x = (i - (pips - 1) / 2) * 18;
+        this.frame.poly([x, H + 12, x + 6, H + 18, x, H + 24, x - 6, H + 18]);
+        if (i < pips - broken) this.frame.fill(UI.brass);
+        else this.frame.stroke({ width: 1.5, color: UI.brass, alpha: 0.6 });
+      }
     }
     this.fill
       .clear()

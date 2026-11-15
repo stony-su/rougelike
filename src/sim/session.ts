@@ -45,6 +45,8 @@ export interface SessionConfig {
    * time, and the party simply starts over when it goes down.
    */
   practice?: boolean;
+  /** Development: begin the run at this chamber (1 to 12) instead of the first. */
+  startAt?: number;
 }
 
 /**
@@ -143,7 +145,7 @@ function openPractice(s: Session, content: ContentRegistry, chamber: number, ent
 /** Begin an attempt: plan its route and put fresh characters in its first chamber. */
 function begin(s: Session, content: ContentRegistry): void {
   s.route = s.config.practice ? [] : planRoute(`${s.config.seed}/${s.attempt}`);
-  s.stop = 0;
+  s.stop = Math.max(0, Math.min(s.route.length - 1, Math.round(s.config.startAt ?? 1) - 1));
   s.phase = 'run';
   s.endedFor = 0;
   s.totals = noStats();

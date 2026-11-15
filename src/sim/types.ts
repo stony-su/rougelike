@@ -522,7 +522,9 @@ export type SimEvent =
   /** A flyer was knocked out of the air, and later took off again. */
   | { type: 'grounded'; id: number; x: number; y: number }
   | { type: 'takeoff'; id: number; x: number; y: number }
-  | { type: 'bossPhase'; id: number; kind: string; phase: number; x: number; y: number };
+  | { type: 'bossPhase'; id: number; kind: string; phase: number; x: number; y: number }
+  /** An orb came home and cracked a bell of the Carillon: its `n`th. */
+  | { type: 'bellCrack'; id: number; n: number; x: number; y: number };
 
 export type SimEventType = SimEvent['type'];
 

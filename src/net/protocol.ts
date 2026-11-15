@@ -185,6 +185,7 @@ function config(v: unknown): SessionConfig | null {
   }
   const out: SessionConfig = { seed: r.seed, players, buildId: r.buildId, inputDelay: clampInt(r.inputDelay, 0, 30), stress: clampInt(r.stress, 0, 200) };
   if (r.practice === true) out.practice = true;
+  if (isInt(r.startAt)) out.startAt = clampInt(r.startAt, 1, 12);
   return out;
 }
 

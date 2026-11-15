@@ -136,6 +136,19 @@ export function returnShot(w: World, pr: Projectile, p: Player, angle: number, p
   w.events.push({ type: 'reflect', player: p.slot, id: pr.id, x: pr.x, y: pr.y, perfect });
 }
 
+/**
+ * An orb is heavy: whoever strikes it sends it home. It leaves along the blow and then flies for
+ * whoever served it, so a swing, an arrow and a punch all return it equally well.
+ */
+export function returnOrb(w: World, pr: Projectile, p: Player, dx: number, dy: number, perfect: boolean): void {
+  const home = pr.faction === 'enemy' ? pr.owner : 0;
+  returnShot(w, pr, p, 0, perfect, home);
+  const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy);
+  const l = Math.sqrt(dx * dx + dy * dy) || 1;
+  pr.vx = (dx / l) * sp;
+  pr.vy = (dy / l) * sp;
+}
+
 /** Slap an enemy shot away along a unit direction: it becomes the player's, at a share of its damage. */
 export function slapShot(w: World, pr: Projectile, p: Player, dx: number, dy: number): void {
   const sp = Math.min(MAX_SHOT_SPEED, Math.max(12, Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy)));
@@ -252,6 +265,7 @@ const STONE = 2;
 const ENEMY = 3;
 const BOMB = 4;
 const PLAYER = 5;
+const ORB = 6;
 
 /**
  * Move one shot for one tick. With a world, it meets everything in it. Without one (`w` null) it
@@ -296,6 +310,7 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
     let enemy: Enemy | null = null;
     let bomb: Bomb | null = null;
     let player: Player | null = null;
+    let orb: Projectile | null = null;
     if (castCircle(geo, false, pr.x, pr.y, dx, dy, pr.radius, hit)) {
       t = hit.t;
       what = CHAMBER;
@@ -327,6 +342,17 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
           what = BOMB;
           bomb = b;
         }
+        // an arrow can meet an orb in the air (a shot already sent back flies on past)
+        if (!pr.returned) {
+          for (const o of w.projectiles) {
+            if (o.dead || o.faction !== 'enemy' || o.kind !== 'orb') continue;
+            const to = circleTime(pr.x, pr.y, dx, dy, o.x, o.y, o.radius + pr.radius);
+            if (to < 0 || to >= t) continue;
+            t = to;
+            what = ORB;
+            orb = o;
+          }
+        }
       } else {
         for (const pl of w.players) {
           // Swept, so a fast shot cannot skip through someone between ticks. A dash passes clean through.
@@ -348,6 +374,13 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
     pr.range -= len * tc;
     if (what === NOTHING) break;
     rem *= 1 - t;
+
+    if (what === ORB && orb && w) {
+      // The arrow sends the orb home, and is spent.
+      for (const pl of w.players) if (pl.slot === pr.owner) returnOrb(w, orb, pl, pr.vx, pr.vy, false);
+      end(w, pr, true, trace);
+      break;
+    }
 
     if (what === CHAMBER) {
       const bumper = hit.kind === HIT_BUMPER;

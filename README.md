@@ -118,6 +118,7 @@ Two more that are worth knowing when reading the code:
 - `?autopilot=expert` (or `novice`) lets a bot play your seat.
 - `?stress=40` keeps forty enemies alive and nobody can be hurt (for frame-time checks).
 - `?practice` plays the endless practice ladder in the two hand-built rooms instead of a run.
+- `?stop=6` begins the run at that chamber (6 is the Carillon's), to get to a part of the road without walking it.
 - `?gallery=edge` (or any rig id, or `all`) shows every animation state of a rig as a filmstrip; add `&away`, `&silhouette` or `&live`.
 - `?selftest` plays a pinned three-player game headless in the page and prints its hashes.
 - `npm run coop-check -- --port 5180` (with `npm run host` running and nobody in the lobby): three browser pages join through the network address, fight, one is frozen and one reloaded, and the host must not have had to repair anyone.

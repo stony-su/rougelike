@@ -400,6 +400,12 @@ export class Fx {
       case 'takeoff':
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 6);
         break;
+      case 'bellCrack':
+        ps.flash(ev.x, ev.y, 0.9, CHIME, 300, 0.25);
+        ps.ring(ev.x, ev.y, CHIME, 0.4, 5, 0.6, 0.9);
+        ps.scraps(ev.x, ev.y, 0.9, CHIME, 14, 1.6);
+        this.shake(ev.x, ev.y, 0.5);
+        break;
       case 'bossPhase':
         ps.flash(ev.x, ev.y, 0.6, DANGER_HOT, 420, 0.3);
         ps.ring(ev.x, ev.y, DANGER, 0.5, 9, 0.8, 0.9);

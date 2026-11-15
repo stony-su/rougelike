@@ -9,7 +9,7 @@ import { addStagger, pushBody } from '../bodies';
 import { BOMB_TOUCH, batBomb } from '../bombs';
 import { damageEnemy, freezeBody, hittable, outOfReach } from '../combat';
 import { rest, shift, walk } from '../move';
-import { slapShot } from '../projectiles';
+import { returnOrb, slapShot } from '../projectiles';
 import { addRally, rallyMul } from '../rally';
 import { BOMB, BREAK, FIST, HAYMAKER, HITSTOP, PLAYER, RALLY } from '../tuning';
 import { BTN } from '../types';
@@ -56,6 +56,11 @@ function resolveJab(w: World, p: Player): void {
   const ax = dcos(p.actAngle);
   const ay = dsin(p.actAngle);
   let hits = 0;
+  // an orb within reach is punched home
+  for (const pr of w.projectiles) {
+    if (pr.dead || pr.faction !== 'enemy' || pr.kind !== 'orb') continue;
+    if (pointInSector(pr.x, pr.y, p.x, p.y, p.actAngle, FIST.halfArc, FIST.reach, pr.radius)) returnOrb(w, pr, p, ax, ay, false);
+  }
   for (const e of w.enemies.slice()) {
     if (!hittable(e) || outOfReach(e)) continue;
     if (!pointInSector(e.x, e.y, p.x, p.y, p.actAngle, FIST.halfArc, FIST.reach, e.radius)) continue;
@@ -175,6 +180,10 @@ function tryPunch(w: World, p: Player): boolean {
   for (const b of w.bombs) {
     if (b.dead || b.state !== 'fuse') continue;
     if (pointInSector(b.x, b.y, p.x, p.y, p.actAngle, HAYMAKER.halfArc, HAYMAKER.reach, BOMB_TOUCH)) batBomb(w, b, p.slot, ax, ay, BOMB.fistSpeed);
+  }
+  for (const pr of w.projectiles) {
+    if (pr.dead || pr.faction !== 'enemy' || pr.kind !== 'orb') continue;
+    if (pointInSector(pr.x, pr.y, p.x, p.y, p.actAngle, HAYMAKER.halfArc, HAYMAKER.reach, pr.radius)) returnOrb(w, pr, p, ax, ay, p.charge >= 1);
   }
   const e = inReach(w, p);
   if (!e) return false;

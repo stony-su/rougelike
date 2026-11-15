@@ -122,7 +122,8 @@ function sweep(w: World, p: Player): void {
     if (!pointInSector(pr.x, pr.y, p.x, p.y, p.actAngle, half, reach, pr.radius)) continue;
     // Left to the last moment, the return is a perfect one.
     const late = dhypot(pr.x - p.x, pr.y - p.y) <= perfectAt;
-    returnShot(w, pr, p, p.aim, late, 0);
+    // an orb flies home to whoever served it; anything else flies where the player aims
+    returnShot(w, pr, p, p.aim, late, pr.kind === 'orb' ? pr.owner : 0);
     if (late) perfect = true;
   }
   if (perfect) {

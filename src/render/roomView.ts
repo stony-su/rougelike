@@ -357,7 +357,9 @@ export class RoomView {
       }
       return hgt;
     };
-    const cs = 0.25;
+    // The grid the lines are traced on. A finer one makes smoother rings and many more pieces to build:
+    // at a quarter of a tile a big chamber took a second to draw, and that second was a frozen screen.
+    const cs = 0.4;
     const nx = Math.ceil(room.w / cs) + 1;
     const ny = Math.ceil(room.h / cs) + 1;
     const v = new Float32Array(nx * ny);
@@ -405,7 +407,7 @@ export class RoomView {
         }
       }
       const major = index % 4 === 0;
-      if (any) g.stroke({ width: major ? 2 : 1.3, color: major ? theme.accent : theme.contour, alpha: major ? 0.38 : 0.7, cap: 'round' });
+      if (any) g.stroke({ width: major ? 2 : 1.3, color: major ? theme.accent : theme.contour, alpha: major ? 0.38 : 0.7 });
     }
   }
 

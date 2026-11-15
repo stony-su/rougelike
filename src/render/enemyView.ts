@@ -150,6 +150,8 @@ class EnemyView {
     a.stride = this.stride;
     a.speed = Math.hypot(e.vx, e.vy) / Math.max(0.1, e.def.speed);
     a.away = this.away;
+    // which of its moves it is making: a rig with more than one has a set of poses for each
+    a.variant = Math.max(0, e.move);
     this.pose(dt);
 
     // The body itself warns: the eye turns danger-red through the wind-up and the attack.

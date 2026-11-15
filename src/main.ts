@@ -79,7 +79,11 @@ if (params.has('selftest')) {
       hooks.toScreen = (x: number, y: number) => (shell.game ? shell.game.worldToScreen(x, y) : [0, 0]);
     } else {
       const players = opts.classes.slice(0, 3).map((classId, slot) => ({ name: `Player ${slot + 1}`, classId }));
-      const game = new Game(app, new SoloDriver({ seed: opts.seed, players, buildId: BUILD_ID, inputDelay: 0, stress: opts.stress, practice: params.has('practice') }), opts);
+      const game = new Game(
+        app,
+        new SoloDriver({ seed: opts.seed, players, buildId: BUILD_ID, inputDelay: 0, stress: opts.stress, practice: params.has('practice'), startAt: Number(params.get('stop') ?? 1) || 1 }),
+        opts,
+      );
       hooks.game = game;
       hooks.state = () => game.debugState();
       hooks.toScreen = (x: number, y: number) => game.worldToScreen(x, y);

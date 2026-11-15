@@ -308,6 +308,7 @@ function beginAction(w: World, e: Enemy, m: MoveSpec): void {
           radius: a.radius,
           damage: a.damage * e.damageMul,
           range: a.range,
+          bounces: a.bounces ?? 0,
         });
       }
       setState(e, 'attack', 0.16);

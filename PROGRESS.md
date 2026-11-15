@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 64% complete.** 14 of 35 tasks are done, 1 in progress, 13 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 66% complete.** 15 of 35 tasks are done, 0 in progress, 13 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -12,14 +12,14 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 18% | 100% |
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 12% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 13.5% | 100% |
-| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 32% |
+| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 42% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 14.5% | 28% |
 | 6 | Menus, saving, sound | 5% | 0% |
 | 7 | Polish and balance | 4% | 0% |
 
 ## In progress
 
-- [T44](tasks/T44-boss-carillon.md) **Mini-boss: the Carillon**: stony-su
+Nothing at the moment.
 
 ## To do: ready to take
 
@@ -44,7 +44,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T60](tasks/T60-controls-page.md) **Controls page: keyboard and controller** (1%): needs T23
 - [T61](tasks/T61-settings-rumble.md) **Settings and controller rumble** (1%): needs T23
 - [T62](tasks/T62-title-shader.md) **Shader title screen and class cards** (1%): needs T23
-- [T70](tasks/T70-balance.md) **Balance, by bots playing whole runs** (2%): needs T30, T31, T32, T44, T45, T50
+- [T70](tasks/T70-balance.md) **Balance, by bots playing whole runs** (2%): needs T30, T31, T32, T45, T50
 - [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (1%): needs T23, T24, T70, T71
 
 ## Done
@@ -62,6 +62,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T40](tasks/T40-echo-gong.md) Echo: the Gong
 - [T41](tasks/T41-echo-cairn.md) Echo: the Cairn
 - [T43](tasks/T43-elites.md) Elites: five traits and their aura
+- [T44](tasks/T44-boss-carillon.md) Mini-boss: the Carillon
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 
 ## Future plans: designed, kept for later
