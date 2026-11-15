@@ -210,9 +210,19 @@ export interface Effect {
   v: readonly number[];
 }
 
+/**
+ * The families a Tuning can belong to. A family is a look: its cards, its emblems and what it
+ * does in play all wear one colour (src/render/palette/tones.ts).
+ */
+export const TONE_IDS = ['dash', 'rally', 'fire', 'frost', 'storm', 'body', 'sword', 'bow', 'fist'] as const;
+export type ToneId = (typeof TONE_IDS)[number];
+
 export interface TuningDef {
   id: string;
   name: string;
+  /** Its emblem, by name (src/ui/icons.ts), and the family whose colour it wears. */
+  icon: string;
+  tone: ToneId;
   /** Whose it is: one class, or 'common' for anyone. */
   owner: ClassId | 'common';
   /** The build it belongs to, for the draft's leanings and the card's label. */
@@ -281,6 +291,8 @@ export function validateTunings(defs: Readonly<Record<string, TuningDef>>, harmo
     if (t.text.length !== t.maxRank) out.push(`${t.id}: needs one line of text for each rank`);
     if (t.rarity !== 0 && t.rarity !== 1 && t.rarity !== 2) out.push(`${t.id}: rarity is 0, 1 or 2`);
     if (t.effects.length === 0) out.push(`${t.id}: changes nothing`);
+    if (!t.icon) out.push(`${t.id}: has no emblem`);
+    if (!TONE_IDS.includes(t.tone)) out.push(`${t.id}: ${String(t.tone)} is not a family`);
     for (const e of t.effects) {
       if (!(e.mod in base)) out.push(`${t.id}: there is no number called ${String(e.mod)}`);
       if (e.v.length !== t.maxRank && e.v.length !== 1) out.push(`${t.id}: ${String(e.mod)} needs one value for each rank`);

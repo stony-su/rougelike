@@ -16,6 +16,8 @@ import type { ClassId } from '../src/sim/types';
 const blade = (id: string, build: string, rarity = 0, extra: Partial<TuningDef> = {}): TuningDef => ({
   id,
   name: id,
+  icon: 'blade',
+  tone: 'sword',
   owner: 'sword',
   build,
   rarity,

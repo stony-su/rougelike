@@ -15,7 +15,8 @@ import { createExtras } from '../render/extras';
 import type { Extra } from '../render/extras';
 import { Fx } from '../render/fx';
 import { ObjectViews } from '../render/objectView';
-import { CHIME, DANGER, PAPER, PLAYER_COLORS, PLAYER_PALE, RIM, UI, ZONES, css } from '../render/palette';
+import { CHIME, DANGER, PAPER, PLAYER_COLORS, PLAYER_PALE, RIM, ZONES, css } from '../render/palette';
+import { TONES } from '../render/palette/tones';
 import type { ZoneTheme } from '../render/palette';
 import { Particles } from '../render/particles';
 import { PickupView } from '../render/pickupView';
@@ -29,6 +30,7 @@ import { Trails } from '../render/trails';
 import { EXPERT, NOVICE, botPick, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
 import { DRAFT_TICKS, completes } from '../sim/draft';
+import { activeHarmonies } from '../sim/mods';
 import { aimAngleOf } from '../sim/input';
 import { runSoFar, stopOf, worldOf } from '../sim/session';
 import type { Session } from '../sim/session';
@@ -39,6 +41,7 @@ import { BossBar } from '../ui/bossBar';
 import { DraftScreen } from '../ui/draftScreen';
 import { Hud } from '../ui/hud';
 import { Label } from '../ui/label';
+import { TuningRow } from '../ui/tuningRow';
 import type { Driver } from './driver';
 import { Input } from './input';
 
@@ -115,6 +118,8 @@ export class Game {
   private endShown = '';
   /** The cards this laptop's player is choosing from; the offer on screen, and the one already answered. */
   private readonly bossBar = new BossBar();
+  /** What this laptop's player has built, as emblems along the bottom of the screen. */
+  private readonly held = new TuningRow();
   private readonly draft = new DraftScreen();
   private draftKey = '';
   private pickSent = '';
@@ -184,7 +189,7 @@ export class Game {
     this.endNote = new Label('', { size: 11, color: PAPER, tracking: 0.2, align: 'center' });
     this.endHint = new Label('Enter or A: go again', { size: 11, color: CHIME, tracking: 0.2, align: 'center' });
     for (const l of [this.endHead, this.endNote, this.endHint]) l.visible = false;
-    this.stage.ui.addChild(this.hud.root, this.bossBar.root, this.draft.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
+    this.stage.ui.addChild(this.hud.root, this.held.root, this.bossBar.root, this.draft.root, this.pausedLabel, this.endHead, this.endNote, this.endHint);
 
     if (opts.debug) {
       BitmapFont.install({
@@ -228,6 +233,7 @@ export class Game {
     this.hud.destroy();
     this.draft.destroy();
     this.bossBar.destroy();
+    this.held.destroy();
     this.textures.destroy();
     this.stage.root.destroy({ children: true });
   }
@@ -318,6 +324,8 @@ export class Game {
     this.hud.layout(this.viewW, this.viewH);
     this.draft.layout(this.viewW, this.viewH);
     this.bossBar.layout(this.viewW);
+    // to the right of the health panel, along the bottom
+    this.held.root.position.set(372, this.viewH - 70);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.4);
     this.endHead.position.set(this.viewW / 2, this.viewH * 0.3);
     this.endNote.position.set(this.viewW / 2, this.viewH * 0.3 + 78);
@@ -402,7 +410,8 @@ export class Game {
       harmony,
       harmonyText: half ? half.text : '',
       completes: !!done,
-      color: t.owner === 'common' ? UI.brass : (PLAYER_COLORS[me.slot] ?? UI.brass),
+      icon: t.icon,
+      tone: t.tone,
     };
   }
 
@@ -511,7 +520,10 @@ export class Game {
         if (ev.a === this.localSlot || ev.b === this.localSlot) this.hud.banner('Duet', CHIME, 0.9);
         break;
       case 'tuning':
-        if (ev.player === this.localSlot) this.hud.banner(w.content.tunings[ev.id]?.name ?? 'Tuning', CHIME, 1.8);
+        if (ev.player === this.localSlot) {
+          const def = w.content.tunings[ev.id];
+          this.hud.banner(def ? def.name : 'Tuning', def ? TONES[def.tone].color : CHIME, 1.8);
+        }
         break;
       default:
         break;
@@ -616,6 +628,16 @@ export class Game {
     this.ambient.update(dt);
     for (const x of this.extras) x.update?.(dt, w, alpha, this.time);
     this.bossBar.update(w, dt);
+    if (me) {
+      // grouped by family, so a build reads as blocks of colour
+      const ids = Object.keys(me.tunings)
+        .filter((id) => me.tunings[id] > 0 && w.content.tunings[id])
+        .sort((a, b) => (w.content.tunings[a].tone < w.content.tunings[b].tone ? -1 : w.content.tunings[a].tone > w.content.tunings[b].tone ? 1 : a < b ? -1 : 1));
+      this.held.set(
+        ids.map((id) => ({ id, icon: w.content.tunings[id].icon, tone: w.content.tunings[id].tone, rank: me.tunings[id] })),
+        activeHarmonies(me.tunings, w.content.harmonies).map((h) => h.parents),
+      );
+    }
     this.hud.setRun(s.route.length);
     this.hud.update(w, me, dt);
     this.hud.setNet(this.driver.net());

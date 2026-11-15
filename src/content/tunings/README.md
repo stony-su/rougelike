@@ -8,6 +8,8 @@ A Tuning is data: a list of changes to the numbers in `src/sim/mods.ts`, with on
 {
   id: 'stout-heart',            // lower-case words joined by hyphens
   name: 'Stout Heart',
+  icon: 'heart',                // its emblem: one of the pictures in src/ui/icons.ts
+  tone: 'body',                 // its family, which sets its colour: dash, rally, fire, frost, storm, body, sword, bow, fist
   owner: 'common',              // or 'sword', 'bow', 'fist': the same as the file
   build: 'Body',                // the build it belongs to; a class's fourth Tuning is 'Wildcard'
   rarity: 0,                    // 0 common, 1 uncommon, 2 rare

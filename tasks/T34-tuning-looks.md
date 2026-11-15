@@ -1,7 +1,7 @@
 ---
 id: T34
 title: Tunings you can tell apart at a glance
-status: claimed
+status: done
 owner: stony-su
 milestone: 5
 weight: 1.5

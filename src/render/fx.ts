@@ -9,6 +9,8 @@ import type { SimEvent } from '../sim/types';
 import type { Camera } from './camera';
 import type { DamageNumbers } from './damageNumbers';
 import { CHIME, DANGER, DANGER_HOT, PLAYER_COLORS, PLAYER_PALE, RALLY, RIM, STATUS } from './palette';
+import { TONES } from './palette/tones';
+import type { Tone } from './palette/tones';
 import type { ZoneTheme } from './palette';
 import type { Particles } from './particles';
 import type { Stage } from './stage';
@@ -48,6 +50,9 @@ interface Arc {
 
 const colorOf = (slot: number): number => PLAYER_COLORS[slot] ?? RIM;
 const paleOf = (slot: number): number => PLAYER_PALE[slot] ?? RIM;
+
+/** The family each kind of burst belongs to. */
+const BURST_TONE: Readonly<Record<string, Tone>> = { overtone: TONES.rally, steam: TONES.frost, ward: TONES.body };
 
 export class Fx {
   private readonly arcs: Arc[] = [];
@@ -359,8 +364,10 @@ export class Fx {
         ps.sparks(ev.x, ev.y, 0.8, 0, -1, paleOf(ev.player), 12, 1.1);
         break;
       case 'burst': {
-        const color = ev.by >= 0 ? colorOf(ev.by) : RIM;
-        const pale = ev.by >= 0 ? paleOf(ev.by) : RIM;
+        // a burst wears the colour of the family that made it
+        const tone = BURST_TONE[ev.what];
+        const color = tone ? tone.color : ev.by >= 0 ? colorOf(ev.by) : RIM;
+        const pale = tone ? tone.pale : ev.by >= 0 ? paleOf(ev.by) : RIM;
         ps.flash(ev.x, ev.y, 0.3, pale, 160, 0.16);
         ps.ring(ev.x, ev.y, color, ev.radius * 0.25, ev.radius, 0.32, 0.95);
         ps.ring(ev.x, ev.y, pale, ev.radius * 0.1, ev.radius * 0.7, 0.22, 0.7);
@@ -369,7 +376,7 @@ export class Fx {
       }
       case 'bolt': {
         // a broken line of sparks from one Echo to the next
-        const pale = ev.by >= 0 ? paleOf(ev.by) : RIM;
+        const pale = TONES.storm.pale;
         for (let i = 1; i <= 5; i++) {
           const k = i / 5;
           ps.sparks(ev.fromX + (ev.toX - ev.fromX) * k, ev.fromY + (ev.toY - ev.fromY) * k, 0.6, 0, 0, pale, 2, 0.35);

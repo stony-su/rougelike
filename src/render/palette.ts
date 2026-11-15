@@ -45,8 +45,9 @@ export const UI = {
 
 /** What a condition looks like on a body. */
 export const STATUS = {
-  frost: 0x9fe3ff,
-  burn: 0xffb35c,
+  // the same ice and the same fire as the Tunings that cause them (palette/tones.ts)
+  frost: 0xa8bdff,
+  burn: 0xff8a4d,
   root: 0xc9a27a,
   mark: 0xa8b8ff,
   stagger: 0xfff0b0,

@@ -8,6 +8,8 @@ const set: TuningSet = {
     // ---- the dash
     {
       id: 'third-wind',
+      icon: 'dash',
+      tone: 'dash',
       name: 'Third Wind',
       owner: 'common',
       build: 'Dash',
@@ -21,6 +23,8 @@ const set: TuningSet = {
     },
     {
       id: 'afterimage',
+      icon: 'ghost',
+      tone: 'dash',
       name: 'Afterimage',
       owner: 'common',
       build: 'Dash',
@@ -31,6 +35,8 @@ const set: TuningSet = {
     },
     {
       id: 'ram',
+      icon: 'ram',
+      tone: 'dash',
       name: 'Ram',
       owner: 'common',
       build: 'Dash',
@@ -45,6 +51,8 @@ const set: TuningSet = {
     // ---- Rally
     {
       id: 'sustain',
+      icon: 'steps',
+      tone: 'rally',
       name: 'Sustain',
       owner: 'common',
       build: 'Rally',
@@ -55,6 +63,8 @@ const set: TuningSet = {
     },
     {
       id: 'overtone',
+      icon: 'rings',
+      tone: 'rally',
       name: 'Overtone',
       owner: 'common',
       build: 'Rally',
@@ -72,6 +82,8 @@ const set: TuningSet = {
     },
     {
       id: 'opening-note',
+      icon: 'note',
+      tone: 'rally',
       name: 'Opening Note',
       owner: 'common',
       build: 'Rally',
@@ -87,6 +99,8 @@ const set: TuningSet = {
     // ---- the elements, which ride on Returns
     {
       id: 'ember-return',
+      icon: 'flame',
+      tone: 'fire',
       name: 'Ember Return',
       owner: 'common',
       build: 'Elements',
@@ -97,6 +111,8 @@ const set: TuningSet = {
     },
     {
       id: 'frost-return',
+      icon: 'flake',
+      tone: 'frost',
       name: 'Frost Return',
       owner: 'common',
       build: 'Elements',
@@ -107,6 +123,8 @@ const set: TuningSet = {
     },
     {
       id: 'storm-return',
+      icon: 'bolt',
+      tone: 'storm',
       name: 'Storm Return',
       owner: 'common',
       build: 'Elements',
@@ -126,6 +144,8 @@ const set: TuningSet = {
     // ---- body, purse, team
     {
       id: 'stout-heart',
+      icon: 'heart',
+      tone: 'body',
       name: 'Stout Heart',
       owner: 'common',
       build: 'Body',
@@ -136,6 +156,8 @@ const set: TuningSet = {
     },
     {
       id: 'tithe',
+      icon: 'coin',
+      tone: 'body',
       name: 'Tithe',
       owner: 'common',
       build: 'Body',
@@ -146,6 +168,8 @@ const set: TuningSet = {
     },
     {
       id: 'echo-ward',
+      icon: 'ward',
+      tone: 'body',
       name: 'Echo Ward',
       owner: 'common',
       build: 'Body',

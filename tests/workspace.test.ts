@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { validateEnemyDef } from '../src/sim/defs';
-import { validateTunings } from '../src/sim/mods';
+import { TONE_IDS, validateTunings } from '../src/sim/mods';
+import { TONES } from '../src/render/palette/tones';
+import { ICON_IDS } from '../src/ui/icons';
 import { validateRoomTemplate } from '../src/sim/room';
 import { RIGS } from '../src/render/rig/registry';
 
@@ -41,6 +43,18 @@ describe('one thing per file, picked up by itself', () => {
   it('every room file is one valid room, named after its file', () => {
     expect(CONTENT.rooms.map((r) => r.id).sort()).toEqual(names('src/content/rooms'));
     for (const r of CONTENT.rooms) expect(validateRoomTemplate(r), r.id).toEqual([]);
+  });
+
+  it('every Tuning has an emblem that exists and a family with a colour of its own', () => {
+    for (const t of Object.values(CONTENT.tunings)) {
+      expect(ICON_IDS, `${t.id} wears ${t.icon}`).toContain(t.icon);
+      expect(TONES[t.tone], `${t.id} is of ${t.tone}`).toBeDefined();
+    }
+    // no two Tunings share an emblem, and no two families a colour
+    const icons = Object.values(CONTENT.tunings).map((t) => t.icon);
+    expect(new Set(icons).size).toBe(icons.length);
+    const colours = TONE_IDS.map((id) => TONES[id].color);
+    expect(new Set(colours).size).toBe(TONE_IDS.length);
   });
 
   it('every file of Tunings holds the Tunings of the owner it is named after', () => {

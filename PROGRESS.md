@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 64% complete.** 17 of 40 tasks are done, 1 in progress, 15 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 66% complete.** 18 of 40 tasks are done, 1 in progress, 14 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -13,13 +13,13 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 10.9% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 12.2% | 100% |
 | 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 47% |
-| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 29% |
+| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 36% |
 | 6 | Menus, saving, sound | 4.5% | 0% |
 | 7 | Polish and balance | 3.6% | 0% |
 
 ## In progress
 
-- [T34](tasks/T34-tuning-looks.md) **Tunings you can tell apart at a glance**: stony-su
+- [T48](tasks/T48-traps.md) **Traps in the floor**: stony-su
 
 ## To do: ready to take
 
@@ -31,7 +31,6 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T35](tasks/T35-attack-combos.md) **A combo of moves for every basic attack** (1.4% of the game)
 - [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (0.9% of the game)
 - [T45](tasks/T45-boss-toll.md) **Final boss: the Toll, in three phases** (3.2% of the game)
-- [T48](tasks/T48-traps.md) **Traps in the floor** (2.3% of the game)
 - [T50](tasks/T50-camp.md) **Camp: the Tuner (shop) and the Still Pool (rest)** (1.8% of the game)
 - [T51](tasks/T51-wager.md) **The Wager, and the Brittle Discord** (0.9% of the game)
 - [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5% of the game)
@@ -61,6 +60,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T20](tasks/T20-upgrade-engine.md) Upgrade engine: Tunings on players, a draft after every fight
 - [T22](tasks/T22-boss-framework.md) Boss framework and Echo traits
 - [T33](tasks/T33-tunings-common.md) Tunings: the common twelve, and three Harmonies
+- [T34](tasks/T34-tuning-looks.md) Tunings you can tell apart at a glance
 - [T40](tasks/T40-echo-gong.md) Echo: the Gong
 - [T41](tasks/T41-echo-cairn.md) Echo: the Cairn
 - [T43](tasks/T43-elites.md) Elites: five traits and their aura
