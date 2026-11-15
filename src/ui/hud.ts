@@ -171,7 +171,7 @@ export class Hud {
     this.purseIcon.position.set(-130, 17);
     this.purseText = new Label('0', { size: 11, color: PAPER, bold: true, tracking: 0.1, align: 'right' });
     this.purseText.position.set(-12, 11.5);
-    const purseName = new Label('Chimes', { size: 7, color: PAPER, tracking: 0.3, alpha: 0.7 });
+    const purseName = new Label('Coins', { size: 7, color: PAPER, tracking: 0.3, alpha: 0.7 });
     purseName.position.set(-114, 13.5);
     this.purse.addChild(purseBack, this.purseIcon, purseName, this.purseText);
     // under the purse, in co-op: how long a press takes to show
@@ -249,7 +249,7 @@ export class Hud {
 
     // what is happening in this chamber
     const f = w.flow;
-    this.titleHead.text = this.runLength > 0 ? `Chamber ${w.chamber} of ${this.runLength}` : `Chamber ${w.chamber}`;
+    this.titleHead.text = this.runLength > 0 ? `Room ${w.chamber} of ${this.runLength}` : `Room ${w.chamber}`;
     this.titleNote.text = f.kind === 'camp' ? 'Camp' : f.phase !== 'fight' ? 'Cleared' : f.boss ? (w.content.enemies[f.boss]?.name ?? 'Boss') : `Wave ${Math.max(1, f.wave)} of ${f.waves}`;
 
     // teammates
@@ -369,7 +369,7 @@ export class Hud {
     if (n > this.lastRally) for (let i = this.lastRally; i < n; i++) this.notePop[i] = 1;
     // when it breaks, the notes fall away together instead of vanishing
     if (n === 0 && this.lastRally > 0) this.rallyDrop = 1;
-    if (n !== this.lastRally) this.rallyText.text = n > 0 ? `Rally ${n}` : 'Rally';
+    if (n !== this.lastRally) this.rallyText.text = n > 0 ? `Combo ${n}` : 'Combo';
     this.lastRally = n;
     this.rallyDrop = damp(this.rallyDrop, 0, 6, dt);
     for (let i = 0; i < this.notes.length; i++) {

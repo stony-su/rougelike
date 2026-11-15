@@ -26,7 +26,7 @@ export class DraftScreen {
   private shown = 0;
 
   constructor() {
-    this.title = new Label('Choose a Tuning', { size: 20, color: PAPER, bold: true, tracking: 0.3, align: 'center' });
+    this.title = new Label('Choose an Upgrade', { size: 20, color: PAPER, bold: true, tracking: 0.3, align: 'center' });
     this.hint = new Label('', { size: 9, color: UI.inkSoft, tracking: 0.2, align: 'center' });
     this.root.addChild(this.shade, this.title, this.row, this.bar, this.hint);
     this.root.visible = false;

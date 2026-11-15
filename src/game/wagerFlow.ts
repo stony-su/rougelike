@@ -12,7 +12,7 @@ import type { Input } from './input';
 
 const WORDS = {
   risk: `Brittle. Everyone's health is cut by ${Math.round(WAGER.brittle * 100)}% for as long as the fight lasts.`,
-  prize: `Win it, and the chamber pays ${WAGER.chimes === 2 ? 'double' : `${WAGER.chimes} times the`} Chimes and a second card, a rare one.`,
+  prize: `Win it, and the room pays ${WAGER.chimes === 2 ? 'double' : `${WAGER.chimes} times the`} Coins and a second card, a rare one.`,
 };
 
 export class WagerFlow {

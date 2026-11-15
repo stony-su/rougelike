@@ -6,7 +6,7 @@ import { completes } from '../sim/draft';
 import type { CardInfo } from '../ui/cards';
 
 /** Whose a Tuning is, as its card says it. */
-const OWNER_NAMES: Readonly<Record<string, string>> = { sword: 'The Edge', bow: 'The String', fist: 'The Hand', common: 'Anyone' };
+const OWNER_NAMES: Readonly<Record<string, string>> = { sword: 'Swordsman', bow: 'Archer', fist: 'Brawler', common: 'Anyone' };
 
 export const RARITY_NAMES: readonly string[] = ['Common', 'Uncommon', 'Rare'];
 

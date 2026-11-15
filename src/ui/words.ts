@@ -20,33 +20,29 @@ export interface ClassWords {
 export const CLASS_WORDS: Readonly<Record<ClassId, ClassWords>> = {
   sword: {
     id: 'sword',
-    name: 'The Edge',
+    name: 'Swordsman',
     weapon: 'Sword',
-    attack: 'Every swing turns enemy shots back where you aim, and bats away an Echo caught in its own attack. Three cuts; the third launches.',
+    attack: 'Every swing turns enemy shots back where you aim, and bats away an enemy caught in its own attack. Three cuts; the third launches.',
     specialName: 'Whirlwind',
-    special:
-      'Whirlwind. One turn of the blade: everything round you is cut and thrown back, shields are knocked open, and every enemy shot in the circle flies home to whoever fired it. Nothing can hurt you while you turn.',
+    special: 'Whirlwind. Spin: all round you is cut and thrown back, shields are knocked open, and enemy shots fly home. Nothing can hurt you while you spin.',
     plays: 'Stand in the fire and aim your returns.',
   },
   bow: {
     id: 'bow',
-    name: 'The String',
+    name: 'Archer',
     weapon: 'Bow',
-    attack: 'Arrows bounce off walls and skip from one Echo to the next, harder with every bounce. The dotted line is the path the arrow will take.',
+    attack: 'Arrows bounce off walls and skip from one enemy to the next, harder with every bounce. The dotted line is the path the arrow will take.',
     specialName: 'Hook Shot',
-    special:
-      'Hook Shot. Fire a line where you aim and be pulled along it, over pits and through Echoes, which it knocks aside. Nothing can hurt you on the way, and your next three arrows after landing leave at once.',
+    special: 'Hook Shot. Fire a line and be pulled along it, over pits and through enemies, unhurt. Your next three arrows leave at once.',
     plays: 'Read the angles of the room.',
   },
   fist: {
     id: 'fist',
-    name: 'The Hand',
+    name: 'Brawler',
     weapon: 'Fist',
-    attack:
-      'Jabs on the press, and a jab knocks a shot aside. Keep the button held to draw back a Haymaker that throws its target into walls and into its friends; held through a dash, the hand is part drawn when you land.',
-    specialName: 'Break',
-    special:
-      'Break. A slam that pops everything near you outward and sends an orb home; nothing can hurt you while you slam. Attack right after it to fly to one of the Echoes it struck and land three blows.',
+    attack: 'Jabs on the press; a jab knocks a shot aside. Hold the button to draw back a Heavy Punch that throws its target into walls and into its friends.',
+    specialName: 'Stomp',
+    special: 'Stomp. Throws everything near you outward; nothing can hurt you meanwhile. Attack right after it to fly to an enemy it struck and land three blows.',
     plays: 'Line up bodies and walls.',
   },
 };

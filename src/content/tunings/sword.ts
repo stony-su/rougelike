@@ -19,7 +19,11 @@ const set: TuningSet = {
       build: 'Mirror Guard',
       rarity: 0,
       maxRank: 3,
-      text: ['Shots you send back fly 25% faster and go through 1 Echo.', 'Shots you send back fly 40% faster and go through 2 Echoes.', 'Shots you send back fly 55% faster and go through 3 Echoes.'],
+      text: [
+        'Shots you send back fly 25% faster and go through 1 enemy.',
+        'Shots you send back fly 40% faster and go through 2 enemies.',
+        'Shots you send back fly 55% faster and go through 3 enemies.',
+      ],
       effects: [
         { mod: 'returnSpeed', op: 'mul', v: [1.25, 1.4, 1.55] },
         { mod: 'returnPierce', op: 'add', v: [1, 2, 3] },
@@ -130,9 +134,9 @@ const set: TuningSet = {
       rarity: 0,
       maxRank: 3,
       text: [
-        'Your third swing throws a crescent for 12 that goes through Echoes and bounces twice. After a bounce its hits are Returns.',
-        'Your third swing throws a crescent for 16 that goes through Echoes and bounces 3 times. After a bounce its hits are Returns.',
-        'Your third swing throws a crescent for 20 that goes through Echoes and bounces 4 times. After a bounce its hits are Returns.',
+        'Your third swing throws a crescent for 12 that goes through enemies and bounces twice. After a bounce its hits are bounce hits.',
+        'Your third swing throws a crescent for 16 that goes through enemies and bounces 3 times. After a bounce its hits are bounce hits.',
+        'Your third swing throws a crescent for 20 that goes through enemies and bounces 4 times. After a bounce its hits are bounce hits.',
       ],
       effects: [
         { mod: 'crescent', op: 'set', v: [12, 16, 20] },
@@ -166,9 +170,9 @@ const set: TuningSet = {
       maxRank: 3,
       locked: true,
       text: [
-        'For every 12 Rally you gain, your next swing is a Ring Cut: all the way round you, for 16, and it sends back everything it meets.',
-        'For every 10 Rally you gain, your next swing is a Ring Cut: all the way round you, for 16, and it sends back everything it meets.',
-        'For every 8 Rally you gain, your next swing is a Ring Cut: all the way round you, for 16, and it sends back everything it meets.',
+        'For every 12 Combo you gain, your next swing is a Ring Cut: all the way round you, for 16, and it sends back everything it meets.',
+        'For every 10 Combo you gain, your next swing is a Ring Cut: all the way round you, for 16, and it sends back everything it meets.',
+        'For every 8 Combo you gain, your next swing is a Ring Cut: all the way round you, for 16, and it sends back everything it meets.',
       ],
       effects: [{ mod: 'chorusEvery', op: 'set', v: [12, 10, 8] }],
     },
@@ -182,7 +186,7 @@ const set: TuningSet = {
       build: 'Wildcard',
       rarity: 1,
       maxRank: 3,
-      text: ['Your swings are 2% quicker for every point of Rally.', 'Your swings are 3% quicker for every point of Rally.', 'Your swings are 4% quicker for every point of Rally.'],
+      text: ['Your swings are 2% quicker for every point of Combo.', 'Your swings are 3% quicker for every point of Combo.', 'Your swings are 4% quicker for every point of Combo.'],
       effects: [{ mod: 'swingHaste', op: 'set', v: [0.02, 0.03, 0.04] }],
     },
   ],
@@ -198,7 +202,7 @@ const set: TuningSet = {
       id: 'second-spin',
       name: 'Second Spin',
       parents: ['tempered-spin', 'counterweight'],
-      text: 'The Whirlwind goes round twice. The second turn reaches further, and what the first threw it strikes in flight: a Return.',
+      text: 'The Whirlwind goes round twice. The second turn reaches further, and what the first threw it strikes in flight: a bounce hit.',
       effects: [{ mod: 'secondSpin', op: 'set', v: [1] }],
     },
     {

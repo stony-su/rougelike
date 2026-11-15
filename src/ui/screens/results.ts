@@ -87,13 +87,13 @@ class Results extends PanelScreen {
       const stop = session.route[session.stop];
       this.head.text = won ? 'The Bell is still' : 'The party is down';
       this.head.setColor(won ? CHIME : DANGER);
-      this.where.text = won ? 'The road is walked to its end' : stop ? `It ended in chamber ${stop.n} of ${session.route.length}:   ${stop.name}` : '';
+      this.where.text = won ? 'The road is walked to its end' : stop ? `It ended in room ${stop.n} of ${session.route.length}:   ${stop.name}` : '';
       const cells: Array<[string, string]> = [
-        [`${t.chambers} of ${session.route.length}`, 'Chambers'],
-        [String(t.kills), 'Echoes stilled'],
+        [`${t.chambers} of ${session.route.length}`, 'Rooms'],
+        [String(t.kills), 'Enemies beaten'],
         [clock(session.played), 'On the road'],
-        [String(t.returns), 'Returns'],
-        [String(t.bestRally), 'Best Rally'],
+        [String(t.returns), 'Bounce hits'],
+        [String(t.bestRally), 'Best Combo'],
         [String(Math.round(t.damageTaken)), 'Health lost'],
       ];
       cells.forEach(([n, name], i) => {
@@ -136,7 +136,7 @@ class Results extends PanelScreen {
     this.list.set(entries);
     this.hint.text = s.pad ? 'Up and down      A  choose' : 'W S  choose      Enter  take';
     // what the run earned for the Attunement, and what that makes
-    this.earned.text = s.gained > 0 ? `Resonance  +${s.gained}     you hold ${s.save.resonance}` : '';
+    this.earned.text = s.gained > 0 ? `Stars  +${s.gained}     you hold ${s.save.resonance}` : '';
     // with nothing built and nothing earned there is nothing to show between the numbers and the list
     const top = this.builtHead.visible ? 376 : s.gained > 0 ? 326 : 292;
     this.list.y = top;

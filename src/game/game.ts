@@ -449,7 +449,11 @@ export class Game {
       // a chamber the party wagered on says so before anything else
       // a side-chamber each of the party walks alone says so
       const alone = this.session.worlds.length > 1;
-      this.hud.banner(w.flow.discord ? 'Brittle: the Wager is on' : alone ? 'On your own' : stop.kind === 'elite' ? `Elite: ${room.name}` : room.name, hard ? DANGER : PAPER, w.flow.discord ? 3 : 2.4);
+      this.hud.banner(
+        w.flow.discord ? 'Brittle: the Gamble is on' : alone ? 'On your own' : stop.kind === 'elite' ? `Elite: ${room.name}` : room.name,
+        hard ? DANGER : PAPER,
+        w.flow.discord ? 3 : 2.4,
+      );
     }
   }
 
@@ -544,7 +548,7 @@ export class Game {
         this.backdrop.ripple(ev.x, ev.y, 1);
         break;
       case 'roomClear':
-        this.hud.banner('Chamber cleared', CHIME);
+        this.hud.banner('Room cleared', CHIME);
         this.backdrop.pulse(1);
         break;
       case 'waveStart':
@@ -566,7 +570,7 @@ export class Game {
       case 'tuning':
         if (ev.player === this.localSlot) {
           const def = w.content.tunings[ev.id];
-          this.hud.banner(def ? def.name : 'Tuning', def ? TONES[def.tone].color : CHIME, 1.8);
+          this.hud.banner(def ? def.name : 'Upgrade', def ? TONES[def.tone].color : CHIME, 1.8);
         }
         break;
       default:
@@ -619,7 +623,7 @@ export class Game {
         dt,
       );
     if (this.wager.result) {
-      this.hud.banner(this.wager.result === 'on' ? 'The Wager is taken' : 'The party walks on', this.wager.result === 'on' ? DANGER : PAPER, 2);
+      this.hud.banner(this.wager.result === 'on' ? 'The Gamble is taken' : 'The party walks on', this.wager.result === 'on' ? DANGER : PAPER, 2);
       this.wager.result = '';
     }
     if (this.autopilot) {
@@ -770,7 +774,7 @@ export class Game {
       const wk = d.workMs as { median: number; p95: number };
       this.debugText.text =
         `${(1000 / Math.max(1, f.median)).toFixed(0)} fps  frame ${f.median} ms (p95 ${f.p95})  work ${wk.median} ms (p95 ${wk.p95})  scale ${this.quality.scale.toFixed(2)}\n` +
-        `tick ${s.tick}  chamber ${w.chamber}  ${w.flow.phase} wave ${w.flow.wave}/${w.flow.waves}  players ${w.players.length}  enemies ${w.enemies.length}  kills ${w.stats.kills}`;
+        `tick ${s.tick}  room ${w.chamber}  ${w.flow.phase} wave ${w.flow.wave}/${w.flow.waves}  players ${w.players.length}  enemies ${w.enemies.length}  kills ${w.stats.kills}`;
     }
   }
 }

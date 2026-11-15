@@ -83,9 +83,9 @@ export class WagerScreen {
       .moveTo(PAD, 74)
       .lineTo(W - PAD, 74)
       .stroke({ width: 1, color: UI.brass, alpha: 0.45 });
-    const title = new Label('The Wager', { size: 24, color: PAPER, bold: true, tracking: 0.3 });
+    const title = new Label('The Gamble', { size: 24, color: PAPER, bold: true, tracking: 0.3 });
     title.position.set(PAD, 30);
-    const ask = new Label('An elite holds the next chamber. Will the party carry a Discord into it?', { size: 10, color: UI.text, tracking: 0.08, maxWidth: W - PAD * 2 });
+    const ask = new Label('An elite holds the next room. Will the party carry a Curse into it?', { size: 10, color: UI.text, tracking: 0.08, maxWidth: W - PAD * 2 });
     ask.position.set(PAD, 96);
     this.hint = new Label('', { size: 9, color: UI.inkSoft, tracking: 0.2 });
     this.hint.position.set(PAD, H - 34);

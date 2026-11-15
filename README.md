@@ -8,11 +8,29 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 **Building it with others?** The work is divided into tasks that never share a file. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to take one; `npm run tasks` shows the board.
 
+## The words on screen, and the words in the code
+
+The game speaks plainly to whoever plays it. The code, [DESIGN.md](DESIGN.md) and the rest of this file keep the names the design was written in. They are the same things:
+
+| On screen | In the code and the design |
+|---|---|
+| Swordsman, Archer, Brawler | the Sword (the Edge), the Bow (the String), the Fist (the Hand) |
+| bounce hit | Return |
+| Combo | Rally |
+| upgrade, synergy | Tuning, Harmony |
+| Coins | Chimes |
+| the Merchant, the Healing Pool | the Tuner, the Still Pool |
+| Permanent upgrades, Stars | the Attunement, Resonance |
+| room | chamber |
+| enemy | Echo |
+| Stomp, Heavy Punch | Break, Haymaker |
+| the Gamble, a Curse | the Wager, a Discord |
+
 ## Where the build stands
 
 **A whole run can be played from the first chamber to the Bell**, alone or with up to three laptops on one network, with keyboard and mouse or a controller:
 
-- **Three classes.** The Sword turns enemy shots back with every swing, bats a lunging enemy away, and has a guard (Riposte) that returns whatever lands in it. The Bow's arrows ricochet off walls and skip between enemies, with an aim preview that shows the exact path, and it throws a Ringstone that redirects shots and bodies. The Fist jabs on the press, and if you keep the button held it draws back for a Haymaker that launches its target; its Break pops everything nearby outward and sends any orb in reach home, and a jab knocks an enemy shot aside. A Riposte that lands throws a shield down. They are not equally sturdy: the Bow has 85 health, the Sword 100, the Fist 125.
+- **Three classes.** The Sword turns enemy shots back with every swing, bats a lunging enemy away, and has the **Whirlwind**: one turn of the blade that cuts and throws back everything round it, knocks shields open, sends every enemy shot in the circle home, and lets nothing hurt the Sword meanwhile. The Bow's arrows ricochet off walls and skip between enemies, with an aim preview that shows the exact path, and it has the **Hook Shot**: a line fired where it aims, along which it is pulled over pits and through enemies, untouchable, with three arrows that leave at once when it lands. The Fist jabs on the press, and if you keep the button held it draws back for a heavy punch that launches its target; its Stomp pops everything nearby outward and sends any orb in reach home, and a jab knocks an enemy shot aside. They are not equally sturdy: the Bow has 85 health, the Sword 100, the Fist 125.
 - **Everything bounces.** Launched enemies slam into walls, carom into each other, ring off bumpers and fall into pits. Bombs can be batted back or shot where they sit. Hits from anything sent back are *Returns*: they build Rally, and Rally makes Returns hit harder.
 - **Five Echoes** to bounce: the Thrum lunges, the Piper plays three bolts down three drawn lines, the Burr lobs bombs, the Gong hides behind a shield that only a Return or a blow from behind gets past, and the Cairn slams the floor and throws its own top stone. They do not simply walk at you: they surround, cut off, keep their distance and change ground. The hardest chambers carry **elites** (Resonant, Tethered, Hasty, Plated, Splitting).
 - **Traps in the floor** from the second chamber on: plates of spikes, knells that toll in a ring, and pipes that spit thorns down a drawn line. They hurt Echoes too, so a body can be knocked onto them.
@@ -30,9 +48,9 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **The Attunement.** Every run earns Resonance, win or lose: 1 for each chamber cleared, 5 for the Carillon, 10 for the Toll. It is kept in the browser and spent on the title's Attunement screen: more health, Chimes to begin with, the right to ask for other cards, a quicker dash, more Chimes. Your records as each class are kept there too. In co-op everyone brings their own. Because a browser keeps a save for one address only (and a laptop that joins a host is on the host's address), the same screen writes the save out as a code and reads one back.
 
-- **The Sword's own Tunings.** Ten of them in three builds, drafted alongside the common ones: *Mirror Guard* sends more back (faster returns that go through Echoes, a wider swing whose returns hunt their sender, returns that split into a fan); the *Duelist* lives on the Riposte (a longer guard and doubled swings after it lands, a stun and a mark, a Riposte that is ready again at once); *Edge Wave* makes shots of the Sword's own (a crescent off the third swing, shots you can strike on again, and a Ring Cut all the way round once enough Rally is gained). Three Harmonies join them. The first draft of a run shows one card from each build.
+- **The Sword's own upgrades.** Ten of them in three builds, drafted alongside the common ones: *Mirror Guard* sends more back (faster returns that go through enemies, a wider swing whose returns hunt their sender, returns that split into a fan); the *Cyclone* lives on the Whirlwind (further reach and doubled swings after it, a daze and a mark on what it throws, a Whirlwind that is ready again at once when it meets three things, and with two of them a second, wider turn that strikes in flight what the first threw); *Edge Wave* makes shots of the Sword's own (a crescent off the third swing, shots you can strike on again, and a Ring Cut all the way round once enough Combo is gained). Three synergies join them. The first draft of a run shows one card from each build.
 
-- **The Bow's own Tunings.** Ten in three builds: *Pinball* plays the walls (more ricochets and quicker off each, arrows that burst where they land after two bounces, arrows that bend toward an Echo once they have bounced); *Chain* plays the crowd (more skips from further off, a killing arrow that breaks into pieces, skipped arrows that root what they strike); *Stonework* plays the Ringstone (two stones at once, stones that send things on harder and pulse, stones that draw Echoes in). Heavy Fourth makes every fourth arrow of a held volley a heavy one. Three Harmonies join them.
+- **The Bow's own upgrades.** Ten in three builds: *Pinball* plays the walls (more ricochets and quicker off each, arrows that burst where they land after two bounces, arrows that bend toward an enemy once they have bounced); *Chain* plays the crowd (more skips from further off, a killing arrow that breaks into pieces, skipped arrows that root what they strike); the *Line* plays the Hook Shot (a longer line that is ready sooner, a barbed one that hurts and throws what it passes, a fuller quiver of arrows at the end of it, and with two of them a second line for nothing). Heavy Fourth makes every fourth arrow of a held volley a heavy one. Three synergies join them.
 
 - **The Fist's own Tunings.** Ten in three builds: *Billiards* makes one body hit many (bodies that plough through the first Echo they meet, caroms that pass on all their motion, a Break that throws harder); *Wall Combo* keeps one body in the air (harder wall slams that stun, a jab that sends a flying body on again, bodies that take more while they fly); *Shockwave* makes every impact a burst (a Haymaker that bursts, a braced stance while the hand is drawn back, bodies that burst at every bounce). Heavy Hands makes heavy bodies hit far harder. Three Harmonies join them.
 
@@ -55,7 +73,7 @@ npm run dev        # start the dev server, then open the printed URL (http://loc
 
 The game opens on its title. **Play alone**, then choose the Sword, the Bow or the Fist (each card shows how that class fights). In a run, **Esc** (or Start on a controller) opens your menu, which stops the game while you are alone; when a run ends, its numbers come up and **Enter** starts the next at once. Every screen works with the keyboard, the mouse or a controller.
 
-**Controls** (on the title, and in your menu) shows both sets on two pages. In short: move with W A S D, aim with the mouse, attack with the left button (hold it: the Bow keeps loosing, the Fist draws back a Haymaker), special with the right, dash with Space, Esc for your menu, M for sound. On a controller: left stick, right stick, right trigger, left trigger, A, Start.
+**How to play** (on the title; a browser that has not played before is shown it once, before anything else) says in one page what the game asks of you, and has the controls for keyboard and mouse and for a controller on two more. Your menu in a run has the same pages. In short: move with W A S D, aim with the mouse, attack with the left button (hold it: the Bow keeps loosing, the Fist draws back a Haymaker), special with the right, dash with Space, Esc for your menu, M for sound. On a controller: left stick, right stick, right trigger, left trigger, A, Start.
 
 **Settings** holds the volume, sound on or off, how much the screen shakes, how sharp the picture is (Light is the quickest on a slow laptop) and whether a controller rumbles. They are kept in the browser between visits.
 
@@ -90,6 +108,21 @@ npm run selftest   # with `npm run preview` running: the pinned game in installe
 node scripts/run-check.mjs   # the whole game in the real page: a run lost and a run won, alone with each class and in three pages (about twenty minutes)
 ```
 
+## Putting it on itch.io
+
+```bash
+npm run itch
+```
+
+builds the game and makes two files in `itch/out/`:
+
+- `resound-web.zip` is the game as a page, with `index.html` at the top and every path relative. On itch.io, upload it, set the kind of project to **HTML** and tick **This file will be played in the browser**.
+- `resound-coop.zip` is the same game with its host program in one folder, for playing together. It is a download: whoever hosts needs Node.js, starts `start-host.bat` (or `sh start-host.sh`), and gives the others the address it prints.
+
+[itch/page.md](itch/page.md) has the words for the page, the settings to choose and a short list to go through before publishing; `itch/media/` has a cover and screenshots.
+
+On a page that no host served (itch.io, or `npm run dev`) the game is played alone, and **Co-op lobby** says how to host. Progress is kept in that browser.
+
 ## Controls
 
 | Action | Keyboard and mouse | Controller |
@@ -97,7 +130,7 @@ node scripts/run-check.mjs   # the whole game in the real page: a run lost and a
 | Move | W A S D or arrow keys | Left stick |
 | Aim | Mouse | Right stick (with the stick at rest, aim follows your movement and leans toward a nearby enemy) |
 | Attack. Hold it: the Fist draws back for a Haymaker, the Bow keeps loosing | Left mouse (or J) | Right trigger (or RB) |
-| Special: Riposte / Ringstone / Break | Right mouse (or K) | Left trigger (or LB) |
+| Special: Whirlwind / Hook Shot / Stomp | Right mouse (or K) | Left trigger (or LB) |
 | Dash | Space or Shift | A |
 | Pause | Esc or P | Start |
 | Mute | M | |

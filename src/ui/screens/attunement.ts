@@ -31,9 +31,9 @@ const RECORDS = 128;
 
 const RANKS = ['', 'I', 'II', 'III', 'IV'];
 const CLASSES: ReadonlyArray<readonly [ClassId, string]> = [
-  ['sword', 'The Edge'],
-  ['bow', 'The String'],
-  ['fist', 'The Hand'],
+  ['sword', 'Swordsman'],
+  ['bow', 'Archer'],
+  ['fist', 'Brawler'],
 ];
 
 const clock = (ticks: number): string => {
@@ -60,11 +60,11 @@ class Attunement extends PanelScreen {
     private readonly content: ContentRegistry,
   ) {
     super(host, W, 700, 0.7);
-    const title = new Label('The Attunement', { size: 24, color: PAPER, bold: true, tracking: 0.26 });
+    const title = new Label('Permanent upgrades', { size: 24, color: PAPER, bold: true, tracking: 0.26 });
     title.position.set(PAD, 30);
     this.purse = new Label('0', { size: 16, color: CHIME, bold: true, tracking: 0.1, align: 'right' });
     this.purse.position.set(W - PAD, 34);
-    const how = new Label(`Resonance is earned on the road and kept: ${RESONANCE.chamber} for each chamber cleared, ${RESONANCE.miniboss} for the Carillon, ${RESONANCE.boss} for the Toll.`, {
+    const how = new Label(`Stars are earned on the road and kept: ${RESONANCE.chamber} for each room cleared, ${RESONANCE.miniboss} for the Carillon, ${RESONANCE.boss} for the Toll.`, {
       size: 9,
       color: UI.inkSoft,
       tracking: 0.1,
@@ -105,7 +105,7 @@ class Attunement extends PanelScreen {
         // bought: the row now chooses which Tuning that class begins with
         const id = save.issued[issues];
         const t = this.content.tunings[id];
-        entries.push({ label: def.name, note: 'Enter changes the Tuning', value: t ? t.name : 'None' });
+        entries.push({ label: def.name, note: 'Enter changes the Upgrade', value: t ? t.name : 'None' });
         this.acts.push({ kind: 'issue', classId: issues });
         continue;
       }

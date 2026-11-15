@@ -69,7 +69,7 @@ class Pause extends PanelScreen {
     this.list.set(entries);
     this.title.text = s.coop ? 'Menu' : 'Paused';
     const stop = session ? session.route[session.stop] : undefined;
-    this.sub.text = stop && session ? `Chamber ${stop.n} of ${session.route.length}     ${stop.name}` : '';
+    this.sub.text = stop && session ? `Room ${stop.n} of ${session.route.length}     ${stop.name}` : '';
     this.hint.text = s.pad ? 'Up and down      A  choose      B  back' : 'W S  choose      Enter  take      Esc  back';
     const h = TOP + this.list.tall + 64;
     if (h !== this.h) {

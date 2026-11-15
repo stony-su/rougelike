@@ -47,6 +47,9 @@ export interface AppOptions extends GameOptions {
   tunings: Record<string, number> | null;
 }
 
+/** Where a browser keeps the note that it has been shown how the game is played. */
+const GREETED_KEY = 'resound.greeted';
+
 /** The picture behind the menus when no game is: the Crater's standing rings. */
 class MenuBackdrop {
   private readonly stage = new Stage();
@@ -146,7 +149,23 @@ export class App implements ScreenHost {
 
     if (opts.direct && opts.host) this.openLobby();
     else if (opts.direct) this.play(opts.classes);
-    else this.showTitle();
+    else {
+      this.showTitle();
+      this.greet();
+    }
+  }
+
+  /** A browser that has not played before is shown how the game is played, once, over the title. */
+  private greet(): void {
+    const store = browserStore();
+    try {
+      if (!store || store.getItem(GREETED_KEY) || !this.has('controls')) return;
+      store.setItem(GREETED_KEY, '1');
+    } catch {
+      // storage that may not be used: nothing is remembered, so nothing is shown uninvited
+      return;
+    }
+    this.open('controls', 'how');
   }
 
   // ---------------------------------------------------------------- what screens may ask

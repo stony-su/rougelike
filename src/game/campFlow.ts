@@ -37,14 +37,14 @@ const plain = (mark: CampRow['mark'], title: string, sub: string, price: number,
 export function campRows(seat: CampSeat, me: Player, content: ContentRegistry, coop: boolean): { rows: CampRow[]; asks: Ask[] } {
   const rows: CampRow[] = [];
   const asks: Ask[] = [];
-  const short = 'Not enough Chimes';
+  const short = 'Not enough Coins';
 
   seat.shelf.forEach((id, i) => {
     const t = content.tunings[id];
-    const head = i === 0 ? 'The Tuner' : '';
+    const head = i === 0 ? 'The Merchant' : '';
     asks.push({ kind: 'buy', a: i });
     if (!t) {
-      rows.push(plain('restock', 'Sold', '', -1, 'This place on the shelf is empty', 'The Tuner has nothing more here. A fresh shelf brings three others.', head));
+      rows.push(plain('restock', 'Sold', '', -1, 'This place on the shelf is empty', 'The Merchant has nothing more here. A fresh shelf brings three others.', head));
       return;
     }
     const held = me.tunings[id] ?? 0;
@@ -78,7 +78,14 @@ export function campRows(seat: CampSeat, me: Player, content: ContentRegistry, c
   const fresh = restockPrice(seat);
   asks.push({ kind: 'buy', a: BUY_RESTOCK });
   rows.push(
-    plain('restock', 'A fresh shelf', 'Three other Tunings', fresh, me.chimes < fresh ? short : '', 'The Tuner clears the shelf and sets out three other Tunings. It costs a little more each time.'),
+    plain(
+      'restock',
+      'A fresh shelf',
+      'Three other Upgrades',
+      fresh,
+      me.chimes < fresh ? short : '',
+      'The Merchant clears the shelf and sets out three other Upgrades. It costs a little more each time.',
+    ),
   );
 
   const given = seat.rested ? 'The Pool has given' : '';
@@ -90,8 +97,8 @@ export function campRows(seat: CampSeat, me: Player, content: ContentRegistry, c
       `${Math.round(me.maxHp * CAMP.heal)} health back`,
       -1,
       given || (me.hp >= me.maxHp ? 'Your health is full' : ''),
-      'Sit a while. A third of your health comes back. The Still Pool gives each of you one thing at every camp: this, or a rank.',
-      'The Still Pool',
+      'Sit a while. A third of your health comes back. The Healing Pool gives each of you one thing at every camp: this, or a rank.',
+      'The Healing Pool',
     ),
   );
   const ids = raisable(me, content);
@@ -130,7 +137,7 @@ export function campRows(seat: CampSeat, me: Player, content: ContentRegistry, c
     plain(
       'leave',
       seat.ready ? 'Stay a little longer' : 'Walk on',
-      !coop ? 'On to the next chamber' : seat.ready ? 'You are ready: waiting for the others' : 'The road goes on when everyone is ready',
+      !coop ? 'On to the next room' : seat.ready ? 'You are ready: waiting for the others' : 'The road goes on when everyone is ready',
       -1,
       '',
       coop ? 'Leave the camp. The party walks on when everyone is ready; once the first of you is, the others have half a minute.' : 'Leave the camp. What is left on the shelf stays behind.',

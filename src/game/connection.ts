@@ -133,6 +133,8 @@ export interface HostInfo {
 
 /** Ask whoever served this page whether it is a host. Null alone (the dev server, a plain preview). */
 export async function findHost(): Promise<HostInfo | null> {
+  // a host serves plain http on one's own network; a page from anywhere else (a games site, a file) has none to ask
+  if (window.location.protocol !== 'http:') return null;
   try {
     const ctl = new AbortController();
     const timer = window.setTimeout(() => ctl.abort(), 1500);

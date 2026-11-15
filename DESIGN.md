@@ -30,7 +30,7 @@ Damage comes from sending things back. Everything is a body in one collision wor
 | **Reflect** | A sword swing turns back every enemy projectile in its arc during its active frames. The shot changes side, flies where the player is aiming at that moment at 1.3× its speed (at least 16), deals `max(14, 2.2 × damage)`, may bank once off a wall, and gets 14 tiles of new range. |
 | **Perfect return** | A reflect made when the shot is within 0.9 of the player's centre (plus 0.15 per tick of the session's input delay): damage ×1.5, pierces everything (and may still bank once and come back through), weight 3. |
 | **Bat-away** | A sword swing that hits an Echo during that Echo's own attack frames cancels the attack and launches it along the aim with impulse 14. |
-| **Ricochet** | Arrows bounce off walls, posts, bumpers, shields and Ringstones: 2 bounces, +40% damage per bounce made (bounces off bumpers and Ringstones are free and count too, up to 6 bounces of bonus). Total path 30 tiles or 1.6 s. A bounce off a wall is an exact mirror: the speed does not change by a bit. |
+| **Ricochet** | Arrows bounce off walls, posts, bumpers and shields: 2 bounces, +40% damage per bounce made (bounces off bumpers are free and count too, up to 6 bounces of bonus). Total path 30 tiles or 1.6 s. A bounce off a wall is an exact mirror: the speed does not change by a bit. |
 | **Skip** | An arrow that hits an Echo skips once to the nearest Echo within 3.5 tiles that it has not struck, homing on it, for 70% of its damage. |
 | **Launch** | Launch speed is impulse ÷ mass. Mass: light 1, medium 2.5, heavy 5. A body moving faster than 3 is *launched*: helpless, and able to slam and carom. It slows at 18 per second (7 on slick ground, 40 in mire) and lands when it drops below 3, recovering after 0.35 s; it cannot be launched again for 0.5 s after it gets up (blows meanwhile only nudge it). A blow while it is in flight adds to its flight and passes the credit to whoever struck last. |
 | **Wall slam** | A launched body hitting a wall or post at more than 5 takes `0.9 × impact speed` and bounces with 0.7 of its speed. |
@@ -62,14 +62,14 @@ Health by class: **Sword 100, Bow 85, Fist 125**. The Fist fights at arm's lengt
 | | |
 |---|---|
 | Attack | Three-swing combo. Damage 9 / 9 / 14. Wind-up 0.07 / 0.07 / 0.12, active 0.09 / 0.09 / 0.11, recovery 0.14 / 0.14 / 0.24. Reach 2.0 / 2.0 / 2.3, half-arc 60° / 60° / 75°, forward step 0.35 / 0.35 / 0.55. Launch impulse 3 / 3 / 9 (the third sends a light Echo about 2 tiles). Every swing reflects and can bat away (section 2.1). |
-| Special: **Riposte** | Cooldown 5 s. A guard for 0.4 s (plus the session's input delay), moving at 40% speed. Anything that would hurt the player in the window does no damage: a projectile comes back at its sender as a perfect return; a melee attacker is launched away with impulse 16 and stunned 0.6 s, and if it carries a shield the shield is down for as long as one broken open (a Gong: 2.5 s). A landed Riposte refunds half its cooldown and grants 0.3 s of invulnerability. A whiff has 0.2 s of recovery. |
+| Special: **Whirlwind** | Cooldown 6 s. One turn of the blade: 0.08 s to coil, 0.28 s going round, 0.16 s to straighten up, moving at half speed. As the turn begins, every Echo within 2.6 tiles is cut for 16 (a direct blow, heavy enough to open a shield) and thrown outward with impulse 10; a body already in flight is sent on outward, which is a Return. For as long as the blade goes round, every enemy shot in the circle is sent back at whoever fired it (it comes round on them at 6 rad/s; with nobody to go home to it goes back the way it came), an orb is sent home, and a bomb on the floor is batted back at its thrower. Nothing hurts the Sword from the press until the blade has come round. A cut asked for meanwhile follows without waiting for the recovery. |
 
 ### 3.2 Bow — the String
 
 | | |
 |---|---|
 | Attack | Arrows: damage 8, speed 24, radius 0.12. The first fires on press; holding fires every 0.36 s. Move speed while firing 75%. Ricochet and skip per section 2.1. A direct hit with no bounce is not a Return. |
-| Special: **Ringstone** | Cooldown 8 s. Thrown to the aim point (at most 9 tiles; it stops at walls). A bumper of radius 0.4 that lasts 8 s; one at a time. An arrow or a returned shot that hits it is redirected at the nearest Echo within 10 tiles with +50% damage (this bounce is free: it does not use up a ricochet). A launched body bounces off it toward the nearest Echo and its next carom deals +50%. |
+| Special: **Hook Shot** | Cooldown 7 s. A line is fired at the aimed point, at most 9 tiles off, and stops at the first wall, post or bumper; it sets the Bow down at the last place on it where there is floor to stand on (nearer than 1.2 tiles it is not fired, and costs nothing). After 0.07 s the Bow is pulled along it at 30 tiles a second, in a straight line, over pits and through Echoes. Nothing hurts it on the line or for 0.12 s after. Every Echo within 0.45 tiles of its path is struck once for 6 and thrown off the line with impulse 9. Once it has landed, its next 3 arrows leave 0.07 s apart, if they are loosed within 2.5 s. A dash cannot cut the Bow loose from its line. |
 
 ### 3.3 Fist — the Hand
 
@@ -85,7 +85,7 @@ Health by class: **Sword 100, Bow 85, Fist 125**. The Fist fights at arm's lengt
 |---|---|---|---|
 | Thrum | Bat its lunge away mid-leap | Skip arrows through the pack | The cue ball |
 | Piper | Return its three bolts | Bank around its cover | Break slaps its bolts away; launch it into its friends |
-| Gong | Riposte its bash; return shots into its back | Ricochet off the gong itself, or a wall, into its back | A full Haymaker breaks its guard; carom others into its back |
+| Gong | The Whirlwind knocks its guard open; return shots into its back | Ricochet off the gong itself, or a wall, into its back | A full Haymaker breaks its guard; carom others into its back |
 | Cairn | Return its lobbed stone (30, and it staggers) | Bank shots while it lumbers | Three jabs stagger it, then it launches as a wrecking ball |
 | Burr | Bat the bomb back | Shoot the bomb where it sits | Punch the bomb back |
 | Skirl | Bat it out of its pass | Arrows and returns ground it | Grounded, it launches |
@@ -97,7 +97,7 @@ Built into the rules, no upgrade needed; each counts as a Return for both player
 - **Bank off the blade.** An ally's arrow that passes through a sword swing is re-aimed along the sword's aim with +60% damage, +1 ricochet and 1 pierce.
 - **Alley-oop.** A launched Echo struck in flight by a sword or an arrow is re-launched (sword: ×1.4 speed along the aim; arrow: +6 impulse) and takes +50% from that hit.
 - **Carom shot.** Arrows never stop on a body in flight: they always ricochet onward.
-- **Stone play.** Anyone's returned shots and launched bodies use a Ringstone.
+- **Through the line.** What the Bow's Hook Shot throws off its line is a body in flight like any other: a blade or a punch that meets it sends it on.
 
 ## 4. Tunings and Harmonies
 
@@ -119,15 +119,15 @@ Built into the rules, no upgrade needed; each counts as a Return for both player
 | Mirror Guard | **Clean Return** (common) | Returned shots +25 / 40 / 55% speed and pierce 1 / 2 / 3 |
 | | **Wide Guard** (uncommon) | Swing arc +20° / 35° / 50°; returns home on their sender, turning 2 / 3.5 / 5 rad/s |
 | | **Second Voice** (rare) | Each return splits into 2 / 3 / 4 in a 20° fan at 70 / 65 / 60% damage each |
-| Duelist | **Tempered Riposte** (common) | Riposte window +0.10 / 0.15 / 0.20 s; after a landed Riposte the next 2 / 3 / 4 swings deal double |
-| | **Counterweight** (uncommon) | Perfect returns and Ripostes stun 0.6 / 0.9 / 1.2 s and mark the target: +20 / 30 / 40% damage from everyone for 4 s |
-| | **Encore** (rare, 2 ranks) | A landed Riposte refunds its whole cooldown and a dash charge / and heals 4 |
+| Cyclone | **Tempered Spin** (common) | The Whirlwind reaches 0.3 / 0.5 / 0.7 tiles further; after one that cut or sent back anything the next 2 / 3 / 4 swings deal double |
+| | **Counterweight** (uncommon) | The Whirlwind and perfect returns stun 0.6 / 0.9 / 1.2 s and mark the target: +20 / 30 / 40% damage from everyone for 4 s. What the Whirlwind throws is dazed where it comes down |
+| | **Encore** (rare, 2 ranks) | A Whirlwind that cuts or sends back 3 things or more is ready again at once and gives a dash charge / and heals 4 |
 | Edge Wave | **Ringing Edge** (common) | The third swing throws a crescent: 12 / 16 / 20 damage, speed 14, 2 / 3 / 4 ricochets; it counts as a Return after its first bounce |
 | | **Tuning Fork** (uncommon) | Your crescents and returned shots can be struck again by your swings: +40 / 60 / 80% damage each time, range renewed, at most 5 times |
 | | **Chorus** ⚿ (rare) | Every 12 / 10 / 8 Rally points gained, your next swing is a Ring Cut: full circle, reach 2.6, 16 damage, reflects everything around |
 | Wildcard | **Bladesong** (uncommon) | +2 / 3 / 4% swing speed per Rally point (at most +40 / 60 / 80%) |
 
-Harmonies: **Hall of Mirrors** (Clean Return + Second Voice): split returns each bank one more time off a wall. **Standing Wave** (Ringing Edge + Tuning Fork): no limit on re-strikes, and a crescent grows 25% in size and speed each time. **Answer in Kind** (Tempered Riposte + Counterweight): a landed Riposte bursts (radius 2.5, 12 damage, impulse 10). **Thunderhead** (Ringing Edge + Storm Return): a crescent chains lightning (6) to 2 Echoes within 3 tiles of each Echo it passes. **Slipstream** (Encore + Afterimage): dashing through an enemy projectile returns it at its sender.
+Harmonies: **Hall of Mirrors** (Clean Return + Second Voice): split returns each bank one more time off a wall. **Standing Wave** (Ringing Edge + Tuning Fork): no limit on re-strikes, and a crescent grows 25% in size and speed each time. **Second Spin** (Tempered Spin + Counterweight): the Whirlwind goes round twice; the second turn reaches 1.6 times as far and strikes in flight what the first threw, which is a Return. **Thunderhead** (Ringing Edge + Storm Return): a crescent chains lightning (6) to 2 Echoes within 3 tiles of each Echo it passes. **Slipstream** (Encore + Afterimage): dashing through an enemy projectile returns it at its sender.
 
 ### 4.3 Bow — the String
 
@@ -139,12 +139,12 @@ Harmonies: **Hall of Mirrors** (Clean Return + Second Voice): split returns each
 | Chain | **Glance** (common) | +1 / 2 / 3 skips; skip reach +1 / 1.5 / 2 tiles |
 | | **Splinter** (uncommon) | An arrow that kills splits into 2 / 3 / 4 arrows at 60% damage toward other Echoes within 6 tiles |
 | | **Pinning Note** (uncommon) | Skipped arrows root their targets 0.5 / 0.8 / 1.1 s (once per Echo per 3 s) |
-| Stonework | **Twin Stones** (common, 2 ranks) | Carry 2 Ringstones / and the cooldown is 25% shorter |
-| | **Resonant Stone** (uncommon) | Redirect bonus +80 / 110 / 140% instead of +50%; a struck stone pulses: radius 1.8, 8 / 12 / 16 |
-| | **Lodestone** ⚿ (rare) | Ringstones pull Echoes within 3 / 3.5 / 4 tiles at 1.5 / 2 / 2.5 |
+| Line | **Long Line** (common) | The Hook Shot reaches 2 / 3 / 4 tiles further and its cooldown is 10 / 20 / 30% shorter |
+| | **Barbed Line** (uncommon) | What the Hook Shot passes takes 14 / 20 / 26 instead of 6 and is thrown 30 / 60 / 90% harder |
+| | **Full Quiver** ⚿ (rare) | 4 / 5 / 6 arrows leave at once after a Hook Shot instead of 3, each with 1 more ricochet |
 | Wildcard | **Heavy Fourth** (uncommon) | Every fourth arrow of a held volley: +100 / 150 / 200% damage, pierces 1 / 2 / 3, +1 ricochet |
 
-Harmonies: **Trick Shot** (Skipping Stone + Seeking Echo): an arrow's third bounce and later always crit (×2). **Chain Reaction** (Glance + Splinter): split arrows keep their remaining skips and ricochets. **Bell Tower** (Twin Stones + Resonant Stone): an arrow that hits one Ringstone with the other in sight bounces between them up to 4 times, pulsing each time, then seeks an Echo. **Frostline** (Pinning Note + Frost Return): rooted targets are frozen 1.2 s instead, and frozen targets take double from wall slams and caroms. **Parting Shot** (Heavy Fourth + Afterimage): a dash makes the next arrow heavy at once, with +1 ricochet.
+Harmonies: **Trick Shot** (Skipping Stone + Seeking Echo): an arrow's third bounce and later always crit (×2). **Chain Reaction** (Glance + Splinter): split arrows keep their remaining skips and ricochets. **Slingshot** (Long Line + Barbed Line): for 1.2 s after it lands the Bow, the Hook Shot can be fired once more for nothing. **Frostline** (Pinning Note + Frost Return): rooted targets are frozen 1.2 s instead, and frozen targets take double from wall slams and caroms. **Parting Shot** (Heavy Fourth + Afterimage): a dash makes the next arrow heavy at once, with +1 ricochet.
 
 ### 4.4 Fist — the Hand
 
@@ -197,7 +197,7 @@ Two rules keep every Echo in the game. A blow struck where the Echo stands (a sl
 | **Thrum** | 30 hp, speed 3.4, radius 0.38, light, threat 1, from chamber 1 | Chases. Squashes flat for 0.6 s behind a lane telegraph (3.4 × 0.8, tracks 0.3 s then locks), lunges 3.2 at speed 14 for 8. Skids 0.6 s. |
 | **Piper** | 26 hp, speed 2.6, radius 0.36, light, threat 2, from chamber 1 | Keeps 5–7 tiles away. Three aim lines for 0.7 s (track 0.45 s, then lock), then three bolts in a 14° spread: speed 9, 8 each, range 12, radius 0.16. Recovers 0.9 s; cooldown 2.4 s. |
 | **Burr** | 28 hp, speed 2.8, radius 0.36, light, threat 2, from chamber 2 | Keeps 4–7 tiles away. Wind-up 0.6 s; lobs a bomb at a marked circle (radius 1.6) that lands after 0.7 s and bursts after a 1.3 s fuse for 14. A bomb struck by a player becomes that player's: a sword or a punch sends it flying (speed 14 / 16, bursting on contact or after 0.8 s), an arrow sets it off where it sits; its blast then hurts Echoes only (18, radius 1.6, weight 2) and pops them outward with impulse 7. A bomb still in its arc cannot be struck. Cooldown 3.2 s. |
-| **Gong** | 60 hp, speed 2.4, radius 0.45, medium, threat 3, from chamber 3 | Carries a gong: hits from within ±70° of its facing clang off (arrows ricochet off it; swings and jabs do nothing). It turns at 150° per second. Hits from the side or behind, Returns arriving from behind, caroms, a full Haymaker and a Riposte all get through; a full Haymaker, a landed Riposte or 3 stagger drops the guard for 2.5 s. Bash: cone telegraph (radius 2.2, half-arc 50°) for 0.6 s, then a 2-tile lunge at speed 10 for 14; guard down for the 0.8 s recovery and 1.2 s more (two seconds in all: at 0.8 the opening was over before most players had turned to use it). |
+| **Gong** | 60 hp, speed 2.4, radius 0.45, medium, threat 3, from chamber 3 | Carries a gong: hits from within ±70° of its facing clang off (arrows ricochet off it; swings and jabs do nothing). It turns at 150° per second. Hits from the side or behind, Returns arriving from behind, caroms, a full Haymaker and the Whirlwind all get through; a full Haymaker, the Whirlwind or 3 stagger drops the guard for 2.5 s. Bash: cone telegraph (radius 2.2, half-arc 50°) for 0.6 s, then a 2-tile lunge at speed 10 for 14; guard down for the 0.8 s recovery and 1.2 s more (two seconds in all: at 0.8 the opening was over before most players had turned to use it). |
 | **Cairn** | 95 hp, speed 1.7, radius 0.62, heavy, threat 3, from chamber 3 | Three stacked stones. Slam: an expanding ring telegraph (radius 2.5) for 1.0 s, then 16 and a shove; recovers 0.9 s. Lob (at 4–9 tiles): wind-up 0.9 s, circle telegraph (radius 1.3); the top stone flies at speed 8 for 12 and can be returned for 30 and a stagger; recovers 1.1 s; cooldown 4 s. |
 | **Skirl** | 28 hp, speed 5.0 flying, radius 0.4, light, threat 2, from chamber 4 | Flies above reach of swings and jabs. Perches at the rim, shows a dotted lane across the chamber for 0.8 s, then crosses at speed 16 for 12, low enough to be batted. An arrow or a returned shot grounds it for 2 s (a light body that can be launched). Perches 1.2 s after a pass. |
 
@@ -334,7 +334,7 @@ Echoes drop 2–6 Chimes each. Chimes picked up by anyone are paid to every play
 | Second Opinion I–II | 6 / 12 | +1 draft reroll per run each |
 | Quick Step | 8 | Dash recharges 15% faster |
 | Fortune | 6 | +20% Chimes |
-| Signature Tunings (3) | 6 each | Unlock Chorus, Lodestone, Tremor |
+| Signature Tunings (3) | 6 each | Unlock Chorus, Full Quiver, Tremor |
 | Issued Tuning (3) | 10 each | Start each run as that class with a chosen class Tuning at rank I |
 
 Records: runs, wins and fastest win per class, deepest chamber, Echoes sent back. Saved per browser in `localStorage` under `resound.save.v1`, with a schema version, a safe fallback for missing or damaged data, and an export/import code (a joined laptop's save belongs to the host's address). In co-op each player's bonuses are read once in the lobby and fixed for the run.
@@ -500,7 +500,7 @@ Deterministic lockstep, sequenced by the host program (`npm run host`): it serve
 - **Clock.** Each time the host wakes it closes every tick that is due (60 per second by a steady clock), bundling each player's latest held state, their press counters and queued commands. It waits for nobody; a silent player's held state is cleared after 250 ms.
 - **Playout.** Clients step bundles through an adaptive buffer (2–8 ticks by measured jitter), never dropping one. When behind they run extra ticks with effects muted; when hidden they keep stepping from the socket without drawing. Alone, the same relay core runs in the page with no delay.
 - **Hash and repair.** One canonical encoder (raw float bits, sorted keys, ids for definitions) yields both the state hash (FNV-1a) and snapshots. Clients report a hash every 30 ticks; the referee snapshots the session every 600. A client that disagrees or reconnects loads the latest snapshot and replays the log after it. A mismatch is written to disk with its log; `server/replay.ts` finds the first tick and field that diverged.
-- **Timing windows** (Riposte, perfect return) are widened by the measured input delay. Target: at most 100 ms input delay at the 95th percentile on Wi-Fi, shown in a debug overlay with round-trip time, buffer depth and resync count.
+- **Timing windows** (the perfect return) are widened by the measured input delay. Target: at most 100 ms input delay at the 95th percentile on Wi-Fi, shown in a debug overlay with round-trip time, buffer depth and resync count.
 
 ### 13.5 Geometry and bodies
 
@@ -553,7 +553,7 @@ The sections above describe the whole game. To get to a finished, winnable run s
 | | In this build | Kept for later (already designed above) |
 |---|---|---|
 | **Biomes** (section 9) | Three: **Reedwater** (the Outer Ring), **Stormshelf** (the Inner Ring), **the Crater** (the final chamber) | **Glasswood** (violet crystal forest, many bumpers) and **Cinder Terraces** (basalt over lava), with their palettes, props, backdrops and scales |
-| **Harmonies** (section 4) | Twelve: one for each build, and the common three. Sword: Hall of Mirrors, Answer in Kind, Standing Wave. Bow: Trick Shot, Chain Reaction, Bell Tower. Fist: Pool Shark, Corner Pocket, Earthquake. Common: Steam, Perfect Pitch, Cascade | The six that cross a class build with a common Tuning: **Thunderhead**, **Slipstream** (Sword), **Frostline**, **Parting Shot** (Bow), **Meteor**, **Bull Rush** (Fist) |
+| **Harmonies** (section 4) | Twelve: one for each build, and the common three. Sword: Hall of Mirrors, Second Spin, Standing Wave. Bow: Trick Shot, Chain Reaction, Slingshot. Fist: Pool Shark, Corner Pocket, Earthquake. Common: Steam, Perfect Pitch, Cascade | The six that cross a class build with a common Tuning: **Thunderhead**, **Slipstream** (Sword), **Frostline**, **Parting Shot** (Bow), **Meteor**, **Bull Rush** (Fist) |
 | **Discords** (section 7, the Wager) | One: **Brittle** (−30% maximum health for the chamber). The Wager offers it or nothing | **Mute** (no Rally) and **Heavy Air** (shots and bodies lose speed twice as fast) |
 | **The Toll** (section 6.2) | Three phases over five patterns, as written under "The Toll as built" in section 6 | The Echo's **mirrored attacks** (a return volley, a ricochet shot and a hurled Thrum, one for each class present) and the bumpers that rise from the floor |
 | **Forks** (section 7) | At each of the three side-chambers every player has a chamber of their own, all at once, and the party meets in the next one. Whoever is done first is shown who the road waits for; the last has 20 s once the others are done; nobody is apart for more than 90 s | **Watching a teammate's chamber** while you wait, and choosing between two ways on at the fork gate |
@@ -592,7 +592,7 @@ Rally is earned at 45 to 62 points a minute by the three classes alone (each wit
 **What the runs changed** (each has a test in `tests/balance-rules.test.ts`):
 
 - **Health by class** (Bow 85, Fist 125), and the Fist's jabs to 7 / 7 / 11, with ×2.5 on a body that cannot be shoved and ×3 for a full Haymaker.
-- **A landed Riposte opens a shield.** Before, a Gong whose bash was sent back was on guard again before the blade could reach it, and a lone Sword had no way through one.
+- **The Sword's special opens a shield.** A lone Sword had no way through a Gong: its blade rings off the gong, and the Gong was on guard again before a returned bash could be followed up. (The special was the Riposte then; the Whirlwind that replaced it knocks a guard open too.)
 - **A jab knocks a shot aside, and the Break sends an orb home.** The Fist had no answer to a ring of bolts but to be somewhere else, and met a fan of orbs one at a time.
 - **Boss phases cannot be skipped**, and **ring bolts are light when sent back**. A built Sword felled the Toll in ten seconds, most of it bolts returned a dozen at a stroke.
 - **A boss's blows do not grow with depth**; the Toll's health went from 2200 to 2800, and boss health in co-op from ×(1 + 0.6 × extra) to ×(1 + 1.4 × extra). Three experts used to fell it in twenty seconds.
@@ -603,3 +603,22 @@ Rally is earned at 45 to 62 points a minute by the three classes alone (each wit
 
 And the bots themselves were wrong in ways that had hidden all of this: they kept what they had noticed from one chamber to the next, where ids and the clock start again, and so were blind to many warnings after the first chamber; they walked straight at their target into the rim of a pit; they stepped out from under a slam and turned round at once to walk back in; the Fist's bot swung at orbs before they were in reach, and stood with its hand drawn back by accident. Until those were mended the numbers said only that the bots were bad.
 
+## 17. After playing it
+
+What changed once the game had been played by the people it was made for, and what was asked for and is not in it.
+
+**Changed**
+
+- **Two new specials.** The Sword's Riposte and the Bow's Ringstone were replaced by the Whirlwind and the Hook Shot (section 3), each chosen from three that were proposed, and each class's three special upgrades and their Harmony were rebuilt round the new one (sections 4.2 and 4.3). The Ringstone is gone from the game altogether: nothing is planted in a chamber any more.
+- **The Fist's Break is safe**, and an attack right after it flies the Fist to one of the Echoes it struck for three blows. An attack asked for during a dash comes straight out of it, for every class.
+- **Plain words on every screen.** What a player reads no longer uses the design's own nouns: Rally is Combo, a Return is a bounce hit, Tunings and Harmonies are upgrades and synergies, Chimes are Coins, the Tuner and the Still Pool are the Merchant and the Healing Pool, the Attunement and Resonance are Permanent upgrades and Stars, a chamber is a room, an Echo is an enemy, the Break and the Haymaker are the Stomp and the Heavy Punch, the Wager and a Discord are the Gamble and a Curse, and the classes are the Swordsman, the Archer and the Brawler. The code and this document keep the old names; README.md has the table.
+- **How to play.** A page that says what the game asks of you (attack, special, dash, bounce hits, Combo, upgrades, camps, falling), shown once to a browser that has not played before and kept on the title.
+- **The special's wait is on the ring under the hero**, and holding Tab (or pointing at an emblem) says in words what the kit and each upgrade held does.
+- **Bosses arrive at their own size**, the Gong's guard stays down longer after its bash, cards fit their words, and the screen between runs is wide instead of tall.
+- **It can be put on itch.io** (`npm run itch`): the game as a page, and the game with its host as a download.
+
+**Asked for and not built**
+
+- **The camp as a place to walk through** (a merchant to walk up to and a pool to walk into). The camp is still a screen; its words are plain now.
+- **More kinds of terrain and trap.** Rooms have the pits, posts, bumpers, spike plates, knells and thorn pipes they had.
+- **Upgrades you can see working.** A few have their own look (the Ring Cut, the crescent, bursts, lightning); most still change numbers only.

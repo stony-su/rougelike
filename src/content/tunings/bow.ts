@@ -52,9 +52,9 @@ const set: TuningSet = {
       rarity: 2,
       maxRank: 3,
       text: [
-        'Once it has bounced, an arrow bends toward the nearest Echo.',
-        'Once it has bounced, an arrow bends harder toward the nearest Echo.',
-        'Once it has bounced, an arrow hunts down the nearest Echo.',
+        'Once it has bounced, an arrow bends toward the nearest enemy.',
+        'Once it has bounced, an arrow bends harder toward the nearest enemy.',
+        'Once it has bounced, an arrow hunts down the nearest enemy.',
       ],
       effects: [{ mod: 'seek', op: 'set', v: [1.5, 2.5, 3.5] }],
     },
@@ -69,9 +69,9 @@ const set: TuningSet = {
       rarity: 0,
       maxRank: 3,
       text: [
-        'Your arrows skip to one more Echo, from a tile further off.',
-        'Your arrows skip to 2 more Echoes, from a tile and a half further off.',
-        'Your arrows skip to 3 more Echoes, from 2 tiles further off.',
+        'Your arrows skip to one more enemy, from a tile further off.',
+        'Your arrows skip to 2 more enemies, from a tile and a half further off.',
+        'Your arrows skip to 3 more enemies, from 2 tiles further off.',
       ],
       effects: [
         { mod: 'skips', op: 'add', v: [1, 2, 3] },
@@ -88,9 +88,9 @@ const set: TuningSet = {
       rarity: 1,
       maxRank: 3,
       text: [
-        'An arrow that kills breaks into 2, which fly at other Echoes near for 60% each.',
-        'An arrow that kills breaks into 3, which fly at other Echoes near for 60% each.',
-        'An arrow that kills breaks into 4, which fly at other Echoes near for 60% each.',
+        'An arrow that kills breaks into 2, which fly at other enemies near for 60% each.',
+        'An arrow that kills breaks into 3, which fly at other enemies near for 60% each.',
+        'An arrow that kills breaks into 4, which fly at other enemies near for 60% each.',
       ],
       effects: [{ mod: 'splinter', op: 'set', v: [2, 3, 4] }],
     },
@@ -180,9 +180,9 @@ const set: TuningSet = {
       rarity: 1,
       maxRank: 3,
       text: [
-        'Every fourth arrow of a held volley is a heavy one: double damage, through 1 Echo, and one more bounce.',
-        'Every fourth arrow of a held volley is a heavy one: two and a half times the damage, through 2 Echoes, and one more bounce.',
-        'Every fourth arrow of a held volley is a heavy one: three times the damage, through 3 Echoes, and one more bounce.',
+        'Every fourth arrow of a held volley is a heavy one: double damage, through 1 enemy, and one more bounce.',
+        'Every fourth arrow of a held volley is a heavy one: two and a half times the damage, through 2 enemies, and one more bounce.',
+        'Every fourth arrow of a held volley is a heavy one: three times the damage, through 3 enemies, and one more bounce.',
       ],
       effects: [
         { mod: 'heavyMul', op: 'set', v: [2, 2.5, 3] },

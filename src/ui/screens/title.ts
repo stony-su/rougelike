@@ -15,9 +15,10 @@ const H = 660;
 const LIST_W = 440;
 
 /** The other screens the title leads to, if they are there: name of the screen, what the row says. */
-const MORE: ReadonlyArray<readonly [string, string, string]> = [
-  ['attunement', 'Attunement', 'What you keep between runs'],
-  ['controls', 'Controls', 'Keyboard and mouse, or a controller'],
+/** The other screens the title leads to: the screen, what the menu calls it, a line about it, and what it is opened with. */
+const MORE: ReadonlyArray<readonly [string, string, string, string?]> = [
+  ['controls', 'How to play', 'The game in a page, and the controls', 'how'],
+  ['attunement', 'Permanent upgrades', 'Bought with Stars, and kept between runs'],
   ['settings', 'Settings', 'Sound, screen shake, quality'],
 ];
 
@@ -49,14 +50,14 @@ class Title extends PanelScreen {
   private build(): void {
     const s = this.host.state;
     const entries: MenuEntry[] = [
-      { label: 'Play alone', note: 'Twelve chambers to the Bell' },
+      { label: 'Play alone', note: 'Twelve rooms to the Bell' },
       { label: 'Co-op lobby', note: s.hosted ? 'Up to three laptops on this network' : 'One laptop hosts: how to set it up' },
     ];
     this.acts = [() => this.host.open('classSelect'), () => (s.hosted ? this.host.act('lobby') : this.host.open('hosting'))];
-    for (const [screen, label, note] of MORE) {
+    for (const [screen, label, note, arg] of MORE) {
       if (!this.host.has(screen)) continue;
       entries.push({ label, note });
-      this.acts.push(() => this.host.open(screen));
+      this.acts.push(() => this.host.open(screen, arg));
     }
     this.list.set(entries);
     // a page served by a host is most likely there for the lobby

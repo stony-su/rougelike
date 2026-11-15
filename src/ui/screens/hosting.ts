@@ -13,7 +13,7 @@ const H = 430;
 const PAD = 40;
 
 const STEPS: readonly string[] = [
-  'One laptop hosts. On it, in the folder of the game, run the line below. It builds the game and prints two addresses.',
+  'Playing together runs over your own network, from the downloaded game. One laptop hosts: in the folder of the game it runs the line below (or the start-host file, in the download), which prints two addresses.',
   'On the host laptop, open the first address. On each of the others, open the second, in Chrome or Edge. Nothing needs installing there.',
   'Everyone must be on the same network. Home Wi-Fi or a phone hotspot works; guest and public networks often keep laptops apart.',
 ];

@@ -8,7 +8,7 @@ import { Label } from './label';
 const W = 620;
 const ROW_H = 54;
 
-const CLASS_NAMES: Record<string, string> = { sword: 'The Edge   Sword', bow: 'The String   Bow', fist: 'The Hand   Fist' };
+const CLASS_NAMES: Record<string, string> = { sword: 'Swordsman   Sword', bow: 'Archer   Bow', fist: 'Brawler   Fist' };
 
 interface Row {
   root: Container;

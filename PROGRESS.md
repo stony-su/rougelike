@@ -4,19 +4,19 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 90% complete.** 43 of 52 tasks are done, 0 in progress, 9 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 92% complete.** 46 of 53 tasks are done, 0 in progress, 7 ready to take, 0 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
 | 0 | Foundation: deterministic simulation, sessions, snapshots | 6.3% | 100% |
-| 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 14.2% | 100% |
+| 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 14.1% | 100% |
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 9.4% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 10.6% | 100% |
-| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 21.7% | 100% |
-| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 17.7% | 89% |
+| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 21.6% | 100% |
+| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 17.6% | 89% |
 | 6 | Menus, saving, sound | 3.9% | 100% |
 | 7 | Polish and balance | 3.1% | 75% |
-| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13% | 42% |
+| 8 | After playing it: plain words, new specials, a camp to walk through, more variety | 13.4% | 62% |
 
 ## In progress
 
@@ -30,8 +30,6 @@ Nothing at the moment.
 - [T82](tasks/T82-card-layout.md) **Cards that fit their words; a wider camp and a wider between-runs screen** (0.8% of the game)
 - [T87](tasks/T87-camp-place.md) **The camp as a place: a merchant, and a pool to walk into** (1.6% of the game)
 - [T88](tasks/T88-terrain-and-traps.md) **More terrain and more traps** (1.6% of the game)
-- [T89](tasks/T89-plain-words.md) **Plain words through the whole game** (1.2% of the game)
-- [T90](tasks/T90-tutorial.md) **A tutorial at the start** (1.2% of the game)
 - [T91](tasks/T91-upgrade-looks.md) **Upgrades you can see working** (1.2% of the game)
 
 ## To do: waiting on other tasks
@@ -83,6 +81,9 @@ Nothing.
 - [T84](tasks/T84-fist-stomp.md) The Fist's stomp: safe through it, and a follow-up
 - [T85](tasks/T85-dash-chains.md) Dash into attack for everyone; dash into heavy into jab for the Fist
 - [T86](tasks/T86-specials.md) A new special for the Sword and for the Bow
+- [T89](tasks/T89-plain-words.md) Plain words through the whole game
+- [T90](tasks/T90-tutorial.md) A tutorial at the start
+- [T92](tasks/T92-itch.md) A build for itch.io
 
 ## Future plans: designed, kept for later
 

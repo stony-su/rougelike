@@ -72,7 +72,8 @@ class ClassCard extends Container {
     this.addChild(this.rig.root);
 
     const pad = 24;
-    const name = new Label(words.name, { size: 20, color: tone.pale, bold: true, tracking: 0.16 });
+    // a long name is written a little smaller, so that it stops short of the weapon and the health beside it
+    const name = new Label(words.name, { size: words.name.length > 7 ? 17 : 20, color: tone.pale, bold: true, tracking: 0.16 });
     name.position.set(pad, STAGE_H + 30);
     const weapon = new Label(words.weapon, { size: 9, color: tone.color, tracking: 0.4, align: 'right' });
     weapon.position.set(CARD_W - pad, STAGE_H + 30);

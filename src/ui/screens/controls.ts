@@ -1,10 +1,13 @@
-// The controls, on two pages: keyboard and mouse, and a controller. The page of the device last
-// used comes up first; left and right turn the page. Every key and button is a small drawing
-// (src/ui/glyphs.ts), so the page reads at a glance and needs no font of symbols.
+// How the game is played, and the controls, on three pages: what the game asks of you, keyboard
+// and mouse, and a controller. A new player is shown the first before anything else; asked for
+// from a menu, the page of the device last used comes up. Left and right turn the page. Every
+// key and button is a small drawing (src/ui/glyphs.ts), so a page reads at a glance.
+import { RALLY } from '../../sim/tuning';
 import { Container, Graphics } from 'pixi.js';
 import type { MenuKeys } from '../../game/input';
 import { PAPER, UI } from '../../render/palette';
 import { dpadGlyph, faceGlyph, keyGlyph, mouseGlyph, row, startGlyph, stickGlyph, triggerGlyph, wasdGlyph } from '../glyphs';
+import { drawIcon } from '../icons';
 import { Label } from '../label';
 import { PanelScreen } from '../screen';
 import type { Pointer, ScreenFactory, ScreenHost } from '../screen';
@@ -24,11 +27,59 @@ interface Line {
   note: string;
 }
 
+/** One of the upgrade emblems, as the picture of a line. */
+const emblem = (icon: string) => (): Container => {
+  const g = new Graphics();
+  drawIcon(g, icon, 19, UI.brass, PAPER);
+  const c = new Container();
+  c.addChild(g);
+  return c;
+};
+
+/** A card with a rank on it: an upgrade. */
+function cardGlyph(): Container {
+  const g = new Graphics()
+    .roundRect(-15, -21, 30, 42, 4)
+    .fill({ color: UI.scrim, alpha: 0.9 })
+    .roundRect(-15, -21, 30, 42, 4)
+    .stroke({ width: 2, color: UI.brass })
+    .poly([0, -12, 7, -4, 0, 4, -7, -4])
+    .fill(PAPER)
+    .rect(-8, 10, 16, 3)
+    .fill({ color: UI.brass, alpha: 0.8 });
+  const c = new Container();
+  c.addChild(g);
+  return c;
+}
+
+const HOW: readonly Line[] = [
+  {
+    glyph: () => mouseGlyph('left'),
+    name: 'Attack',
+    note: 'The Swordsman cuts enemy shots back at their makers. The Archer bounces arrows off walls. The Brawler throws enemies into walls and each other.',
+  },
+  { glyph: () => mouseGlyph('right'), name: 'Special', note: 'Your big move: Whirlwind, Hook Shot or Stomp. The ring under your feet fills as it comes back.' },
+  { glyph: () => keyGlyph('Space', 96), name: 'Dash', note: 'Nothing can touch you while you dash. An attack pressed during a dash comes straight out of it, harder.' },
+  {
+    glyph: emblem('rebound'),
+    name: 'Bounce hits',
+    note: 'What lands after a bounce hits two or three times as hard: a shot sent back, an arrow off a wall, an enemy thrown into a wall.',
+  },
+  {
+    glyph: emblem('rings'),
+    name: 'Combo',
+    note: `Every bounce hit adds to your Combo, and each point of it makes bounce hits ${Math.round(RALLY.perPoint * 100)}% stronger. It is lost after ${RALLY.hold} seconds without one.`,
+  },
+  { glyph: cardGlyph, name: 'Upgrades', note: 'After every room, choose one of three. Two that belong together switch on a Synergy: the card says which.' },
+  { glyph: emblem('coin'), name: 'Coins, camps', note: 'Enemies drop Coins. At a camp the Merchant sells upgrades, and the Healing Pool mends you or sharpens an upgrade, once.' },
+  { glyph: emblem('heart'), name: 'Falling', note: 'Together, stand beside a fallen friend to bring them back. Alone, falling ends the run, and the Stars it earned buy what you keep.' },
+];
+
 const KEYS: readonly Line[] = [
   { glyph: wasdGlyph, name: 'Move', note: 'Up the screen is away from you, as it looks.' },
   { glyph: () => mouseGlyph('move'), name: 'Aim', note: 'Where the pointer is. The Bow shows the path its arrow will take.' },
-  { glyph: () => mouseGlyph('left'), name: 'Attack', note: 'Hold it down: the Bow keeps loosing, and the Fist draws back a Haymaker.' },
-  { glyph: () => mouseGlyph('right'), name: 'Special', note: 'The Whirlwind for the Sword, the Hook Shot for the Bow, Break for the Fist.' },
+  { glyph: () => mouseGlyph('left'), name: 'Attack', note: 'Hold it down: the Bow keeps loosing, and the Fist draws back a Heavy Punch.' },
+  { glyph: () => mouseGlyph('right'), name: 'Special', note: 'The Whirlwind for the Sword, the Hook Shot for the Bow, the Stomp for the Fist.' },
   { glyph: () => keyGlyph('Space', 96), name: 'Dash', note: 'Four tiles, and nothing can touch you on the way. Two charges.' },
   { glyph: () => keyGlyph('F'), name: 'Interact', note: 'Bring the camp back when you have put it away.' },
   { glyph: () => keyGlyph('Tab', 64), name: 'What you can do', note: 'Hold it: your attack, your special and every upgrade you hold, in words. Or point at an emblem.' },
@@ -37,9 +88,9 @@ const KEYS: readonly Line[] = [
 
 const PADS: readonly Line[] = [
   { glyph: () => stickGlyph('L'), name: 'Move', note: 'The left stick. Push it a little to walk slowly.' },
-  { glyph: () => stickGlyph('R'), name: 'Aim', note: 'The right stick. At rest you aim the way you walk, and the aim leans toward an Echo near its line.' },
-  { glyph: () => row([triggerGlyph('RT'), triggerGlyph('RB')]), name: 'Attack', note: 'Hold it down: the Bow keeps loosing, and the Fist draws back a Haymaker.' },
-  { glyph: () => row([triggerGlyph('LT'), triggerGlyph('LB')]), name: 'Special', note: 'The Whirlwind for the Sword, the Hook Shot for the Bow, Break for the Fist.' },
+  { glyph: () => stickGlyph('R'), name: 'Aim', note: 'The right stick. At rest you aim the way you walk, and the aim leans toward an enemy near its line.' },
+  { glyph: () => row([triggerGlyph('RT'), triggerGlyph('RB')]), name: 'Attack', note: 'Hold it down: the Bow keeps loosing, and the Fist draws back a Heavy Punch.' },
+  { glyph: () => row([triggerGlyph('LT'), triggerGlyph('LB')]), name: 'Special', note: 'The Whirlwind for the Sword, the Hook Shot for the Bow, the Stomp for the Fist.' },
   { glyph: () => faceGlyph('A'), name: 'Dash', note: 'Four tiles, and nothing can touch you on the way. Two charges.' },
   { glyph: () => faceGlyph('X'), name: 'Interact', note: 'Bring the camp back when you have put it away.' },
   { glyph: () => keyGlyph('View', 64), name: 'What you can do', note: 'Hold the small button left of Start: your attack, your special and every upgrade you hold, in words.' },
@@ -47,10 +98,15 @@ const PADS: readonly Line[] = [
 ];
 
 const PAGES: ReadonlyArray<{ name: string; lines: readonly Line[] }> = [
+  { name: 'How to play', lines: HOW },
   { name: 'Keyboard and mouse', lines: KEYS },
   { name: 'Controller', lines: PADS },
 ];
-const H = TOP + Math.max(KEYS.length, PADS.length) * ROW_H + 66;
+/** The pages by what they are for. */
+const PAGE_HOW = 0;
+const PAGE_KEYS = 1;
+const PAGE_PAD = 2;
+const H = TOP + Math.max(HOW.length, KEYS.length, PADS.length) * ROW_H + 66;
 
 class Controls extends PanelScreen {
   private readonly tabs: Label[] = [];
@@ -69,7 +125,7 @@ class Controls extends PanelScreen {
       .moveTo(PAD, 112)
       .lineTo(W - PAD, 112)
       .stroke({ width: 1, color: UI.brass, alpha: 0.45 });
-    const title = new Label('Controls', { size: 24, color: PAPER, bold: true, tracking: 0.3 });
+    const title = new Label('How to play', { size: 24, color: PAPER, bold: true, tracking: 0.3 });
     title.position.set(PAD, 30);
     this.panel.addChild(glass, title, this.mark);
     let x = PAD;
@@ -85,10 +141,10 @@ class Controls extends PanelScreen {
     this.panel.addChild(this.body, this.hint);
   }
 
-  enter(): void {
+  enter(arg: unknown): void {
     this.appear();
-    // the page of the device in the player's hands
-    this.show(this.host.state.pad ? 1 : 0);
+    // asked how the game is played, that page; asked for the controls, those of the device in the player's hands
+    this.show(arg === 'how' ? PAGE_HOW : this.host.state.pad ? PAGE_PAD : PAGE_KEYS);
   }
 
   private show(page: number): void {

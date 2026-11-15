@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "host": "node scripts/host.mjs",
+    "itch": "node scripts/itch.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.sim.json --noEmit",
     "test": "vitest run",
     "format": "prettier --write \"{src,tests,server,scripts}/**/*.{ts,mjs}\" vite.config.ts",
