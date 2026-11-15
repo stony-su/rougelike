@@ -107,13 +107,18 @@ class Net {
     const wire = { send: (text: string) => laptop.link?.up(() => this.host.message(peerOf(laptop), text, this.now)) };
     const peers = this.peers;
     const peerOf = (l: Laptop): Peer => peers.get(l) as Peer;
-    laptop.core = new ClientCore(wire, content, { build: 'test', token: laptop.token, name, classId }, {
-      onTick: (s: Session, muted: boolean) => {
-        laptop.hashes.set(s.tick, hashSession(s));
-        if (muted) laptop.muted++;
-        for (const w of s.worlds) for (const ev of w.events) if (ev.type === 'dash') laptop.dashes[ev.player]++;
+    laptop.core = new ClientCore(
+      wire,
+      content,
+      { build: 'test', token: laptop.token, name, classId },
+      {
+        onTick: (s: Session, muted: boolean) => {
+          laptop.hashes.set(s.tick, hashSession(s));
+          if (muted) laptop.muted++;
+          for (const w of s.worlds) for (const ev of w.events) if (ev.type === 'dash') laptop.dashes[ev.player]++;
+        },
       },
-    });
+    );
     if (o.bot !== false) {
       const bot = classBot(classId);
       laptop.think = (nowMs) => {

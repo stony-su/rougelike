@@ -36,7 +36,12 @@ let markCtx: GraphicsContext | null = null;
 
 /** The pennant an elite flies over its head. */
 function badge(): GraphicsContext {
-  if (!badgeCtx) badgeCtx = new GraphicsContext().poly([-7, -6, 7, -6, 7, 3, 0, 8, -7, 3]).fill(0xffffff).poly([-7, -6, 7, -6, 7, 3, 0, 8, -7, 3]).stroke({ width: 1.5, color: 0x000000, alpha: 0.6, join: 'round' });
+  if (!badgeCtx)
+    badgeCtx = new GraphicsContext()
+      .poly([-7, -6, 7, -6, 7, 3, 0, 8, -7, 3])
+      .fill(0xffffff)
+      .poly([-7, -6, 7, -6, 7, 3, 0, 8, -7, 3])
+      .stroke({ width: 1.5, color: 0x000000, alpha: 0.6, join: 'round' });
   return badgeCtx;
 }
 
@@ -51,8 +56,15 @@ function spawnMark(): GraphicsContext {
     spawnCtx = new GraphicsContext();
     spawnCtx.circle(0, 0, T).stroke({ width: 3, color: 0xffffff, alpha: 1 });
     // a registration cross, like a mark where something is about to be printed
-    spawnCtx.moveTo(-T * 1.25, 0).lineTo(-T * 0.7, 0).moveTo(T * 0.7, 0).lineTo(T * 1.25, 0)
-      .moveTo(0, -T * 1.25).lineTo(0, -T * 0.7).moveTo(0, T * 0.7).lineTo(0, T * 1.25)
+    spawnCtx
+      .moveTo(-T * 1.25, 0)
+      .lineTo(-T * 0.7, 0)
+      .moveTo(T * 0.7, 0)
+      .lineTo(T * 1.25, 0)
+      .moveTo(0, -T * 1.25)
+      .lineTo(0, -T * 0.7)
+      .moveTo(0, T * 0.7)
+      .lineTo(0, T * 1.25)
       .stroke({ width: 2.5, color: 0xffffff, alpha: 1, cap: 'round' });
   }
   return spawnCtx;

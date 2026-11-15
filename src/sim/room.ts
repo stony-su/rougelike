@@ -185,7 +185,7 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
   const h = t.map.length;
   const w = t.map.reduce((m, row) => Math.max(m, row.length), 0);
   if (w > 40 || h > 40) out.push(`${t.id}: larger than 40 x 40 (${w} x ${h})`);
-  const at = (x: number, y: number): string => (y < 0 || y >= h ? ' ' : t.map[y][x] ?? ' ');
+  const at = (x: number, y: number): string => (y < 0 || y >= h ? ' ' : (t.map[y][x] ?? ' '));
   /** Somewhere a walker's centre can be. Diagonal tiles count: half of each is floor. */
   const walkable = (x: number, y: number): boolean => !' #~oB'.includes(at(x, y));
   const count = (ch: string): Array<[number, number]> => {
@@ -212,7 +212,12 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
     for (let x = 0; x < w; x++) {
       // a door is a gap in a far wall, so it alone may stand on the rim
       if (at(x, y) === ' ' || at(x, y) === '#' || at(x, y) === 'D') continue;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
         if (at(x + dx, y + dy) === ' ') out.push(`${t.id}: tile at ${x},${y} is open to the void`);
       }
     }
@@ -225,7 +230,12 @@ export function validateRoomTemplate(t: RoomTemplate): string[] {
     seen.add(starts[0][1] * 64 + starts[0][0]);
     while (stack.length) {
       const [x, y] = stack.pop() as [number, number];
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
         const nx = x + dx;
         const ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h || !walkable(nx, ny)) continue;

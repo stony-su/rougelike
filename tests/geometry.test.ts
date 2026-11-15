@@ -2,7 +2,7 @@
 // nothing ends up inside them, that nothing passes through them, and that a bounce off a wall is
 // an exact mirror.
 import { describe, expect, it } from 'vitest';
-import { PRACTICE_COURT } from '../src/content/rooms';
+import { PRACTICE_COURT } from '../src/content/rooms/practice-court';
 import { Rng } from '../src/core/rng';
 import { HIT_BUMPER, HIT_POST, HIT_WALL, castCircle, isOpen, newHit, slideCircle } from '../src/sim/cast';
 import type { RoomTemplate } from '../src/sim/defs';

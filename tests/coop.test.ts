@@ -57,7 +57,7 @@ describe('a fallen teammate', () => {
 });
 
 describe('Duets', () => {
-  it('bank off the blade: an arrow through a teammate\'s swing goes where the blade points, harder, and counts for both', () => {
+  it("bank off the blade: an arrow through a teammate's swing goes where the blade points, harder, and counts for both", () => {
     const w = openWorld(['sword', 'bow']);
     const [sword, bow] = w.players;
     place(sword, 6.5, 6.5);
@@ -92,7 +92,7 @@ describe('Duets', () => {
     expect(sword.rally).toBe(bow.rally);
   });
 
-  it('alley-oop: a body in flight struck by a teammate\'s sword flies on faster, is hurt more, and what it hits counts for both', () => {
+  it("alley-oop: a body in flight struck by a teammate's sword flies on faster, is hurt more, and what it hits counts for both", () => {
     const w = openWorld(['sword', 'fist']);
     const [sword, fist] = w.players;
     place(sword, 6.5, 6.5);

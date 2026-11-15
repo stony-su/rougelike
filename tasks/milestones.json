@@ -1,0 +1,34 @@
+[
+  {
+    "n": 0,
+    "name": "Foundation: deterministic simulation, sessions, snapshots"
+  },
+  {
+    "n": 1,
+    "name": "The Rebound: three classes, bouncing bodies and shots, Rally, controller"
+  },
+  {
+    "n": 2,
+    "name": "Together: host program, lobby, staying in step, repair, revive, Duets"
+  },
+  {
+    "n": 3,
+    "name": "Chambers: generated rooms, shader backdrops, the route, follow camera"
+  },
+  {
+    "n": 4,
+    "name": "A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens"
+  },
+  {
+    "n": 5,
+    "name": "Full content: every Tuning and Harmony, more Echoes, elites"
+  },
+  {
+    "n": 6,
+    "name": "Menus, saving, sound"
+  },
+  {
+    "n": 7,
+    "name": "Polish and balance"
+  }
+]

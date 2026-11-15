@@ -190,10 +190,11 @@ describe('no unfinished work is shipped', () => {
 
 describe('rendering conventions', () => {
   it('keeps colour literals in the palette', () => {
-    const allowed = new Set(['src/render/palette.ts']);
+    // the shared palette, and one file of colours per character or place beside it
+    const allowed = (f: string): boolean => f === 'src/render/palette.ts' || f.startsWith('src/render/palette/');
     const problems: string[] = [];
     for (const f of files(join(ROOT, 'src'))) {
-      if (allowed.has(rel(f))) continue;
+      if (allowed(rel(f))) continue;
       const stripped = code(readFileSync(f, 'utf8'));
       stripped.split('\n').forEach((line, i) => {
         for (const m of line.matchAll(/0x([0-9a-fA-F]{6})\b/g)) {

@@ -1,11 +1,11 @@
 // The Edge, the Sword Returner: a long slate coat and a tuning-fork blade held low.
 // Pixi-free: a RigDef plus a pure animator, on the shared hero skeleton. This file is the
 // pattern the other two heroes follow.
-import { HERO, PLAYER_COLORS, RIM } from '../palette';
-import { block, ell, flat, smooth, stroke } from './def';
-import type { AnimInput, Animator, PartDef, PoseWriter, RigDef } from './def';
-import { ARM_FAR_REST, ARM_LENGTH, ARM_NEAR_REST, HIPS_Y, armAngle, armPart, dashPose, downPose, ease, hurtPose, legPart, lerp, locomotion, pointArm } from './hero';
-import { SWORD_STATES } from './states';
+import { HERO, PLAYER_COLORS, RIM } from '../../palette';
+import { block, ell, flat, smooth, stroke } from '../def';
+import type { AnimInput, Animator, PartDef, PoseWriter, RigDef, RigEntry } from '../def';
+import { ARM_FAR_REST, ARM_LENGTH, ARM_NEAR_REST, HIPS_Y, armAngle, armPart, dashPose, downPose, ease, hurtPose, legPart, lerp, locomotion, pointArm } from '../hero';
+import { SWORD_STATES } from '../states';
 
 const palette: Record<string, number> = {
   coat: HERO.coat,
@@ -246,3 +246,7 @@ export const edgeAnimator: Animator = (p, a) => {
       return a.state === 'run' ? 26 : 16;
   }
 };
+
+/** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
+const ENTRY: RigEntry = { def: EDGE_RIG, animator: edgeAnimator, required: SWORD_STATES, variants: { attack: [0, 1, 2] } };
+export default ENTRY;

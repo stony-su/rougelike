@@ -8,10 +8,7 @@ export const cross = (ax: number, ay: number, bx: number, by: number): number =>
  * Intersection of segments AB and CD. Returns the parameter t along AB in [0, 1],
  * or -1 when they do not intersect (parallel segments count as not intersecting).
  */
-export function segSegT(
-  ax: number, ay: number, bx: number, by: number,
-  cx: number, cy: number, dx: number, dy: number,
-): number {
+export function segSegT(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): number {
   const rx = bx - ax;
   const ry = by - ay;
   const sx = dx - cx;
@@ -45,20 +42,14 @@ export function pointSegDist2(px: number, py: number, ax: number, ay: number, bx
   return ex * ex + ey * ey;
 }
 
-export const circleTouchesSegment = (
-  cx: number, cy: number, r: number,
-  ax: number, ay: number, bx: number, by: number,
-): boolean => pointSegDist2(cx, cy, ax, ay, bx, by) <= r * r;
+export const circleTouchesSegment = (cx: number, cy: number, r: number, ax: number, ay: number, bx: number, by: number): boolean => pointSegDist2(cx, cy, ax, ay, bx, by) <= r * r;
 
 /**
  * True when a circle of radius `pad` centred at P touches the circular sector at C that faces
  * `angle` with half-width `half` and radius r. Worked with dot and cross products, so there is
  * no inverse trigonometry: off the arc by an angle phi, the pad reaches in when sin(phi) <= pad / d.
  */
-export function pointInSector(
-  px: number, py: number,
-  cx: number, cy: number, angle: number, half: number, r: number, pad = 0,
-): boolean {
+export function pointInSector(px: number, py: number, cx: number, cy: number, angle: number, half: number, r: number, pad = 0): boolean {
   const dx = px - cx;
   const dy = py - cy;
   const d2 = dx * dx + dy * dy;

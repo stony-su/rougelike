@@ -38,16 +38,16 @@ function bombContext(): GraphicsContext {
 
 /** The burning cap: a four-pointed spark. */
 function sparkContext(): GraphicsContext {
-  return new GraphicsContext().poly(star(0, 0, 7.5, 2.4, 4, 0)).fill(0xffffff).circle(0, 0, 2.6).fill(0xffffff);
+  return new GraphicsContext()
+    .poly(star(0, 0, 7.5, 2.4, 4, 0))
+    .fill(0xffffff)
+    .circle(0, 0, 2.6)
+    .fill(0xffffff);
 }
 
 function stoneContext(): GraphicsContext {
   // a ring of pale stone seen from above and a little to the side, with a bright inner edge
-  return new GraphicsContext()
-    .ellipse(0, 0, 21, 12.5)
-    .stroke({ width: 7, color: 0xffffff })
-    .ellipse(0, -1.6, 21, 12.5)
-    .stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
+  return new GraphicsContext().ellipse(0, 0, 21, 12.5).stroke({ width: 7, color: 0xffffff }).ellipse(0, -1.6, 21, 12.5).stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
 }
 
 interface BombView {

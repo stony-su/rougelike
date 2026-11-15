@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
-import { PRACTICE_COURT } from '../src/content/rooms';
+import { PRACTICE_COURT } from '../src/content/rooms/practice-court';
 import { Rng } from '../src/core/rng';
 import { freezeBody, freezeWorld } from '../src/sim/combat';
 import { pushOut } from '../src/sim/cast';
@@ -35,7 +35,13 @@ describe('walking', () => {
   });
 
   it('moves at the same speed in every direction, and exactly along the axes', () => {
-    const dirs: Array<[number, number]> = [[1, 0], [0, 1], [1, 1], [-1, 1], [-3, 1]];
+    const dirs: Array<[number, number]> = [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+      [-1, 1],
+      [-3, 1],
+    ];
     for (const [dx, dy] of dirs) {
       const w = openWorld();
       const p = w.players[0];

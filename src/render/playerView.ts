@@ -11,7 +11,7 @@ import { DANGER_HOT, PLAYER_COLORS, PLAYER_PALE, RIM } from './palette';
 import { animInput } from './rig/def';
 import { ARM_LENGTH } from './rig/hero';
 import { HERO_RIG, rigEntry } from './rig/registry';
-import { STRING_ANCHORS, stringDraw } from './rig/string';
+import { STRING_ANCHORS, stringDraw } from './rig/rigs/string';
 import type { RigEntry } from './rig/registry';
 import { RigView } from './rig/view';
 import type { Stage } from './stage';
@@ -193,7 +193,10 @@ export class PlayerView {
       // Down: a ring over the head fills as a teammate stands by.
       const k = Math.min(1, p.reviveT / REVIVE.time);
       g.circle(0, -74, 11).stroke({ width: 3, color: this.color, alpha: 0.35 + 0.2 * Math.sin(time * 5) });
-      if (k > 0) g.moveTo(0, -85).arc(0, -74, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k).stroke({ width: 4, color: this.pale, alpha: 1, cap: 'round' });
+      if (k > 0)
+        g.moveTo(0, -85)
+          .arc(0, -74, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k)
+          .stroke({ width: 4, color: this.pale, alpha: 1, cap: 'round' });
     }
     if (p.state === 'charge') {
       // The hand glows as it draws back, and a ring on the floor closes on the feet; both flash when full.

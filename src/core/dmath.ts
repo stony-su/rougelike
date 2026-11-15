@@ -95,49 +95,49 @@ function onQuarterTurns(a: number, k: number, pick: number): number {
   let w = k * PIO2_2;
   let t = hi - w;
   let v = t - hi;
-  let lo = (hi - (t - v)) - (w + v);
+  let lo = hi - (t - v) - (w + v);
   hi = t;
   w = k * PIO2_3;
   t = hi - w;
   v = t - hi;
-  lo += (hi - (t - v)) - (w + v);
+  lo += hi - (t - v) - (w + v);
   hi = t;
   w = k * PIO2_4;
   t = hi - w;
   v = t - hi;
-  lo += (hi - (t - v)) - (w + v);
+  lo += hi - (t - v) - (w + v);
   hi = t;
   lo -= k * PIO2_5;
   // r + rr is the remainder to about 100 bits, with rr below half a unit in the last place of r.
   const r = hi + lo;
   if (pick === 4) return r;
   v = r - hi;
-  const rr = (hi - (r - v)) + (lo - v);
+  const rr = hi - (r - v) + (lo - v);
   const z = r * r;
   if (pick === 0 || pick === 2) {
     // sin(r + rr) = r - r^3/3! + r^5/5! - ... + r^17/17!  +  rr * cos(r).
     // With r = rh + rl the cube rh^3 is exact. d is rh^3/6 rounded, and what that rounding lost
     // is known exactly too: (rh^3 - 6 d) / 6, where the subtraction is exact. So r - d is the
     // only large step, its rounding error is recovered, and everything else is small.
-    const rh = (r + SPLIT_CUBE) - SPLIT_CUBE;
+    const rh = r + SPLIT_CUBE - SPLIT_CUBE;
     const rl = r - rh;
     const sq = rh * rh;
     const cube = sq * rh;
     const d = cube * F3;
-    const dLo = ((cube - 4 * d) - 2 * d) * F3;
+    const dLo = (cube - 4 * d - 2 * d) * F3;
     const p = F5 - z * (F7 - z * (F9 - z * (F11 - z * (F13 - z * (F15 - z * F17)))));
-    const small = ((z * z * r * p - rl * ((z + sq) + r * rh) * F3) - dLo) + rr * (1 - z * (F2 - z * F4));
+    const small = z * z * r * p - rl * (z + sq + r * rh) * F3 - dLo + rr * (1 - z * (F2 - z * F4));
     const s = r - d;
-    const sine = s + (((r - s) - d) + small);
+    const sine = s + (r - s - d + small);
     return pick === 0 ? sine : -sine;
   }
   // cos(r + rr) = 1 - r^2/2 + r^4/4! - ... - r^18/18!  -  rr * sin(r).
   // With r = rh + rl, 1 - rh^2/2 is exact and r^2 - rh^2 = rl * (r + rh), so the two large terms
   // cost no rounding at all and the single rounding left is the last addition.
-  const rh = (r + SPLIT) - SPLIT;
+  const rh = r + SPLIT - SPLIT;
   const rl = r - rh;
   const p = F4 - z * (F6 - z * (F8 - z * (F10 - z * (F12 - z * (F14 - z * (F16 - z * F18))))));
-  const c = (1 - 0.5 * rh * rh) + (z * z * p - (0.5 * rl * (r + rh) + rr * (r - z * r * F3)));
+  const c = 1 - 0.5 * rh * rh + (z * z * p - (0.5 * rl * (r + rh) + rr * (r - z * r * F3)));
   return pick === 1 ? c : -c;
 }
 
@@ -189,7 +189,7 @@ const TWO_30 = 1073741824;
 // Powers of two used to pull very large or very small pairs into a safe range without rounding.
 const TWO_500 = 3.2733906078961419e150;
 const TWO_M500 = 3.0549363634996047e-151;
-const TWO_600 = 4.1495155688809930e180;
+const TWO_600 = 4.149515568880993e180;
 const TWO_M600 = 2.4099198651028841e-181;
 
 // Angle of the point (x, y), in (-PI, PI]. Any finite or infinite pair; (0, 0) gives 0, -0 counts
@@ -260,29 +260,28 @@ export function datan2(y: number, x: number): number {
     const dh = s - (s - den);
     const dl = den - dh;
     const prod = u * den;
-    const prodLo = ((uh * dh - prod) + uh * dl + ul * dh) + ul * dl;
-    const uLo = (((num - prod) - prodLo) - u * denLo) * inv;
+    const prodLo = uh * dh - prod + uh * dl + ul * dh + ul * dl;
+    const uLo = (num - prod - prodLo - u * denLo) * inv;
     // atan(u + uLo) = u - u^3/3 + u^5/5 - ... + u^21/21  +  uLo / (1 + u^2)
     const z = u * u;
-    const p =
-      A3 - z * (A5 - z * (A7 - z * (A9 - z * (A11 - z * (A13 - z * (A15 - z * (A17 - z * (A19 - z * A21))))))));
+    const p = A3 - z * (A5 - z * (A7 - z * (A9 - z * (A11 - z * (A13 - z * (A15 - z * (A17 - z * (A19 - z * A21))))))));
     const small = uLo * (1 - z) - u * z * p;
     hi = atanC + u;
-    lo = (u - (hi - atanC)) + (atanCLo + small);
+    lo = u - (hi - atanC) + (atanCLo + small);
   }
   // Place the octant. Each line adds or subtracts exactly and rounds once at the end.
   let r: number;
   if (x < 0) {
     if (steep) {
       const s = HALF_PI + hi;
-      r = s + ((hi - (s - HALF_PI)) + (HALF_PI_LO + lo));
+      r = s + (hi - (s - HALF_PI) + (HALF_PI_LO + lo));
     } else {
       const s = PI - hi;
-      r = s + (((PI - s) - hi) + (PI_LO - lo));
+      r = s + (PI - s - hi + (PI_LO - lo));
     }
   } else if (steep) {
     const s = HALF_PI - hi;
-    r = s + (((HALF_PI - s) - hi) + (HALF_PI_LO - lo));
+    r = s + (HALF_PI - s - hi + (HALF_PI_LO - lo));
   } else {
     r = hi + lo;
   }
@@ -333,22 +332,20 @@ export function dexp(x: number): number {
   const hi = x - k * LN2_HI;
   const lo = k * LN2_LO;
   const r = hi - lo;
-  const c = (hi - r) - lo;
+  const c = hi - r - lo;
   // e^r = 1 + r + r^2/2 + r^3/3! + ... + r^14/14!. With r = rh + rl the three large terms
   // 1 + r + rh^2/2 are added without loss (s2 plus the two rounding errors e1 and e2) and
   // everything small is gathered in tail, so the only rounding that matters is the last one.
-  const rh = (r + SPLIT) - SPLIT;
+  const rh = r + SPLIT - SPLIT;
   const rl = r - rh;
   const sq = 0.5 * rh * rh;
-  const p =
-    F3 +
-    r * (F4 + r * (F5 + r * (F6 + r * (F7 + r * (F8 + r * (F9 + r * (F10 + r * (F11 + r * (F12 + r * (F13 + r * F14))))))))));
+  const p = F3 + r * (F4 + r * (F5 + r * (F6 + r * (F7 + r * (F8 + r * (F9 + r * (F10 + r * (F11 + r * (F12 + r * (F13 + r * F14))))))))));
   const tail = r * r * r * p + (0.5 * rl * (r + rh) + (c + c * r));
   const s1 = 1 + r;
   const e1 = r - (s1 - 1);
   const s2 = s1 + sq;
   const e2 = sq - (s2 - s1);
-  const m = s2 + ((e1 + e2) + tail);
+  const m = s2 + (e1 + e2 + tail);
   // Times 2^k. The products are exact unless the result overflows or drops into the subnormal
   // range, where the last multiplication rounds once, as it should.
   if (k > 1023) return m * POW2[POW2_ZERO + 1023] * 2;

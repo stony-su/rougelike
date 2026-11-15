@@ -23,7 +23,12 @@ describe('isometric projection', () => {
   });
 
   it('round-trips ground points through unproject', () => {
-    for (const [x, y] of [[0, 0], [5.25, 1.5], [-3, 7.75], [12, 12]] as const) {
+    for (const [x, y] of [
+      [0, 0],
+      [5.25, 1.5],
+      [-3, 7.75],
+      [12, 12],
+    ] as const) {
       const s = project(x, y, 0, { x: 0, y: 0 });
       const w = unproject(s.x, s.y, { x: 0, y: 0 });
       expect(w.x).toBeCloseTo(x, 9);
@@ -32,7 +37,16 @@ describe('isometric projection', () => {
   });
 
   it('maps a pressed screen direction to a unit world direction that moves that way on screen', () => {
-    const cases: Array<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+    const cases: Array<[number, number]> = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [-1, 1],
+      [1, -1],
+      [-1, -1],
+    ];
     for (const [ix, iy] of cases) {
       const w = screenDirToWorld(ix, iy, { x: 0, y: 0 });
       expect(Math.hypot(w.x, w.y)).toBeCloseTo(1);

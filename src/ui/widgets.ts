@@ -15,7 +15,9 @@ export function paperPanel(w: number, h: number, o: { ruled?: boolean; header?: 
     for (let y = (o.header ?? 0) + 26; y < h - 10; y += 22) g.moveTo(12, y).lineTo(w - 12, y);
     g.stroke({ width: 1, color: UI.rule, alpha: 0.5 });
     // the ledger's margin line
-    g.moveTo(34, (o.header ?? 0) + 6).lineTo(34, h - 8).stroke({ width: 1, color: UI.margin, alpha: 0.45 });
+    g.moveTo(34, (o.header ?? 0) + 6)
+      .lineTo(34, h - 8)
+      .stroke({ width: 1, color: UI.margin, alpha: 0.45 });
   }
   if (o.header) {
     g.rect(0, 0, w, o.header).fill(UI.paperDark);
@@ -24,8 +26,16 @@ export function paperPanel(w: number, h: number, o: { ruled?: boolean; header?: 
   g.rect(0, 0, w, h).stroke({ width: 2.5, color: INK, alpha: 0.9 });
   g.rect(5, 5, w - 10, h - 10).stroke({ width: 1, color: INK, alpha: 0.45 });
   // registration ticks
-  for (const [cx, cy, sx, sy] of [[0, 0, 1, 1], [w, 0, -1, 1], [0, h, 1, -1], [w, h, -1, -1]] as const) {
-    g.moveTo(cx + sx * 12, cy + sy * 5).lineTo(cx + sx * 12, cy + sy * 16).moveTo(cx + sx * 5, cy + sy * 12).lineTo(cx + sx * 16, cy + sy * 12);
+  for (const [cx, cy, sx, sy] of [
+    [0, 0, 1, 1],
+    [w, 0, -1, 1],
+    [0, h, 1, -1],
+    [w, h, -1, -1],
+  ] as const) {
+    g.moveTo(cx + sx * 12, cy + sy * 5)
+      .lineTo(cx + sx * 12, cy + sy * 16)
+      .moveTo(cx + sx * 5, cy + sy * 12)
+      .lineTo(cx + sx * 16, cy + sy * 12);
   }
   g.stroke({ width: 1.5, color: INK, alpha: 0.7 });
   return g;
@@ -83,7 +93,10 @@ export class Button extends Container {
   readonly w: number;
   readonly h: number;
 
-  constructor(text: string, private readonly o: ButtonOptions) {
+  constructor(
+    text: string,
+    private readonly o: ButtonOptions,
+  ) {
     super();
     this.w = o.width;
     this.h = o.height ?? 40;

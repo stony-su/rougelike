@@ -1,7 +1,7 @@
 // The Rebound: bodies sent flying, and what they hit. Launch, wall slam, carom, ring-out,
 // bumpers, stagger and Rally, each against the numbers in DESIGN.md section 2.
 import { describe, expect, it } from 'vitest';
-import { THRUM } from '../src/content/enemies';
+import { THRUM } from '../src/content/enemies/thrum';
 import { Rng } from '../src/core/rng';
 import { addStagger, pushBody } from '../src/sim/bodies';
 import { damageEnemy } from '../src/sim/combat';
@@ -523,7 +523,20 @@ describe('nothing tunnels', () => {
     for (let t = 0; t < 4000; t++) {
       if (t % 6 === 0) {
         const a = rng.float(0, Math.PI * 2);
-        spawnProjectile(w, { kind: 'arrow', faction: 'player', owner: 0, x: rng.float(3, 15), y: rng.float(2, 6), vx: Math.cos(a) * 40, vy: Math.sin(a) * 40, radius: 0.12, damage: 1, range: 400, life: 8, bounces: 30 });
+        spawnProjectile(w, {
+          kind: 'arrow',
+          faction: 'player',
+          owner: 0,
+          x: rng.float(3, 15),
+          y: rng.float(2, 6),
+          vx: Math.cos(a) * 40,
+          vy: Math.sin(a) * 40,
+          radius: 0.12,
+          damage: 1,
+          range: 400,
+          life: 8,
+          bounces: 30,
+        });
       }
       const ev = run(w, 1);
       bounces += eventsOf(ev, 'ricochet').length;

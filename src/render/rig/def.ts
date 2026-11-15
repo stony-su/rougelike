@@ -123,6 +123,16 @@ export interface PoseWriter {
 /** How snappily the view follows the pose this frame (exponential rate). */
 export type Animator = (pose: PoseWriter, a: AnimInput) => number;
 
+/** One rig as the registry knows it. Each file in `rigs/` has one of these as its default export. */
+export interface RigEntry {
+  def: RigDef;
+  animator: Animator;
+  /** States this kind of character must have. */
+  required: readonly string[];
+  /** States with more than one variant (e.g. the three swings of a combo). */
+  variants: Record<string, number[]>;
+}
+
 // ---------------------------------------------------------------- geometry helpers
 
 /** An ellipse as a polygon, so the recipe can shade and rim it like any other outline. */

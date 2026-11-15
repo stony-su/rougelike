@@ -79,8 +79,26 @@ export class Particles {
       // then moved between them only when an emit asks for the other layer.
       (i % 2 === 0 ? stage.fxGlow : stage.fxCrisp).addChild(s);
       this.pool.push({
-        s, active: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1, size: 1, sizeEnd: 1,
-        alpha: 1, gravity: 0, drag: 0, bounce: 0, spin: 0, streak: false, flat: false, texSize: 64,
+        s,
+        active: false,
+        x: 0,
+        y: 0,
+        z: 0,
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        life: 0,
+        maxLife: 1,
+        size: 1,
+        sizeEnd: 1,
+        alpha: 1,
+        gravity: 0,
+        drag: 0,
+        bounce: 0,
+        spin: 0,
+        streak: false,
+        flat: false,
+        texSize: 64,
       });
     }
   }
@@ -206,10 +224,20 @@ export class Particles {
       const a = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.5;
       const sp = (2.2 + Math.random() * 4.5) * power;
       this.emit({
-        x, y, z,
-        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: 1.5 + Math.random() * 3.5,
-        life: 0.35 + Math.random() * 0.35, size: 5 + Math.random() * 7, sizeEnd: 2,
-        color, gravity: 16, drag: 1.5, layer: 'crisp', texture: 'disc',
+        x,
+        y,
+        z,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        vz: 1.5 + Math.random() * 3.5,
+        life: 0.35 + Math.random() * 0.35,
+        size: 5 + Math.random() * 7,
+        sizeEnd: 2,
+        color,
+        gravity: 16,
+        drag: 1.5,
+        layer: 'crisp',
+        texture: 'disc',
       });
     }
   }
@@ -225,10 +253,20 @@ export class Particles {
       const a = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.9;
       const sp = (5 + Math.random() * 9) * power;
       this.emit({
-        x, y, z,
-        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: (Math.random() - 0.2) * 4,
-        life: 0.12 + Math.random() * 0.16, size: 16 + Math.random() * 14, sizeEnd: 4,
-        color, drag: 5, gravity: 6, layer: 'glow', texture: 'streak',
+        x,
+        y,
+        z,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        vz: (Math.random() - 0.2) * 4,
+        life: 0.12 + Math.random() * 0.16,
+        size: 16 + Math.random() * 14,
+        sizeEnd: 4,
+        color,
+        drag: 5,
+        gravity: 6,
+        layer: 'glow',
+        texture: 'streak',
       });
     }
   }
@@ -244,10 +282,20 @@ export class Particles {
       const a = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.2;
       const sp = 0.6 + Math.random() * 1.8;
       this.emit({
-        x: x + (Math.random() - 0.5) * 0.3, y: y + (Math.random() - 0.5) * 0.3, z: 0.05,
-        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: 0.3 + Math.random() * 0.7,
-        life: 0.35 + Math.random() * 0.3, size: 10 + Math.random() * 10, sizeEnd: 26,
-        color, alpha: 0.32, drag: 3, layer: 'glow', texture: 'soft',
+        x: x + (Math.random() - 0.5) * 0.3,
+        y: y + (Math.random() - 0.5) * 0.3,
+        z: 0.05,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        vz: 0.3 + Math.random() * 0.7,
+        life: 0.35 + Math.random() * 0.3,
+        size: 10 + Math.random() * 10,
+        sizeEnd: 26,
+        color,
+        alpha: 0.32,
+        drag: 3,
+        layer: 'glow',
+        texture: 'soft',
       });
     }
   }
@@ -258,10 +306,21 @@ export class Particles {
       const a = Math.random() * 6.283;
       const sp = (1.5 + Math.random() * 4) * power;
       this.emit({
-        x, y, z,
-        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: 2.5 + Math.random() * 4,
-        life: 0.7 + Math.random() * 0.6, size: 7 + Math.random() * 7,
-        color, gravity: 11, drag: 1.2, bounce: 0.35, spin: (Math.random() - 0.5) * 16, layer: 'crisp', texture: 'shard',
+        x,
+        y,
+        z,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        vz: 2.5 + Math.random() * 4,
+        life: 0.7 + Math.random() * 0.6,
+        size: 7 + Math.random() * 7,
+        color,
+        gravity: 11,
+        drag: 1.2,
+        bounce: 0.35,
+        spin: (Math.random() - 0.5) * 16,
+        layer: 'crisp',
+        texture: 'shard',
       });
     }
   }

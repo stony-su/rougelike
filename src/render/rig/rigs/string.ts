@@ -2,12 +2,12 @@
 // Built from geometric solids on the shared hero skeleton. The far arm holds the bow along the
 // aim; the near arm draws. The string itself is drawn by the view (it joins two moving parts),
 // from the anchors and the draw amount exported here.
-import { HERO, PLAYER_COLORS, RIM } from '../palette';
-import { block, ell, flat, stroke } from './def';
-import type { AnimInput, Animator, PartDef, PoseWriter, RigDef } from './def';
-import { ARM_FAR_REST, ARM_LENGTH, ARM_NEAR_REST, HIPS_Y, armPart, dashPose, downPose, ease, hurtPose, legPart, lerp, locomotion, pointArm } from './hero';
-import { arcBand, capsule, trapezoid } from './solids';
-import { HERO_STATES } from './states';
+import { HERO, PLAYER_COLORS, RIM } from '../../palette';
+import { block, ell, flat, stroke } from '../def';
+import type { AnimInput, Animator, PartDef, PoseWriter, RigDef, RigEntry } from '../def';
+import { ARM_FAR_REST, ARM_LENGTH, ARM_NEAR_REST, HIPS_Y, armPart, dashPose, downPose, ease, hurtPose, legPart, lerp, locomotion, pointArm } from '../hero';
+import { arcBand, capsule, trapezoid } from '../solids';
+import { HERO_STATES } from '../states';
 
 const palette: Record<string, number> = {
   hood: HERO.hood,
@@ -192,3 +192,7 @@ export const stringAnimator: Animator = (p, a) => {
       return a.state === 'run' ? 26 : 16;
   }
 };
+
+/** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
+const ENTRY: RigEntry = { def: STRING_RIG, animator: stringAnimator, required: HERO_STATES, variants: {} };
+export default ENTRY;

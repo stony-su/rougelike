@@ -7,11 +7,11 @@
 // fist is put at a point and its arm turns and stretches to reach it, and last the feet are
 // planted under the hips. So a fist can be sent along the aim, held on the chest or set down on
 // the floor, and the feet never slide while the weight moves over them.
-import { HERO, PLAYER_COLORS, RIM } from '../palette';
-import { block, clipBelow, ell, flat, smooth, stroke } from './def';
-import type { AnimInput, Animator, PartDef, PartPose, PoseWriter, RigDef, ShapeDef } from './def';
-import { ARM_FAR_REST, ARM_LENGTH, ARM_NEAR_REST, SHOULDER_Y, armAngle, armPart, dashPose, downPose, ease, hurtPose, lerp, locomotion, pointArm } from './hero';
-import { FIST_STATES } from './states';
+import { HERO, PLAYER_COLORS, RIM } from '../../palette';
+import { block, clipBelow, ell, flat, smooth, stroke } from '../def';
+import type { AnimInput, Animator, PartDef, PartPose, PoseWriter, RigDef, RigEntry, ShapeDef } from '../def';
+import { ARM_FAR_REST, ARM_LENGTH, ARM_NEAR_REST, SHOULDER_Y, armAngle, armPart, dashPose, downPose, ease, hurtPose, lerp, locomotion, pointArm } from '../hero';
+import { FIST_STATES } from '../states';
 
 const HALF_PI = Math.PI / 2;
 const TURN = Math.PI * 2;
@@ -756,3 +756,7 @@ export const handAnimator: Animator = (p, a) => {
       return a.state === 'run' ? 26 : 16;
   }
 };
+
+/** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
+const ENTRY: RigEntry = { def: HAND_RIG, animator: handAnimator, required: FIST_STATES, variants: { attack: [0, 1, 2] } };
+export default ENTRY;

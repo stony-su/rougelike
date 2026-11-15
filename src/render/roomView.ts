@@ -294,10 +294,22 @@ export class RoomView {
           g.poly(lift([x, y, x + 0.3, y, x + 0.3, y + 1, x, y + 1], 0)).fill(mixColor(theme.pitWall, 0x000000, 0.15));
         }
         const edge = { width: 2, color: theme.accent, alpha: 0.5 };
-        if (farRight) g.moveTo(projX(x, y), projY(x, y)).lineTo(projX(x + 1, y), projY(x + 1, y)).stroke(edge);
-        if (farLeft) g.moveTo(projX(x, y), projY(x, y)).lineTo(projX(x, y + 1), projY(x, y + 1)).stroke(edge);
-        if (this.tile(x + 1, y) !== TILE.pit) g.moveTo(projX(x + 1, y), projY(x + 1, y)).lineTo(projX(x + 1, y + 1), projY(x + 1, y + 1)).stroke(edge);
-        if (this.tile(x, y + 1) !== TILE.pit) g.moveTo(projX(x, y + 1), projY(x, y + 1)).lineTo(projX(x + 1, y + 1), projY(x + 1, y + 1)).stroke(edge);
+        if (farRight)
+          g.moveTo(projX(x, y), projY(x, y))
+            .lineTo(projX(x + 1, y), projY(x + 1, y))
+            .stroke(edge);
+        if (farLeft)
+          g.moveTo(projX(x, y), projY(x, y))
+            .lineTo(projX(x, y + 1), projY(x, y + 1))
+            .stroke(edge);
+        if (this.tile(x + 1, y) !== TILE.pit)
+          g.moveTo(projX(x + 1, y), projY(x + 1, y))
+            .lineTo(projX(x + 1, y + 1), projY(x + 1, y + 1))
+            .stroke(edge);
+        if (this.tile(x, y + 1) !== TILE.pit)
+          g.moveTo(projX(x, y + 1), projY(x, y + 1))
+            .lineTo(projX(x + 1, y + 1), projY(x + 1, y + 1))
+            .stroke(edge);
       }
     }
     // A soft dark band where the floor meets a far wall, so walls sit on the floor.

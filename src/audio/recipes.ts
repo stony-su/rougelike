@@ -221,8 +221,7 @@ const noise = (filter: NoiseFilter, from: number, to: number, decay: number, gai
 });
 
 /** A partial of the note being played: a sine at `ratio` times its pitch. */
-const partial = (ratio: number, decay: number, gain: number, more: ToneMore = {}): ToneLayer =>
-  tone('sine', ratio, ratio, decay, gain, { ...more, tuned: true });
+const partial = (ratio: number, decay: number, gain: number, more: ToneMore = {}): ToneLayer => tone('sine', ratio, ratio, decay, gain, { ...more, tuned: true });
 
 const at = (interval: number, octave: number): KeyNote => ({ interval, octave });
 
@@ -231,11 +230,7 @@ const at = (interval: number, octave: number): KeyNote => ({ interval, octave })
  * `glint` adds the clapper's flash, a partial that belongs to no harmonic.
  */
 function bell(decay: number, gain: number, delay = 0, glint = 0): Layer[] {
-  const layers = [
-    partial(1, decay, gain, { attack: 0.003, delay }),
-    partial(2, decay * 0.5, gain * 0.28, { delay }),
-    partial(3, decay * 0.34, gain * 0.14, { delay }),
-  ];
+  const layers = [partial(1, decay, gain, { attack: 0.003, delay }), partial(2, decay * 0.5, gain * 0.28, { delay }), partial(3, decay * 0.34, gain * 0.14, { delay })];
   if (glint > 0) layers.push(partial(4.16, decay * 0.14, gain * glint, { delay }));
   return layers;
 }
@@ -269,10 +264,7 @@ const drum = (decay: number, gain: number, delay = 0): Layer[] => [
 ];
 
 /** One dull knock of stone on stone. */
-const knock = (hz: number, gain: number, delay = 0): Layer[] => [
-  tone('triangle', hz, hz * 0.6, 0.05, gain, { delay }),
-  noise('bandpass', hz * 6, hz * 4, 0.014, gain * 0.5, { q: 2.5, delay }),
-];
+const knock = (hz: number, gain: number, delay = 0): Layer[] => [tone('triangle', hz, hz * 0.6, 0.05, gain, { delay }), noise('bandpass', hz * 6, hz * 4, 0.014, gain * 0.5, { q: 2.5, delay })];
 
 /** A fist through the air, before it lands on anything. `k` shifts the whole thing up or down. */
 const jab = (k: number): Layer[] => [
@@ -533,11 +525,7 @@ export const RECIPES: Record<SoundId, Recipe> = {
   },
   // An open hand across a shot: the Break sending bolts back.
   palmSlap: {
-    layers: [
-      noise('lowpass', 2600, 800, 0.035, 0.55),
-      tone('sine', 320, 170, 0.05, 0.4),
-      noise('bandpass', 3600, 2800, 0.008, 0.2, { q: 2 }),
-    ],
+    layers: [noise('lowpass', 2600, 800, 0.035, 0.55), tone('sine', 320, 170, 0.05, 0.4), noise('bandpass', 3600, 2800, 0.008, 0.2, { q: 2 })],
   },
 
   // ---- bodies sent flying
@@ -687,11 +675,7 @@ export const RECIPES: Record<SoundId, Recipe> = {
   },
   // Any Echo that has no voice of its own yet: a breath, and a stone turned over.
   windEcho: {
-    layers: [
-      noise('bandpass', 400, 1600, 0.12, 0.45, { q: 1.5, attack: 0.3 }),
-      tone('triangle', 140, 190, 0.12, 0.3, { attack: 0.3, vibrato: { rate: 9, depth: 50 } }),
-      ...knock(300, 0.3, 0.38),
-    ],
+    layers: [noise('bandpass', 400, 1600, 0.12, 0.45, { q: 1.5, attack: 0.3 }), tone('triangle', 140, 190, 0.12, 0.3, { attack: 0.3, vibrato: { rate: 9, depth: 50 } }), ...knock(300, 0.3, 0.38)],
   },
   thrumLunge: {
     layers: [
@@ -875,12 +859,7 @@ export const RECIPES: Record<SoundId, Recipe> = {
   uiTake: {
     space: 0.35,
     home: at(0, 1),
-    layers: [
-      tone('sine', 150, 58, 0.14, 0.6),
-      noise('lowpass', 1300, 320, 0.07, 0.35),
-      ...bell(0.8, 0.45, 0.03, 0.1),
-      partial(1.5, 0.7, 0.3, { delay: 0.03 }),
-    ],
+    layers: [tone('sine', 150, 58, 0.14, 0.6), noise('lowpass', 1300, 320, 0.07, 0.35), ...bell(0.8, 0.45, 0.03, 0.1), partial(1.5, 0.7, 0.3, { delay: 0.03 })],
   },
 };
 
@@ -909,8 +888,7 @@ export function homeNote(recipe: Recipe, zone: ZoneId): number {
  * for a tuned layer, the asked-for pitch shift for the rest. `drift` is this play's random
  * retuning (a fraction, either way), of which a tuned layer takes only a share.
  */
-export const tuning = (layer: Layer, note: number, pitch: number, drift: number): number =>
-  layer.tuned ? note * (1 + drift * TUNED_SHARE) : pitch * (1 + drift);
+export const tuning = (layer: Layer, note: number, pitch: number, drift: number): number => (layer.tuned ? note * (1 + drift * TUNED_SHARE) : pitch * (1 + drift));
 
 /** How loud a layer is `t` seconds after its sound was triggered, as a share of its own peak. */
 function envelopeAt(l: Layer, t: number): number {

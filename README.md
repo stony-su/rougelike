@@ -6,6 +6,8 @@ Built with TypeScript (strict), PixiJS v8 and Vite. Everything on screen is draw
 
 The full design is in [DESIGN.md](DESIGN.md). The game is being built in milestones; [PROGRESS.md](PROGRESS.md) tracks what is done, what is next and what is kept for later. This file describes what runs today.
 
+**Building it with others?** The work is divided into tasks that never share a file. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to take one; `npm run tasks` shows the board.
+
 ## Where the build stands
 
 **Milestones 1 (the Rebound) and 2 (playing together) are done.** The signature mechanic is in and playable, alone or with up to three laptops on one network, with keyboard and mouse or a controller:
@@ -78,15 +80,16 @@ src/
   main.ts      boot
   core/        deterministic math, seeded random numbers, geometry, isometric projection
   sim/         the game as pure logic on a fixed 60 Hz step: session, world, classes, bodies, shots, enemies
-  content/     typed data: rooms, enemies
+  content/     typed data, one file per thing and picked up by itself: enemies/, rooms/
   net/         co-op without sockets: the wire format, the host's and a laptop's logic, the playout buffer
 server/        the host program: a web server and WebSockets round src/net
-  render/      PixiJS: layers, camera, room art, rigs, trails, effects
+  render/      PixiJS: layers, camera, room art, rigs (rig/rigs/, one file each), trails, effects, extras/
   audio/       synthesized sound: the scale, the recipes, what each event sounds like
   ui/          lettering, widgets, the HUD
   game/        the shell: input devices, the frame, wiring, development pages
 tests/         vitest suites (no browser needed)
-scripts/       browser checks driven through your installed Chrome or Edge
+scripts/       the task board, and browser checks driven through your installed Chrome or Edge
+tasks/         the task board: one file per task, with its owner and the files it may change
 ```
 
 Rules that hold the code together, each enforced by a test (`tests/boundary.test.ts`):
@@ -95,7 +98,8 @@ Rules that hold the code together, each enforced by a test (`tests/boundary.test
 2. **The simulation uses exact arithmetic only.** Trigonometry and exponentials come from `src/core/dmath.ts`, which is built from `+ − × ÷` and `sqrt` and whose results are pinned bit for bit; the engine's own `Math.sin` and friends are banned from everything the simulation can reach. This is what lets several laptops run the same game in step.
 3. **One path changes the game.** Only `stepSession` (`src/sim/session.ts`) changes state, one tick per bundle of inputs and commands. The shell and the renderer read state and send inputs; they never call the modules that mutate a world.
 4. The simulation keeps no module-level mutable state, and its state is plain data that can be snapshotted and hashed (`src/sim/snapshot.ts`).
-5. Colours live in `src/render/palette.ts`. Shapes are built once and animated by transforms; filters sit on whole layers, never on single objects.
+5. Colours live in `src/render/palette.ts` (and one file per character or place in `src/render/palette/`). Shapes are built once and animated by transforms; filters sit on whole layers, never on single objects.
+6. Enemies, rooms, rigs and extras are one file each, named after what they hold, and nothing lists them by hand (`tests/workspace.test.ts`). The layout of the code is Prettier's (`npm run format`).
 
 Two more that are worth knowing when reading the code:
 
@@ -112,4 +116,5 @@ Two more that are worth knowing when reading the code:
 - `?gallery=edge` (or any rig id, or `all`) shows every animation state of a rig as a filmstrip; add `&away`, `&silhouette` or `&live`.
 - `?selftest` plays a pinned three-player game headless in the page and prints its hashes.
 - `npm run coop-check -- --port 5180` (with `npm run host` running and nobody in the lobby): three browser pages join through the network address, fight, one is frozen and one reloaded, and the host must not have had to repair anyone.
+- `npm run look -- --query "debug&class=bow" --out name` builds the game, serves that build on a free port for as long as the check takes, and runs the next tool against it. Nothing else has to be running.
 - `npm run shot -- --url "http://localhost:5173/?debug=1" --out name` takes a screenshot through your installed Chrome or Edge (no browser download) and reports console errors. A `--steps file.json` script can hold keys, move the mouse, run script in the page and take several shots; with `--pad` it also drives a scripted fake controller. See the header of `scripts/shot.mjs`.

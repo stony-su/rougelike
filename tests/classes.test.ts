@@ -2,8 +2,10 @@
 // give them something to bounce. Numbers are those of DESIGN.md sections 2, 3 and 5.
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
-import { BURR, PIPER, THRUM } from '../src/content/enemies';
-import { PRACTICE_COURT } from '../src/content/rooms';
+import { BURR } from '../src/content/enemies/burr';
+import { PIPER } from '../src/content/enemies/piper';
+import { THRUM } from '../src/content/enemies/thrum';
+import { PRACTICE_COURT } from '../src/content/rooms/practice-court';
 import { spawnEnemy } from '../src/sim/ai';
 import { EXPERT, classBot, idleBot } from '../src/sim/bots';
 import type { Bot } from '../src/sim/bots';
@@ -649,7 +651,7 @@ describe('bombs', () => {
     expect(w.telegraphs.filter((t) => !t.dead)).toHaveLength(0);
   });
 
-  it('a swing sends a bomb on the floor flying; it is the player\'s now, and its blast hurts Echoes only', () => {
+  it("a swing sends a bomb on the floor flying; it is the player's now, and its blast hurts Echoes only", () => {
     const w = openWorld();
     const p = w.players[0];
     const burr = dummy(w, 2.5, 2.5, 0, BURR);
@@ -673,7 +675,7 @@ describe('bombs', () => {
     expect(eventsOf(ev, 'hit').every((h) => h.kind === 'return')).toBe(true);
   });
 
-  it('an arrow sets a bomb off where it sits, as the archer\'s', () => {
+  it("an arrow sets a bomb off where it sits, as the archer's", () => {
     const w = openWorld(['bow']);
     const p = w.players[0];
     const burr = dummy(w, 2.5, 2.5, 0, BURR);
@@ -784,7 +786,11 @@ function playChamber(classes: ClassId[], makeBot: (c: ClassId) => Bot, seed: num
   const idle = emptyInput();
   let ticks = 0;
   for (; ticks < maxSeconds * 60; ticks++) {
-    stepWorld(w, bots.map((b, slot) => b.think(w, slot)), idle);
+    stepWorld(
+      w,
+      bots.map((b, slot) => b.think(w, slot)),
+      idle,
+    );
     w.events.length = 0;
     for (const p of w.players) {
       if (groundAt(w.room, p.x, p.y) !== 'floor' || !isClear(w.room, p.x, p.y, p.radius * 0.9)) throw new Error(`a ${p.classId} player left the floor at tick ${ticks}`);

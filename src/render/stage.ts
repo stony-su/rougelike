@@ -91,17 +91,7 @@ export class Stage {
 
     this.cameraSpace = [this.below, this.lines, this.linesGlow, this.entities, this.fxGlow, this.fxCrisp];
 
-    this.root.addChild(
-      this.backdrop,
-      this.below,
-      this.lines,
-      this.linesGlowLayer,
-      this.entities,
-      this.fxGlowLayer,
-      this.fxCrisp,
-      this.overlay,
-      this.ui,
-    );
+    this.root.addChild(this.backdrop, this.below, this.lines, this.linesGlowLayer, this.entities, this.fxGlowLayer, this.fxCrisp, this.overlay, this.ui);
 
     for (const c of [this.backdrop, this.below, this.lines, this.linesGlowLayer, this.entities, this.fxGlowLayer, this.fxCrisp, this.overlay]) {
       c.eventMode = 'none';

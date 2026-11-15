@@ -1,11 +1,11 @@
 // The Burr: a round seed-pod bristling with spikes, on two stub legs, that lobs bombs.
 // Geometric: the body is a star made by a loop, the bomb a disc with a smaller star for its cap.
 // Wind-up: it heaves a bomb up over its head. Attack: it whips forward and lets go.
-import { ECHO, RIM, ZONES } from '../palette';
-import { block, ell, flat } from './def';
-import type { AnimInput, Animator, PartDef, PoseWriter, RigDef } from './def';
-import { capsule, star } from './solids';
-import { ENEMY_STATES } from './states';
+import { ECHO, RIM, ZONES } from '../../palette';
+import { block, ell, flat } from '../def';
+import type { AnimInput, Animator, PartDef, PoseWriter, RigDef, RigEntry } from '../def';
+import { capsule, star } from '../solids';
+import { ENEMY_STATES } from '../states';
 
 const palette: Record<string, number> = {
   ink: ZONES.outer.inkWash,
@@ -69,10 +69,7 @@ const parts: PartDef[] = [
     x: 0,
     y: -52,
     z: 3,
-    shapes: [
-      ...block(ell(0, 0, 9, 9, 16), { fill: 'bomb', shade: 'bombShade', shadeFrom: 0.5, rim: 'rim', rimWidth: 1.4 }),
-      flat(star(0, -9.5, 4.2, 2, 5, -Math.PI / 2), 'fuse'),
-    ],
+    shapes: [...block(ell(0, 0, 9, 9, 16), { fill: 'bomb', shade: 'bombShade', shadeFrom: 0.5, rim: 'rim', rimWidth: 1.4 }), flat(star(0, -9.5, 4.2, 2, 5, -Math.PI / 2), 'fuse')],
   },
 ];
 
@@ -266,3 +263,7 @@ export const burrAnimator: Animator = (p, a) => {
       return 14;
   }
 };
+
+/** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
+const ENTRY: RigEntry = { def: BURR_RIG, animator: burrAnimator, required: ENEMY_STATES, variants: {} };
+export default ENTRY;

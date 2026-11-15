@@ -1,9 +1,9 @@
 // The Thrum: a squat teardrop on two stub legs. It squashes flat before it lunges.
 // Pixi-free: a RigDef plus a pure animator. This file is the pattern every Echo rig follows.
-import { INK, RIM, WHITE, ZONES } from '../palette';
-import { block, ell, flat, smooth } from './def';
-import type { AnimInput, Animator, PartDef, PoseWriter, RigDef } from './def';
-import { ENEMY_STATES } from './states';
+import { INK, RIM, WHITE, ZONES } from '../../palette';
+import { block, ell, flat, smooth } from '../def';
+import type { AnimInput, Animator, PartDef, PoseWriter, RigDef, RigEntry } from '../def';
+import { ENEMY_STATES } from '../states';
 
 const palette: Record<string, number> = {
   ink: ZONES.outer.inkWash,
@@ -13,10 +13,7 @@ const palette: Record<string, number> = {
   pupil: INK,
 };
 
-const body = smooth(
-  [5, -53, 10, -43, 15, -33, 18, -22, 17, -11, 11, -4, 0, -2, -11, -4, -17, -11, -18, -22, -15, -32, -9, -40, -2, -46],
-  2,
-);
+const body = smooth([5, -53, 10, -43, 15, -33, 18, -22, 17, -11, 11, -4, 0, -2, -11, -4, -17, -11, -18, -22, -15, -32, -9, -40, -2, -46], 2);
 
 const foot = (name: string, x: number, z: number): PartDef => ({
   name,
@@ -278,3 +275,7 @@ export const thrumAnimator: Animator = (p, a) => {
       return 14;
   }
 };
+
+/** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
+const ENTRY: RigEntry = { def: THRUM_RIG, animator: thrumAnimator, required: ENEMY_STATES, variants: {} };
+export default ENTRY;

@@ -1,0 +1,11 @@
+# Only code is formatted. Prose, data and build output are left exactly as written.
+*.md
+*.json
+*.yml
+*.yaml
+*.html
+dist/
+dist-host/
+node_modules/
+.verify/
+.resound/

@@ -18,7 +18,7 @@ export interface RoomTemplate {
   kind: RoomKind;
   /** Omitted, a court. */
   look?: RoomLook;
-  /** ASCII tile map; see the legend in src/content/rooms.ts. */
+  /** ASCII tile map; see the legend in src/content/rooms/README.md. */
   map: readonly string[];
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
-import { THRUM } from '../src/content/enemies';
+import { THRUM } from '../src/content/enemies/thrum';
 import { SPAWN_TIME, spawnEnemy } from '../src/sim/ai';
 import { idleBot, swordBot } from '../src/sim/bots';
 import type { Bot } from '../src/sim/bots';
@@ -101,7 +101,6 @@ describe('the swing combo', () => {
     expect(frozenTogether).toBe(true);
     expect(w.freeze).toBe(0);
   });
-
 });
 
 describe('enemies', () => {
@@ -231,7 +230,11 @@ function playChamber(players: number, makeBot: () => Bot, seed: number, maxSecon
   const idle = emptyInput();
   let ticks = 0;
   for (; ticks < maxSeconds * 60; ticks++) {
-    stepWorld(w, bots.map((b, slot) => b.think(w, slot)), idle);
+    stepWorld(
+      w,
+      bots.map((b, slot) => b.think(w, slot)),
+      idle,
+    );
     w.events.length = 0;
     for (const p of w.players) {
       if (!isClear(w.room, p.x, p.y, p.radius * 0.9)) throw new Error('a player left the floor');

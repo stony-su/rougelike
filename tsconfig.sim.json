@@ -4,5 +4,6 @@
     "lib": ["ES2023"],
     "types": []
   },
-  "include": ["src/core", "src/sim", "src/content", "src/net"]
+  "include": ["src/core", "src/sim", "src/content", "src/net"],
+  "exclude": ["src/content/index.ts"]
 }

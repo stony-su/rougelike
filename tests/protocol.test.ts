@@ -70,7 +70,16 @@ describe('messages', () => {
   });
 
   it('every message the host sends parses back to itself', () => {
-    const cfg = { seed: 's', players: [{ name: 'Ada', classId: 'sword' as const }, { name: 'Bo', classId: 'bow' as const }], buildId: 'abc', inputDelay: 3, stress: 0 };
+    const cfg = {
+      seed: 's',
+      players: [
+        { name: 'Ada', classId: 'sword' as const },
+        { name: 'Bo', classId: 'bow' as const },
+      ],
+      buildId: 'abc',
+      inputDelay: 3,
+      stress: 0,
+    };
     const seat = { slot: 0, name: 'Ada', classId: 'sword' as const, ready: true, connected: true };
     const msgs: HostMsg[] = [
       { t: 'welcome', v: 1, build: 'abc', slot: 1, seats: [seat] },

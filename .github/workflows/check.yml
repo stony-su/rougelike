@@ -1,0 +1,25 @@
+# The same gate people run by hand: layout, types, every test, production build.
+# On a pull request it also checks that the branch changed only the files of its task.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: The branch stayed inside its task
+        if: github.event_name == 'pull_request'
+        run: node scripts/tasks.mjs scope --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"

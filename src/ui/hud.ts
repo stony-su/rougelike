@@ -89,7 +89,11 @@ export class Hud {
 
     // ---------------------------------------------------------- vitals
     const panel = new Graphics();
-    panel.roundRect(-14, -30, BAR_W + 28, 86, 4).fill({ color: INK, alpha: 0.72 }).roundRect(-14, -30, BAR_W + 28, 86, 4).stroke({ width: 1.5, color: RIM, alpha: 0.35 });
+    panel
+      .roundRect(-14, -30, BAR_W + 28, 86, 4)
+      .fill({ color: INK, alpha: 0.72 })
+      .roundRect(-14, -30, BAR_W + 28, 86, 4)
+      .stroke({ width: 1.5, color: RIM, alpha: 0.35 });
     panel.rect(0, 0, BAR_W, BAR_H).fill({ color: 0x000000, alpha: 0.55 });
     this.vitals.addChild(panel);
     this.hpGhost.rect(0, 0, BAR_W, BAR_H).fill(0xffffff);
@@ -312,7 +316,7 @@ export class Hud {
     this.flash = damp(this.flash, 0, 9, dt);
     this.hpFlash.alpha = this.flash * 0.8;
     this.hpFlash.scale.x = Math.max(0.0001, this.shown);
-    this.hpFill.tint = frac < 0.3 ? DANGER : PLAYER_COLORS[p.slot] ?? PAPER;
+    this.hpFill.tint = frac < 0.3 ? DANGER : (PLAYER_COLORS[p.slot] ?? PAPER);
 
     this.updateSpecial(p, dt);
     this.updateRally(p, dt);
@@ -362,7 +366,11 @@ export class Hud {
       g.circle(0, 0, 11).fill({ color: 0x000000, alpha: 0.55 });
       if (step > 0) {
         if (step >= 48) g.circle(0, 0, 11).fill(0xffffff);
-        else g.moveTo(0, 0).arc(0, 0, 11, -Math.PI / 2, -Math.PI / 2 + (step / 48) * Math.PI * 2).closePath().fill({ color: 0xffffff, alpha: 0.55 });
+        else
+          g.moveTo(0, 0)
+            .arc(0, 0, 11, -Math.PI / 2, -Math.PI / 2 + (step / 48) * Math.PI * 2)
+            .closePath()
+            .fill({ color: 0xffffff, alpha: 0.55 });
       }
       g.circle(0, 0, 11).stroke({ width: 1.8, color: 0xffffff, alpha: 0.9 });
     }

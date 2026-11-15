@@ -11,6 +11,8 @@ import { Backdrop } from '../render/backdrop';
 import { Camera } from '../render/camera';
 import { DamageNumbers } from '../render/damageNumbers';
 import { EnemyViews } from '../render/enemyView';
+import { createExtras } from '../render/extras';
+import type { Extra } from '../render/extras';
 import { Fx } from '../render/fx';
 import { ObjectViews } from '../render/objectView';
 import { CHIME, DANGER, PAPER, PLAYER_COLORS, PLAYER_PALE, RIM, ZONES, css } from '../render/palette';
@@ -94,6 +96,8 @@ export class Game {
   private readonly hud: Hud;
   private readonly ambient: Ambient;
   private readonly backdrop: Backdrop;
+  /** Presentation that lives in one file each (src/render/extras). */
+  private readonly extras: Extra[];
   private readonly audio = new GameAudio();
   private readonly pausedLabel: Label;
   private time = 0;
@@ -149,6 +153,8 @@ export class Game {
     this.playerViews = new PlayerViews(this.stage);
     this.fx = new Fx(this.stage, this.particles, this.camera, this.numbers, this.theme);
     this.ambient = new Ambient(this.stage, this.textures, room, this.theme);
+    this.extras = createExtras({ stage: this.stage, camera: this.camera, textures: this.textures, localSlot: () => this.localSlot });
+    for (const x of this.extras) x.room?.(room, this.theme);
     this.audio.setZone(room.zone);
     this.audio.setClasses(this.session.config.players.map((p) => p.classId));
     this.hud = new Hud();
@@ -190,6 +196,7 @@ export class Game {
     this.pickupView.destroy();
     this.roomView.destroy();
     this.ambient.destroy();
+    for (const x of this.extras) x.destroy();
     this.backdrop.destroy();
     this.audio.destroy();
     this.particles.destroy();
@@ -267,6 +274,7 @@ export class Game {
     this.camera.frameRoom(this.viewed.room, false);
     this.ambient.resize(this.viewW, this.viewH);
     this.backdrop.resize(this.viewW, this.viewH);
+    for (const x of this.extras) x.resize?.(this.viewW, this.viewH);
     this.hud.layout(this.viewW, this.viewH);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.4);
     this.debugText?.position.set(14, this.viewH - 190);
@@ -313,6 +321,7 @@ export class Game {
     this.enemyViews.setTheme(this.theme);
     this.fx.setTheme(this.theme);
     this.ambient.setRoom(room, this.theme);
+    for (const x of this.extras) x.room?.(room, this.theme);
     this.backdrop.setTheme(this.theme);
     this.backdrop.pulse(1);
     this.audio.setZone(room.zone);
@@ -324,6 +333,7 @@ export class Game {
     this.enemyViews.handle(ev);
     this.roomView.handle(ev);
     this.fx.handle(ev);
+    for (const x of this.extras) x.handle?.(ev, w);
     this.audio.handle(ev, this.localSlot, this.focusX, this.focusY);
     switch (ev.type) {
       // the exact point of a bounce goes into the trail of whatever bounced, and a ring crosses the backdrop
@@ -457,6 +467,7 @@ export class Game {
     this.stage.applyCamera(this.camera);
     if (this.opts.backdrop) this.backdrop.update(dt, this.camera, this.viewW, this.viewH);
     this.ambient.update(dt);
+    for (const x of this.extras) x.update?.(dt, w, alpha, this.time);
     this.hud.update(w, me, dt);
     this.hud.setNet(this.driver.net());
     this.pausedLabel.visible = paused;

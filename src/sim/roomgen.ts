@@ -103,7 +103,12 @@ function largestPiece(m: boolean[][]): void {
         const sy = stack.pop() as number;
         const sx = stack.pop() as number;
         size++;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const) {
           const nx = sx + dx;
           const ny = sy + dy;
           if (nx < 0 || ny < 0 || nx >= w || ny >= h || !m[ny][nx] || label[ny][nx] !== 0) continue;
@@ -208,7 +213,12 @@ function attempt(seed: string, spec: RoomSpec, shape: RoomShape): RoomTemplate {
     const x = rng.int(4, gw - 5);
     const y = rng.int(4, gh - 5);
     // a pit is a 2 x 2 hole; all four cells and their mirrors must be open
-    const cells: Array<[number, number]> = [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]];
+    const cells: Array<[number, number]> = [
+      [x, y],
+      [x + 1, y],
+      [x, y + 1],
+      [x + 1, y + 1],
+    ];
     if (!cells.every(([px, py]) => at(g, px, py) === '.' && clearance(g, px, py, 3) >= 3)) continue;
     const before = g.map((row) => row.slice());
     let ok = true;
@@ -307,6 +317,13 @@ export function generateRoom(seed: string, spec: RoomSpec): RoomTemplate {
   };
   put(size - 1, size - 5, 'P');
   put(Math.floor(size / 2), Math.floor(size / 2) - 2, 'r');
-  for (const [x, y] of [[2, 2], [size - 1, 2], [2, size - 6], [Math.floor(size / 2), 2], [2, Math.floor(size / 2) - 2]]) put(x, y, 's');
+  for (const [x, y] of [
+    [2, 2],
+    [size - 1, 2],
+    [2, size - 6],
+    [Math.floor(size / 2), 2],
+    [2, Math.floor(size / 2) - 2],
+  ])
+    put(x, y, 's');
   return { id: `gen-plain-${seed}`, name: 'Court', zone: spec.zone, kind: spec.kind, look: spec.look, map: rows };
 }

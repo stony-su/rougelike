@@ -1,75 +1,83 @@
 # RESOUND: progress
 
-Where the build stands, what is next, and what is kept for later. Updated at every commit.
-The design is in [DESIGN.md](DESIGN.md); how to run the game is in [README.md](README.md).
+<!-- Written by "npm run progress" from the files in tasks/. Do not edit it by hand: change the task files and run that again. -->
 
-**Overall: about 46% complete.** (Each milestone's share of the whole is given below; the figure is the sum of what is done.)
+Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-| # | Milestone | Share | Done | State |
-|---|---|---|---|---|
-| 0 | Foundation: deterministic simulation, sessions, snapshots | 8% | 100% | Done |
-| 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 18% | 100% | Done |
-| 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 12% | 100% | Done |
-| 3 | Chambers: generated rooms, two looks, shader backdrops, follow camera | 14% | 50% | In progress. Generator and shader backdrop are built and tested; the run does not use the generator yet, and there is no follow camera |
-| 4 | A run you can win: route, upgrades, shop, rest, wager, two bosses, screens | 26% | 0% | |
-| 5 | Full content: remaining upgrades and Harmonies, more Echoes, elites | 10% | 0% | |
-| 6 | Menus, saving, sound | 8% | 30% | Sound engine written; menus and saving not started |
-| 7 | Polish and balance | 4% | 0% | |
+**Overall: about 46% complete.** 6 of 35 tasks are done, 2 in progress, 1 ready to take, 26 waiting on others. Each task counts for its share of the whole game.
 
-## To do, in order
+| # | Milestone | Share | Done |
+|---|---|---|---|
+| 0 | Foundation: deterministic simulation, sessions, snapshots | 8% | 100% |
+| 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 18% | 100% |
+| 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 12% | 100% |
+| 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 13.5% | 56% |
+| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 0% |
+| 5 | Full content: every Tuning and Harmony, more Echoes, elites | 14.5% | 0% |
+| 6 | Menus, saving, sound | 5% | 0% |
+| 7 | Polish and balance | 4% | 0% |
 
-### Now: chambers (milestone 3)
-- [x] Room generator: five shapes (court, cross, lobes, ring, cavern), walls, cut corners, posts, bumpers, pits (`src/sim/roomgen.ts`, tested over 800 rooms)
-- [ ] Use the generator for the chambers of the run (the session still takes the two hand-built rooms in turn)
-- [ ] Camera that follows your own player
-- [x] GLSL backdrop under the floating chamber, with a ring across it at every bounce (Reedwater water and Stormshelf cloud sea are wired in; the Crater rings are in the shader but have no zone yet)
-- [ ] Upgrade engine: the numbers every Tuning changes are written (`src/sim/mods.ts`); the rules do not read them yet, and no Tunings are defined
-- [ ] GLSL floor ripples where things bounce
+## In progress
 
-### Then: a run you can win (milestone 4)
-- [ ] Twelve-chamber route over two zones, with solo side-chambers
-- [ ] Upgrade engine and drafts: class Tunings, common Tunings
-- [ ] Camp: the Tuner (shop) and the Still Pool (rest)
-- [ ] The Wager (risk for reward), with the Brittle Discord
-- [ ] Gong and Cairn; elites
-- [ ] Mini-boss: the Carillon. Final boss: the Toll, three phases
-- [ ] Title, class select, controls page, pause, results (won and lost), instant restart
-- [ ] Permanent progression saved in the browser
+- [T10](tasks/T10-run-route.md) **Run route: twelve generated chambers over two zones**: stony-su
+- [T11](tasks/T11-follow-camera.md) **Camera that follows your own player**: stony-su
 
-### After that (milestones 5 to 7)
-- [ ] The rest of the Tunings and the twelve Harmonies
-- [ ] The Skirl; side-chamber kinds
-- [ ] Settings, rumble, music beds
-- [ ] Balance by bots; performance pass
+## To do: ready to take
+
+- [T66](tasks/T66-music.md) **Music beds and sound levels** (1% of the game)
+
+## To do: waiting on other tasks
+
+- [T20](tasks/T20-upgrade-engine.md) **Upgrade engine: Tunings on players, a draft after every fight** (4%): needs T10
+- [T21](tasks/T21-side-chambers.md) **Solo side-chambers: each player their own way, then together again** (3%): needs T10
+- [T22](tasks/T22-boss-framework.md) **Boss framework and Echo traits** (2%): needs T10
+- [T23](tasks/T23-app-shell.md) **App shell: title, class select, pause, results, instant restart** (3%): needs T10
+- [T24](tasks/T24-saving-attunement.md) **Saving and the Attunement (permanent progression)** (2%): needs T20, T23
+- [T30](tasks/T30-tunings-sword.md) **Tunings: the Sword (ten, and three Harmonies)** (2.5%): needs T20
+- [T31](tasks/T31-tunings-bow.md) **Tunings: the Bow (ten, and three Harmonies)** (2.5%): needs T20
+- [T32](tasks/T32-tunings-fist.md) **Tunings: the Fist (ten, and three Harmonies)** (2.5%): needs T20
+- [T33](tasks/T33-tunings-common.md) **Tunings: the common twelve, and three Harmonies** (2.5%): needs T20
+- [T40](tasks/T40-echo-gong.md) **Echo: the Gong** (1%): needs T22
+- [T41](tasks/T41-echo-cairn.md) **Echo: the Cairn** (1%): needs T22
+- [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (1%): needs T22
+- [T43](tasks/T43-elites.md) **Elites: five traits and their aura** (1.5%): needs T22
+- [T44](tasks/T44-boss-carillon.md) **Mini-boss: the Carillon** (2.5%): needs T22
+- [T45](tasks/T45-boss-toll.md) **Final boss: the Toll, in three phases** (3.5%): needs T22
+- [T50](tasks/T50-camp.md) **Camp: the Tuner (shop) and the Still Pool (rest)** (2%): needs T20
+- [T51](tasks/T51-wager.md) **The Wager, and the Brittle Discord** (1%): needs T20
+- [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.5%): needs T21
+- [T60](tasks/T60-controls-page.md) **Controls page: keyboard and controller** (1%): needs T23
+- [T61](tasks/T61-settings-rumble.md) **Settings and controller rumble** (1%): needs T23
+- [T62](tasks/T62-title-shader.md) **Shader title screen and class cards** (1%): needs T23
+- [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5%): needs T11
+- [T65](tasks/T65-crater.md) **The Crater: the third biome, for the last chamber** (1%): needs T10
+- [T70](tasks/T70-balance.md) **Balance, by bots playing whole runs** (2%): needs T30, T31, T32, T33, T44, T45, T50
+- [T71](tasks/T71-performance.md) **Performance pass** (1%): needs T11
+- [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (1%): needs T23, T24, T70, T71
 
 ## Done
-- [x] Deterministic simulation: identical in Node, Chrome and Edge, bit for bit
-- [x] Collision shape, one shared cast, exact wall bounces
-- [x] Launched bodies: wall slams, caroms with chains, ring-outs, bumpers, stagger
-- [x] Shots that ricochet, skip and change sides; bombs; Ringstones
-- [x] Sword, Bow and Fist, each with a special; the held Haymaker
-- [x] Rally; the Bow's aim preview (exactly the path flown)
-- [x] Thrum, Piper and Burr; pathfinding round pits
-- [x] Keyboard and mouse, and controller (ignores a stuck or idle controller)
-- [x] Walled practice court; trails; HUD with Rally meter and special dial
-- [x] Host program (`npm run host`), lobby, playout buffer, hash checks, repair of a drifted laptop, rejoin
-- [x] Three browser pages through the network address stay in one game (scripted check)
-- [x] Sound engine, scale and recipes, wired in; M mutes
-- [x] Bow hero and Burr as geometric characters; the bowstring; a finished bomb with a countdown ring
-- [x] The survey look (contour rings, hexagon pillars) back as a second chamber look, alternating with the court
-- [x] Downed players crawl; a teammate revives them by standing close
-- [x] Duets: an arrow banked off a teammate's blade, a launched body struck again in flight
 
-## Kept for later (designed, not in this build)
-See DESIGN.md section 15.
-- Biomes: Glasswood, Cinder Terraces
-- Harmonies: Thunderhead, Slipstream, Frostline, Parting Shot, Meteor, Bull Rush
-- Discords: Mute, Heavy Air
-- Watching a teammate's side-chamber (a waiting panel instead)
+- [T00](tasks/T00-foundation.md) Foundation: one deterministic session
+- [T01](tasks/T01-rebound.md) The Rebound: three classes, bouncing bodies and shots, Rally
+- [T02](tasks/T02-together.md) Together: host program, lobby, staying in step
+- [T03](tasks/T03-room-generator.md) Room generator: five shapes with terrain
+- [T04](tasks/T04-shader-backdrop.md) Shader backdrop under the floating chamber
+- [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
+
+## Future plans: designed, kept for later
+
+These are written up in DESIGN.md section 15 and are not tasks of this build. To bring one in, add a task file for it.
+
+- **Biomes:** Glasswood (violet crystal forest, many bumpers) and the Cinder Terraces (basalt over lava).
+- **Harmonies:** Thunderhead, Slipstream, Frostline, Parting Shot, Meteor, Bull Rush.
+- **Discords:** Mute (no Rally) and Heavy Air (shots and bodies lose speed sooner).
+- **Watching a teammate's side-chamber** while you wait (this build shows a waiting panel).
 
 ## Not verified, and why
-- **Three real laptops on Wi-Fi.** Checked instead: three browser pages on one machine through its network address, and a simulated network in tests with lag, jitter, a stall, a drop-out and a corrupted laptop.
-- **A real controller in real hands.** Checked instead: the mapping in tests, and a scripted fake controller driving the game in Chrome.
+
+- **Three real laptops on Wi-Fi.** Checked instead: three browser pages on one machine through its network address, and a pretend network in tests with lag, jitter, a stall, a drop-out and a corrupted laptop.
+- **A real controller in real hands.** Checked instead: the mapping in tests, and a scripted controller driving the game in Chrome.
 - **How it sounds.** Nobody has listened to the sound.
-- **How it feels to play.** Bots clear the court with every class; no person has played this build.
+- **How it feels to play.** Bots clear chambers with every class; no person has played this build.
 - **Browsers other than Chrome and Edge.**
+- **The checks on GitHub** (`.github/workflows/check.yml`) have not run yet: nothing has been pushed since they were written.

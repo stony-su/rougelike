@@ -87,13 +87,7 @@ function chooseTarget(w: World, e: Enemy): Player | null {
   return cur;
 }
 
-export function spawnEnemy(
-  w: World,
-  def: EnemyDef,
-  x: number,
-  y: number,
-  o: { elite?: string | null; hpMul?: number; instant?: boolean } = {},
-): Enemy {
+export function spawnEnemy(w: World, def: EnemyDef, x: number, y: number, o: { elite?: string | null; hpMul?: number; instant?: boolean } = {}): Enemy {
   const depth = Math.max(0, w.chamber - 1);
   const crowd = 1 + SCALING.coopHp * Math.max(0, w.players.length - 1);
   const hp = Math.round(def.hp * (1 + SCALING.hpPerChamber * depth) * crowd * (o.hpMul ?? 1));

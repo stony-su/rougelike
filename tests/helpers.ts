@@ -1,7 +1,7 @@
 // Shared test helpers: a world to stand in, and a "pad" that writes integer input frames the way
 // a device would (held state stays, a tap bumps a counter once).
 import { CONTENT } from '../src/content';
-import { THRUM } from '../src/content/enemies';
+import { THRUM } from '../src/content/enemies/thrum';
 import { spawnEnemy } from '../src/sim/ai';
 import type { EnemyDef, RoomTemplate } from '../src/sim/defs';
 import { hold, press, setAim, setMove } from '../src/sim/input';

@@ -2,10 +2,10 @@
 // the pipe low, raises it to its mouth and fills its chest before it plays, and sags over it
 // afterwards.
 // Pixi-free: a RigDef plus a pure animator, after the pattern in thrum.ts.
-import { ECHO, RIM, ZONES } from '../palette';
-import { block, clipBelow, ell, flat, smooth, stroke } from './def';
-import type { AnimInput, Animator, PartDef, PartPose, PoseWriter, RigDef } from './def';
-import { ENEMY_STATES } from './states';
+import { ECHO, RIM, ZONES } from '../../palette';
+import { block, clipBelow, ell, flat, smooth, stroke } from '../def';
+import type { AnimInput, Animator, PartDef, PartPose, PoseWriter, RigDef, RigEntry } from '../def';
+import { ENEMY_STATES } from '../states';
 
 const sin = Math.sin;
 const cos = Math.cos;
@@ -649,3 +649,7 @@ export const piperAnimator: Animator = (p, a) => {
   if (a.away) turnAway(p);
   return rate;
 };
+
+/** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
+const ENTRY: RigEntry = { def: PIPER_RIG, animator: piperAnimator, required: ENEMY_STATES, variants: {} };
+export default ENTRY;

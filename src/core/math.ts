@@ -14,20 +14,17 @@ export const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo
 export const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 export const invLerp = (a: number, b: number, v: number): number => (a === b ? 0 : (v - a) / (b - a));
-export const remap = (v: number, a: number, b: number, c: number, d: number): number =>
-  lerp(c, d, clamp01(invLerp(a, b, v)));
+export const remap = (v: number, a: number, b: number, c: number, d: number): number => lerp(c, d, clamp01(invLerp(a, b, v)));
 export const smoothstep = (t: number): number => {
   const c = clamp01(t);
   return c * c * (3 - 2 * c);
 };
 
 /** Frame-rate independent exponential approach: higher lambda = snappier. */
-export const damp = (a: number, b: number, lambda: number, dt: number): number =>
-  lerp(a, b, 1 - Math.exp(-lambda * dt));
+export const damp = (a: number, b: number, lambda: number, dt: number): number => lerp(a, b, 1 - Math.exp(-lambda * dt));
 
 /** Move a toward b by at most maxDelta. */
-export const approach = (a: number, b: number, maxDelta: number): number =>
-  a < b ? Math.min(a + maxDelta, b) : Math.max(a - maxDelta, b);
+export const approach = (a: number, b: number, maxDelta: number): number => (a < b ? Math.min(a + maxDelta, b) : Math.max(a - maxDelta, b));
 
 export const len = (x: number, y: number): number => Math.hypot(x, y);
 export const dist = (ax: number, ay: number, bx: number, by: number): number => Math.hypot(bx - ax, by - ay);
@@ -57,8 +54,7 @@ export const wrapAngle = (a: number): number => {
 };
 export const angleDiff = (from: number, to: number): number => wrapAngle(to - from);
 export const lerpAngle = (a: number, b: number, t: number): number => a + angleDiff(a, b) * t;
-export const dampAngle = (a: number, b: number, lambda: number, dt: number): number =>
-  a + angleDiff(a, b) * (1 - Math.exp(-lambda * dt));
+export const dampAngle = (a: number, b: number, lambda: number, dt: number): number => a + angleDiff(a, b) * (1 - Math.exp(-lambda * dt));
 
 export const sign = (v: number): number => (v < 0 ? -1 : v > 0 ? 1 : 0);
 

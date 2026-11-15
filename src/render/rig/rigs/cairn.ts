@@ -3,10 +3,10 @@
 // lag behind. Two moves: the slam (variant 0) lifts the upper stones and drops them; the lob
 // (variant 1) cocks the top stone back and throws it.
 // Pixi-free: a RigDef plus a pure animator.
-import { INK, RIM, WHITE, ZONES } from '../palette';
-import { block, clipBelow, flat, stroke, topEdges } from './def';
-import type { AnimInput, Animator, PartDef, PartPose, PoseWriter, RigDef, ShapeDef } from './def';
-import { ENEMY_STATES } from './states';
+import { INK, RIM, WHITE, ZONES } from '../../palette';
+import { block, clipBelow, flat, stroke, topEdges } from '../def';
+import type { AnimInput, Animator, PartDef, PartPose, PoseWriter, RigDef, RigEntry, ShapeDef } from '../def';
+import { ENEMY_STATES } from '../states';
 
 const sin = Math.sin;
 const cos = Math.cos;
@@ -56,7 +56,7 @@ function ridge(outline: readonly number[], side: Cut, shade: Cut): number[] {
     const j = (i + 1) % n;
     const da = below(side, outline[i * 2], outline[i * 2 + 1]);
     const db = below(side, outline[j * 2], outline[j * 2 + 1]);
-    if ((da < 0) === (db < 0)) continue;
+    if (da < 0 === db < 0) continue;
     const t = da / (da - db);
     hits.push(outline[i * 2] + (outline[j * 2] - outline[i * 2]) * t, outline[i * 2 + 1] + (outline[j * 2 + 1] - outline[i * 2 + 1]) * t);
   }
@@ -628,3 +628,7 @@ export const cairnAnimator: Animator = (p, a) => {
       return 14;
   }
 };
+
+/** What the registry gathers: this file is the whole of the rig, and nothing else lists it. */
+const ENTRY: RigEntry = { def: CAIRN_RIG, animator: cairnAnimator, required: ENEMY_STATES, variants: { windup: [0, 1], attack: [0, 1], recover: [0, 1] } };
+export default ENTRY;

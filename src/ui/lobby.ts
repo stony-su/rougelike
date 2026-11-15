@@ -56,7 +56,11 @@ export class LobbyView {
       const back = new Graphics().roundRect(0, 0, W - 48, ROW_H - 8, 6).fill({ color: 0xffffff, alpha: 1 });
       back.tint = UI.scrim;
       back.alpha = 0.7;
-      const chip = new Graphics().circle(24, (ROW_H - 8) / 2, 11).fill(0xffffff).circle(24, (ROW_H - 8) / 2, 15).stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
+      const chip = new Graphics()
+        .circle(24, (ROW_H - 8) / 2, 11)
+        .fill(0xffffff)
+        .circle(24, (ROW_H - 8) / 2, 15)
+        .stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
       const who = new Label('', { size: 12, color: UI.text, bold: true, tracking: 0.16 });
       who.position.set(52, 10);
       const what = new Label('', { size: 9, color: UI.inkSoft, tracking: 0.2 });

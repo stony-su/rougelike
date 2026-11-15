@@ -36,10 +36,17 @@ function shapesFor(t: Telegraph): Shapes {
   } else if (t.shape === 'lane') {
     const l = t.length * T;
     const hw = (t.width * T) / 2;
-    outline.rect(0, -hw, l, hw * 2).fill({ color: 0xffffff, alpha: 0.1 }).rect(0, -hw, l, hw * 2).stroke(stroke);
+    outline
+      .rect(0, -hw, l, hw * 2)
+      .fill({ color: 0xffffff, alpha: 0.1 })
+      .rect(0, -hw, l, hw * 2)
+      .stroke(stroke);
     // chevrons along the lane show its direction
     for (let x = l * 0.25; x < l; x += l * 0.25) {
-      outline.moveTo(x - hw * 0.5, -hw * 0.6).lineTo(x, 0).lineTo(x - hw * 0.5, hw * 0.6);
+      outline
+        .moveTo(x - hw * 0.5, -hw * 0.6)
+        .lineTo(x, 0)
+        .lineTo(x - hw * 0.5, hw * 0.6);
     }
     outline.stroke({ width: 2, color: 0xffffff, alpha: 0.55, join: 'round', cap: 'round' });
     fill.rect(0, -hw, l, hw * 2).fill({ color: 0xffffff, alpha: 0.3 });
@@ -80,7 +87,10 @@ function drawFan(v: View, t: Telegraph, w: World, k: number): void {
     const l = reach * T;
     const quad = (len: number): number[] => [s * hw, -c * hw, c * len + s * hw, s * len - c * hw, c * len - s * hw, s * len + c * hw, -s * hw, c * hw];
     v.outline.poly(quad(l)).fill({ color: 0xffffff, alpha: 0.14 });
-    v.outline.moveTo(0, 0).lineTo(c * l, s * l).stroke({ width: 2, color: 0xffffff, alpha: 0.9, cap: 'round' });
+    v.outline
+      .moveTo(0, 0)
+      .lineTo(c * l, s * l)
+      .stroke({ width: 2, color: 0xffffff, alpha: 0.9, cap: 'round' });
     // where it will stop
     v.outline.circle(c * l, s * l, 4).fill({ color: 0xffffff, alpha: 0.9 });
     v.fill.poly(quad(l * k)).fill({ color: 0xffffff, alpha: 0.42 });

@@ -13,7 +13,7 @@
 //   {"mdown": "left"} / {"mup": "left"}     press / release a mouse button
 //   {"pad": {"axes": [0.9, 0, 0, 0], "buttons": {"7": 1}}}   with --pad: set the fake controller's sticks and buttons
 //                                           (axes: left x, left y, right x, right y; buttons by standard index, 0 or 1)
-//   {"eval": "window.__resound.debug()"}  run script in the page; the result is printed
+//   {"eval": "window.__resound.state()"}  run script in the page; the result is printed
 //   {"shot": "name"}                        save a screenshot as <dir>/<name>.png
 //   {"shot": "name", "clip": [x, y, w, h]}  save only that region (CSS pixels); use --dsf 3 for close-ups
 //   {"shot": "name", "around": "js expr -> [x, y]", "size": [w, h]}   clip centred on a point computed in the page
@@ -99,8 +99,7 @@ if (stepsPath && stepsPath !== true) {
         .then(() => true)
         .catch(() => false);
       if (!ok) console.log(`[waitFor timed out] ${s.waitFor}`);
-    }
-    else if (s.down) await page.keyboard.down(s.down);
+    } else if (s.down) await page.keyboard.down(s.down);
     else if (s.up) await page.keyboard.up(s.up);
     else if (s.press) await page.keyboard.press(s.press);
     else if (s.hold) {
@@ -112,8 +111,7 @@ if (stepsPath && stepsPath !== true) {
       await page.mouse.down({ button: s.click });
       await page.waitForTimeout(s.ms ?? 30);
       await page.mouse.up({ button: s.click });
-    }
-    else if (s.pad) {
+    } else if (s.pad) {
       await page.evaluate((p) => {
         const pad = window.__pad;
         if (!pad) throw new Error('No fake controller: run with --pad');
@@ -121,8 +119,7 @@ if (stepsPath && stepsPath !== true) {
         for (const [i, v] of Object.entries(p.buttons ?? {})) pad.buttons[Number(i)] = { pressed: v > 0.5, touched: v > 0, value: v };
         pad.timestamp = performance.now();
       }, s.pad);
-    }
-    else if (s.mdown) await page.mouse.down({ button: s.mdown });
+    } else if (s.mdown) await page.mouse.down({ button: s.mdown });
     else if (s.mup) await page.mouse.up({ button: s.mup });
     else if (s.eval) console.log(`[eval] ${JSON.stringify(await page.evaluate(s.eval))}`);
     else if (s.shot) {
