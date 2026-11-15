@@ -84,6 +84,12 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
     stomped: [],
     chase: 0,
     flurry: 0,
+    hookX: 0,
+    hookY: 0,
+    quiver: 0,
+    quiverT: 0,
+    hookFree: 0,
+    hookSpare: false,
     opening: true,
     overtoneAcc: 0,
     stormAcc: 0,
@@ -226,6 +232,15 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
   if (p.afterT > 0) p.afterT = Math.max(0, p.afterT - dt);
   if (p.chainT > 0) p.chainT = Math.max(0, p.chainT - dt);
   if (p.stompT > 0) p.stompT = Math.max(0, p.stompT - dt);
+  if (p.hookFree > 0) p.hookFree = Math.max(0, p.hookFree - dt);
+  if (p.quiverT > 0) {
+    // the arrows a Hook Shot made ready do not keep
+    p.quiverT -= dt;
+    if (p.quiverT <= 0) {
+      p.quiverT = 0;
+      p.quiver = 0;
+    }
+  }
   if (p.specialCd > 0) {
     p.specialCd -= dt;
     if (p.specialCd <= 0) {
@@ -311,8 +326,8 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
     return;
   }
 
-  // A dash cancels anything else, at any moment.
-  if (p.bufDash > 0 && p.dashCharges > 0) {
+  // A dash cancels anything else, at any moment but one the kit says it cannot.
+  if (p.bufDash > 0 && p.dashCharges > 0 && !kit.locked?.(p)) {
     startDash(w, p, move);
     return;
   }

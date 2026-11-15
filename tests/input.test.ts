@@ -85,7 +85,7 @@ describe('reading a controller', () => {
 
   it('a light push aims close and a full push at the edge of a throw', () => {
     expect(padAimDistance(0)).toBe(2);
-    expect(padAimDistance(1)).toBe(9);
+    expect(padAimDistance(1)).toBe(13);
     expect(padAimDistance(0.5)).toBeGreaterThan(padAimDistance(0.2));
   });
 });

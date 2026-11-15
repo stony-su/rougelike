@@ -10,8 +10,8 @@ import { reflectFixed, reflectFree } from './geo';
 import { addRally, playerBySlot, rallyMul } from './rally';
 import { groundAt, nearestFloor } from './room';
 import { addTelegraph } from './telegraphs';
-import { BODY, BOSS, ELITE, HAND, HITSTOP, RALLY, RINGSTONE, STRING, isLight, massClass, massFactor } from './tuning';
-import type { BounceKind, Enemy, Ringstone, World } from './types';
+import { BODY, BOSS, ELITE, HAND, HITSTOP, RALLY, isLight, massClass, massFactor } from './tuning';
+import type { BounceKind, Enemy, World } from './types';
 import type { Mods } from './mods';
 
 /** What the player who sent a body flying holds, or null if nobody did. */
@@ -277,43 +277,6 @@ export function nearestEcho(w: World, x: number, y: number, range: number, not: 
   return best;
 }
 
-/** A Ringstone sends a body at the nearest other Echo, and whatever it hits next is hit harder. */
-function bounceOffStone(w: World, e: Enemy, st: Ringstone, s: BodyScratch): void {
-  let nx = e.x - st.x;
-  let ny = e.y - st.y;
-  const l = Math.sqrt(nx * nx + ny * ny) || 1;
-  nx /= l;
-  ny /= l;
-  const into = -(e.lvx * nx + e.lvy * ny);
-  const sp = speedOf(e);
-  const target = nearestEcho(w, st.x, st.y, RINGSTONE.seek, e.id);
-  let aimed = false;
-  if (target) {
-    const tx = target.x - e.x;
-    const ty = target.y - e.y;
-    const tl = Math.sqrt(tx * tx + ty * ty);
-    if (tl > 1e-6) {
-      e.lvx = (tx / tl) * sp;
-      e.lvy = (ty / tl) * sp;
-      aimed = true;
-    }
-  }
-  if (!aimed) {
-    reflectFree(e.lvx, e.lvy, nx, ny, s.v);
-    e.lvx = s.v.x;
-    e.lvy = s.v.y;
-  }
-  // Resonant Stone: whoever planted it may have it send things on harder, and pulse when struck
-  const sm = playerBySlot(w, st.owner)?.mods ?? null;
-  e.boost = Math.max(e.boost, BODY.stoneBoost, sm ? sm.stoneBoost : 0);
-  if (sm && sm.stonePulse > 0) burstAt(w, st.x, st.y, STRING.pulseRadius, sm.stonePulse, st.owner, 'stone');
-  // sent on its way, it passes the stone rather than meeting it again
-  e.caromWith = st.id;
-  e.caromLock = BODY.pairLock;
-  st.rungT = 0;
-  w.events.push({ type: 'wallSlam', id: e.id, by: e.launchBy, x: e.x, y: e.y, speed: into, off: 'stone', nx, ny });
-}
-
 /** One body flying into another: both are hurt, and part of the motion passes on. */
 function carom(w: World, e: Enemy, o: Enemy): void {
   let nx = o.x - e.x;
@@ -402,7 +365,7 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   if (shark) quake(w, o.x, o.y, HAND.sharkRadius, HAND.sharkDamage, by, 'shark', o.id);
 }
 
-/** A launched body, moved for one tick: it bounces off the chamber, Ringstones and other bodies. */
+/** A launched body, moved for one tick: it bounces off the chamber and off other bodies. */
 function fly(w: World, e: Enemy, dt: number, s: BodyScratch): void {
   const geo = w.room.geo;
   let rem = 1;
@@ -412,22 +375,13 @@ function fly(w: World, e: Enemy, dt: number, s: BodyScratch): void {
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len < 1e-9) break;
 
-    // The earliest of: the chamber itself, a Ringstone, another body. On a tie, in that order.
+    // The earlier of the chamber itself and another body. On a tie, the chamber.
     let t = 1;
     let what = 0;
-    let stone: Ringstone | null = null;
     let other: Enemy | null = null;
     if (castCircle(geo, false, e.x, e.y, dx, dy, e.radius, s.hit)) {
       t = s.hit.t;
       what = 1;
-    }
-    for (const st of w.stones) {
-      if (st.dead || st.flying || (e.caromLock > 0 && e.caromWith === st.id)) continue;
-      const ts = circleTime(e.x, e.y, dx, dy, st.x, st.y, st.radius + e.radius);
-      if (ts < 0 || ts >= t) continue;
-      t = ts;
-      what = 2;
-      stone = st;
     }
     // Carom Master: the chain runs further
     const lm = modsOf(w, e.launchBy);
@@ -458,7 +412,6 @@ function fly(w: World, e: Enemy, dt: number, s: BodyScratch): void {
     if (what === 0) break;
     rem *= 1 - t;
     if (what === 1) bounceOffChamber(w, e, s);
-    else if (what === 2 && stone) bounceOffStone(w, e, stone, s);
     else if (other) carom(w, e, other);
   }
 }

@@ -11,6 +11,9 @@ import type { InputFrame } from '../sim/types';
 import { PadReader, assistAim, padAimDistance } from './gamepad';
 import type { PadAction, PadRead } from './gamepad';
 
+/** How far ahead a controller aims while its aiming stick is at rest, in tiles. */
+const REST_AIM = 9;
+
 export const BINDINGS = {
   up: ['KeyW', 'ArrowUp'],
   down: ['KeyS', 'ArrowDown'],
@@ -68,7 +71,7 @@ export class Input {
   private readonly padPressed = new Set<PadAction>();
   /** Where the controller last aimed, kept while the stick rests. */
   private padAngle = -Math.PI / 2;
-  private padDist = 4;
+  private padDist = REST_AIM;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const on = <K extends keyof WindowEventMap>(target: Window | HTMLElement, type: K, fn: (e: WindowEventMap[K]) => void, opts?: AddEventListenerOptions): void => {
@@ -182,9 +185,9 @@ export class Input {
         this.padAngle = Math.atan2(this.aim.y, this.aim.x);
         this.padDist = padAimDistance(Math.hypot(pad.aimX, pad.aimY));
       } else if (m > 0) {
-        // with the right stick at rest, aim follows the feet
+        // with the right stick at rest, aim follows the feet, as far ahead as the Bow's line reaches
         this.padAngle = Math.atan2(this.dir.y, this.dir.x);
-        this.padDist = 4;
+        this.padDist = REST_AIM;
       }
       const angle = assistAim(this.padAngle, playerX, playerY, targets);
       setAim(f, playerX, playerY, playerX + Math.cos(angle) * this.padDist, playerY + Math.sin(angle) * this.padDist);

@@ -185,7 +185,7 @@ export interface Player {
   /** Afterimage: seconds of the damage bonus left, and whether this dash has already earned it. */
   afterT: number;
   dodged: boolean;
-  /** Ram: the Echoes this dash has already knocked aside. */
+  /** The Echoes this dash (with Ram), or this pull along the Hook Shot's line, has already knocked aside. */
   dashHit: number[];
   /** Seconds left in which an attack counts as coming straight out of a dash. */
   chainT: number;
@@ -197,6 +197,15 @@ export interface Player {
   /** The Fist: the Echo it is flying to after a stomp (its id), or 0; and the blows left of the run it lands on arriving. */
   chase: number;
   flurry: number;
+  /** The Bow: where the line of the Hook Shot in hand is made fast, which is where the Bow is pulled to. */
+  hookX: number;
+  hookY: number;
+  /** The Bow: arrows still to leave at once after a Hook Shot, and the seconds left to loose them in. */
+  quiver: number;
+  quiverT: number;
+  /** The Bow, Slingshot: seconds left in which the line may be fired once more for nothing, and whether the line in hand is that one. */
+  hookFree: number;
+  hookSpare: boolean;
   /** Opening Note: true until this player's first Return of the chamber. */
   opening: boolean;
   /** Rally gained since the last Overtone ring, and since the last Storm lightning. */
@@ -249,7 +258,7 @@ export interface Enemy {
   links: number;
   /** Seconds before this body may be launched again. */
   launchImmune: number;
-  /** Extra damage (a fraction) its next slam or carom deals, from a bumper or a Ringstone. */
+  /** Extra damage (a fraction) its next slam or carom deals, from a bumper. */
   boost: number;
   /** A second player whose blow is also in this flight (a Duet), or -1: they share the Returns it makes. */
   assistBy: number;
@@ -405,7 +414,7 @@ export interface Projectile {
   /** It was an enemy shot and a player sent it back; `perfect` if at the last moment. */
   returned: boolean;
   perfect: boolean;
-  /** Extra damage (a fraction) its next hit deals, from a bumper or a Ringstone. */
+  /** Extra damage (a fraction) its next hit deals, from a bumper. */
   boost: number;
   /** The enemy it is flying home to (an orb, or a shot the Whirlwind turned), or 0. */
   homing: number;
@@ -422,8 +431,6 @@ export interface Projectile {
   seek: number;
   /** It is a piece of an arrow that killed (Splinter): it does not split again. */
   shard: boolean;
-  /** Bell Tower: times it has gone from one Ringstone to the other. */
-  tolls: number;
   /**
    * The share of its damage it keeps when it is sent back; 1 for nearly everything. A boss's
    * rings are many bolts at once, and each is light: sent back together they would outdo every
@@ -466,26 +473,6 @@ export interface Bomb {
   damage: number;
   /** Id of the warning circle on the floor, or 0. */
   telegraph: number;
-  dead: boolean;
-}
-
-/** The Ringstone of the Bow: a bumper a player plants for a while. */
-export interface Ringstone {
-  id: number;
-  owner: number;
-  x: number;
-  y: number;
-  px: number;
-  py: number;
-  /** While thrown: where it will come down. */
-  toX: number;
-  toY: number;
-  flying: boolean;
-  radius: number;
-  /** Seconds left once planted. */
-  life: number;
-  /** Seconds since something last bounced off it (drives the pulse). */
-  rungT: number;
   dead: boolean;
 }
 
@@ -553,7 +540,7 @@ export interface Telegraph {
 export type HitKind = 'direct' | 'return' | 'slam' | 'carom' | 'ringout' | 'burst' | 'burn' | 'other';
 
 /** What a shot or a body bounced off. */
-export type BounceKind = 'wall' | 'post' | 'bumper' | 'stone';
+export type BounceKind = 'wall' | 'post' | 'bumper';
 
 /**
  * Things that happened this tick, with everything presentation needs to react. Value snapshots
@@ -587,9 +574,9 @@ export type SimEvent =
   /** Two players made a bounce between them: `a` set it up, `b` finished it. */
   | { type: 'duet'; kind: 'bank' | 'alleyoop'; a: number; b: number; x: number; y: number }
   | { type: 'revive'; player: number; by: number; x: number; y: number }
-  | { type: 'stoneThrow'; id: number; player: number; x: number; y: number }
-  | { type: 'stonePlant'; id: number; player: number; x: number; y: number }
-  | { type: 'stoneEnd'; id: number; x: number; y: number }
+  /** The Bow's line has been fired from (x, y) and made fast at (toX, toY); and the Bow has arrived there. */
+  | { type: 'hook'; player: number; x: number; y: number; toX: number; toY: number }
+  | { type: 'hookLand'; player: number; x: number; y: number }
   | { type: 'bombThrow'; id: number; x: number; y: number }
   | { type: 'bombLand'; id: number; x: number; y: number }
   | { type: 'bombBat'; id: number; player: number; x: number; y: number }
@@ -649,7 +636,6 @@ export interface World {
   enemies: Enemy[];
   projectiles: Projectile[];
   bombs: Bomb[];
-  stones: Ringstone[];
   telegraphs: Telegraph[];
   traps: Trap[];
   /** Appended to by the step; presentation clears it after reading. Never part of a snapshot. */
@@ -658,7 +644,7 @@ export interface World {
   freeze: number;
   /** The earliest tick at which another whole-chamber freeze may start. */
   freezeAllowedAt: number;
-  /** Source of ids for enemies, projectiles, bombs, stones and telegraphs. */
+  /** Source of ids for enemies, projectiles, bombs and telegraphs. */
   nextId: number;
   /** How deep into the run this chamber is (1-based); scales enemy health and damage. */
   chamber: number;

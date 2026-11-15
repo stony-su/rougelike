@@ -81,9 +81,8 @@ export const BODY = {
   launchImmune: 0.5,
   bumperRestitution: 1.15,
   bumperMinExit: 9,
-  /** Extra damage on the next hit after touching a bumper, or a Ringstone. */
+  /** Extra damage on the next hit after touching a bumper. */
   bumperBoost: 0.25,
-  stoneBoost: 0.5,
   /** Ring-out: share of maximum health lost by a body too heavy to die of it, seconds in the pit, seconds stunned after. */
   ringOutShare: 0.25,
   pitTime: 0.8,
@@ -203,16 +202,35 @@ export const BOW = {
   third: 1.3,
 };
 
-/** The Bow special: a thrown bumper. */
-export const RINGSTONE = {
-  cooldown: 8,
+/**
+ * The Bow special: the Hook Shot. A line is fired where the Bow aims, as far as the aimed point
+ * and no further than `range`, and stops at the first wall. After `windup` the Bow is pulled along
+ * it at `speed`, over pits and through Echoes, and nothing can hurt it on the way or for `safe`
+ * seconds after. Every Echo it passes within `width` is struck for `damage` and knocked off the
+ * line with `impulse`. Once it has landed its next `quiver` arrows leave `quick` seconds apart,
+ * if they are loosed within `quiverTime`.
+ */
+export const HOOK = {
+  cooldown: 7,
   range: 9,
-  radius: 0.4,
-  life: 8,
-  speed: 22,
-  /** A shot or a body that hits it is sent at the nearest Echo within this distance. */
-  seek: 10,
-  recovery: 0.18,
+  /** Nearer than this there is nowhere worth being pulled to, and the line is not fired. */
+  least: 1.2,
+  /** How finely the line is searched, back from its end, for floor to set the Bow down on. */
+  probe: 0.2,
+  windup: 0.07,
+  speed: 30,
+  safe: 0.12,
+  width: 0.45,
+  damage: 6,
+  impulse: 9,
+  /** Which way what it passes is thrown: mostly off the line, and a little the way the Bow is going. */
+  aside: 0.8,
+  onward: 0.6,
+  quiver: 3,
+  quick: 0.07,
+  quiverTime: 2.5,
+  /** Slingshot: seconds after landing in which the line may be fired once more for nothing. */
+  again: 1.2,
 };
 
 /** The Fist: jabs on the press, and a held punch. */
@@ -291,7 +309,7 @@ export const BREAK = {
 };
 
 /** How long each class's special takes to come back, for whoever draws it coming back. */
-export const SPECIAL_COOLDOWN: Readonly<Record<'sword' | 'bow' | 'fist', number>> = { sword: WHIRL.cooldown, bow: RINGSTONE.cooldown, fist: BREAK.cooldown };
+export const SPECIAL_COOLDOWN: Readonly<Record<'sword' | 'bow' | 'fist', number>> = { sword: WHIRL.cooldown, bow: HOOK.cooldown, fist: BREAK.cooldown };
 
 /** A bomb a player has struck. */
 export const BOMB = {
@@ -362,21 +380,12 @@ export const STRING = {
   splinterShare: 0.6,
   /** Pinning Note: seconds before the same Echo can be rooted again. */
   pinRest: 3,
-  /** Resonant Stone: how wide a struck stone's pulse is. */
-  pulseRadius: 1.8,
-  /** Lodestone: how much further than its speed a stone's pull reaches. */
-  lodeReach: 1.5,
   /** Heavy Fourth: which arrow of a held volley is the heavy one, and the ricochets it gains. */
   heavyEvery: 4,
   heavyBounces: 1,
   /** Trick Shot: the bounce from which an arrow always crits, and by how much. */
   trickFrom: 3,
   trickMul: 2,
-  /** Bell Tower: how often an arrow goes from one stone to the other before it is let go. */
-  towerMost: 4,
-  /** A Ringstone sends a shot on with at least this much range and time still in it. */
-  stoneRange: 12,
-  stoneLife: 0.6,
 };
 
 /** What the Sword's Tunings do, beyond the numbers on their cards. */

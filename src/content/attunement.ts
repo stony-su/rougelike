@@ -34,7 +34,7 @@ export const ATTUNEMENT: readonly AttuneDef[] = [
   { id: 'quick-step', name: 'Quick Step', costs: [8], text: ['The dash comes back 15% sooner'], gives: { dash: 0.15 } },
   { id: 'fortune', name: 'Fortune', costs: [6], text: ['A fifth more Chimes'], gives: { fortune: 0.2 } },
   { id: 'signature-sword', name: 'Signature: Chorus', costs: [6], text: ['The Edge may be offered Chorus'], gives: { unlock: 'chorus' } },
-  { id: 'signature-bow', name: 'Signature: Lodestone', costs: [6], text: ['The String may be offered Lodestone'], gives: { unlock: 'lodestone' } },
+  { id: 'signature-bow', name: 'Signature: Full Quiver', costs: [6], text: ['The String may be offered Full Quiver'], gives: { unlock: 'full-quiver' } },
   { id: 'signature-fist', name: 'Signature: Tremor', costs: [6], text: ['The Hand may be offered Tremor'], gives: { unlock: 'tremor' } },
   { id: 'issue-sword', name: 'Issued: the Edge', costs: [10], text: ['The Edge begins with a Tuning of your choosing'], gives: { issue: 'sword' } },
   { id: 'issue-bow', name: 'Issued: the String', costs: [10], text: ['The String begins with a Tuning of your choosing'], gives: { issue: 'bow' } },

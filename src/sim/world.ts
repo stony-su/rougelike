@@ -9,7 +9,6 @@ import type { RoomFlow } from './flow';
 import { createPlayer, equip, readPresses, stepPlayer } from './player';
 import { stepProjectiles } from './projectiles';
 import { clampToFloor } from './room';
-import { stepStones } from './stones';
 import { stepStrikes } from './strikes';
 import { stepTelegraphs } from './telegraphs';
 import { createTraps, stepTraps } from './traps';
@@ -79,7 +78,6 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     enemies: [],
     projectiles: [],
     bombs: [],
-    stones: [],
     telegraphs: [],
     traps: [],
     events: [],
@@ -115,10 +113,6 @@ function holdPositions(w: World): void {
   for (const b of w.bombs) {
     b.px = b.x;
     b.py = b.y;
-  }
-  for (const s of w.stones) {
-    s.px = s.x;
-    s.py = s.y;
   }
   for (const c of w.flow.pickups) {
     c.px = c.x;
@@ -175,7 +169,6 @@ export function stepWorld(w: World, inputs: ReadonlyArray<InputFrame | undefined
   stepEnemies(w, DT);
   stepProjectiles(w, DT);
   stepBombs(w, DT);
-  stepStones(w, DT);
   stepFlow(w, DT);
   stepTraps(w, DT);
   stepStrikes(w, DT);

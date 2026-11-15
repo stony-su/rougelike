@@ -1,7 +1,7 @@
 // The Tunings of the Bow, the String (DESIGN.md section 4.3). Three builds of three, and one that
-// belongs to none. Pinball plays the walls; Chain plays the crowd; Stonework plays the Ringstone.
+// belongs to none. Pinball plays the walls; Chain plays the crowd; the Line plays the Hook Shot.
 // The rules that read these numbers are in src/sim/projectiles.ts (what an arrow does on its way
-// and when it lands), src/sim/stones.ts (the stones themselves) and src/sim/classes/bow.ts.
+// and when it lands), and src/sim/classes/bow.ts (the string and the Hook Shot).
 import type { TuningSet } from '../../sim/mods';
 
 const set: TuningSet = {
@@ -110,58 +110,64 @@ const set: TuningSet = {
       ],
       effects: [{ mod: 'pin', op: 'set', v: [0.5, 0.8, 1.1] }],
     },
-    // ---- Stonework: the Ringstone
+    // ---- the Line: the Hook Shot
     {
-      id: 'twin-stones',
-      icon: 'stones',
+      id: 'long-line',
+      icon: 'hook',
       tone: 'bow',
-      name: 'Twin Stones',
+      name: 'Long Line',
       owner: 'bow',
-      build: 'Stonework',
+      build: 'Line',
       rarity: 0,
-      maxRank: 2,
-      text: ['Two Ringstones may stand at once, and each stands twice as long.', 'Two Ringstones may stand at once, each stands twice as long, and the next is ready 25% sooner.'],
+      maxRank: 3,
+      text: [
+        'The Hook Shot reaches 2 tiles further, and is ready 10% sooner.',
+        'The Hook Shot reaches 3 tiles further, and is ready 20% sooner.',
+        'The Hook Shot reaches 4 tiles further, and is ready 30% sooner.',
+      ],
       effects: [
-        { mod: 'stones', op: 'set', v: [2, 2] },
-        { mod: 'stoneLife', op: 'set', v: [2, 2] },
-        { mod: 'stoneCd', op: 'set', v: [0, 0.25] },
+        { mod: 'hookRange', op: 'add', v: [2, 3, 4] },
+        { mod: 'hookCd', op: 'set', v: [0.1, 0.2, 0.3] },
       ],
     },
     {
-      id: 'resonant-stone',
-      icon: 'pulse',
+      id: 'barbed-line',
+      icon: 'barb',
       tone: 'bow',
-      name: 'Resonant Stone',
+      name: 'Barbed Line',
       owner: 'bow',
-      build: 'Stonework',
+      build: 'Line',
       rarity: 1,
       maxRank: 3,
       text: [
-        'What a Ringstone sends on lands 80% harder, not 50%, and a struck stone pulses for 8 round itself.',
-        'What a Ringstone sends on lands 110% harder, not 50%, and a struck stone pulses for 12 round itself.',
-        'What a Ringstone sends on lands 140% harder, not 50%, and a struck stone pulses for 16 round itself.',
+        'What the Hook Shot passes takes 14, not 6, and is thrown 30% harder.',
+        'What the Hook Shot passes takes 20, not 6, and is thrown 60% harder.',
+        'What the Hook Shot passes takes 26, not 6, and is thrown 90% harder.',
       ],
       effects: [
-        { mod: 'stoneBoost', op: 'set', v: [0.8, 1.1, 1.4] },
-        { mod: 'stonePulse', op: 'set', v: [8, 12, 16] },
+        { mod: 'hookDamage', op: 'add', v: [8, 14, 20] },
+        { mod: 'hookImpulse', op: 'mul', v: [1.3, 1.6, 1.9] },
       ],
     },
     {
-      id: 'lodestone',
-      icon: 'magnet',
+      id: 'full-quiver',
+      icon: 'quiver',
       tone: 'bow',
-      name: 'Lodestone',
+      name: 'Full Quiver',
       owner: 'bow',
-      build: 'Stonework',
+      build: 'Line',
       rarity: 2,
       maxRank: 3,
       locked: true,
       text: [
-        'A planted Ringstone draws in the Echoes within 3 tiles of it.',
-        'A planted Ringstone draws in the Echoes within 3 and a half tiles of it, faster.',
-        'A planted Ringstone draws in the Echoes within 4 tiles of it, faster still.',
+        'After a Hook Shot 4 arrows leave at once, not 3, and each has 1 more ricochet.',
+        'After a Hook Shot 5 arrows leave at once, not 3, and each has 1 more ricochet.',
+        'After a Hook Shot 6 arrows leave at once, not 3, and each has 1 more ricochet.',
       ],
-      effects: [{ mod: 'lodestone', op: 'set', v: [1.5, 2, 2.5] }],
+      effects: [
+        { mod: 'quiver', op: 'add', v: [1, 2, 3] },
+        { mod: 'quiverBounces', op: 'set', v: [1, 1, 1] },
+      ],
     },
     // ---- belongs to no build
     {
@@ -200,11 +206,11 @@ const set: TuningSet = {
       effects: [{ mod: 'chainReaction', op: 'set', v: [1] }],
     },
     {
-      id: 'bell-tower',
-      name: 'Bell Tower',
-      parents: ['twin-stones', 'resonant-stone'],
-      text: 'An arrow that hits one stone with the other in sight goes between them up to 4 times, pulsing at each, before it flies at an Echo.',
-      effects: [{ mod: 'bellTower', op: 'set', v: [1] }],
+      id: 'slingshot',
+      name: 'Slingshot',
+      parents: ['long-line', 'barbed-line'],
+      text: 'For 1.2 seconds after it lands you, the Hook Shot can be fired once more for nothing.',
+      effects: [{ mod: 'slingshot', op: 'set', v: [1] }],
     },
   ],
 };

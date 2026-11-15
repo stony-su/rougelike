@@ -78,14 +78,15 @@ export interface Mods {
   splinter: number;
   /** Seconds a skipped arrow roots its target. */
   pin: number;
-  stones: number;
-  /** Share by which the Ringstone's wait is shortened, and what its standing time is multiplied by. */
-  stoneCd: number;
-  stoneLife: number;
-  stoneBoost: number;
-  stonePulse: number;
-  /** Speed at which a planted Ringstone pulls Echoes toward it. */
-  lodestone: number;
+  /** Tiles the Hook Shot's line reaches beyond its own range, and the share by which its wait is shortened. */
+  hookRange: number;
+  hookCd: number;
+  /** What the Hook Shot adds to the damage it does to what it passes, and what it multiplies the throw by. */
+  hookDamage: number;
+  hookImpulse: number;
+  /** Arrows more that leave at once after a Hook Shot, and the ricochets each of those arrows gains. */
+  quiver: number;
+  quiverBounces: number;
   /** Damage multiplier of every fourth arrow of a held volley. 0 = off. */
   heavyMul: number;
   /** Echoes that heavy arrow goes through. */
@@ -122,7 +123,7 @@ export interface Mods {
   standingWave: number;
   trickShot: number;
   chainReaction: number;
-  bellTower: number;
+  slingshot: number;
   poolShark: number;
   cornerPocket: number;
   earthquake: number;
@@ -179,12 +180,12 @@ export function baseMods(): Mods {
     skipRange: 0,
     splinter: 0,
     pin: 0,
-    stones: 1,
-    stoneCd: 0,
-    stoneLife: 1,
-    stoneBoost: 0,
-    stonePulse: 0,
-    lodestone: 0,
+    hookRange: 0,
+    hookCd: 0,
+    hookDamage: 0,
+    hookImpulse: 1,
+    quiver: 0,
+    quiverBounces: 0,
     heavyMul: 0,
     heavyPierce: 0,
     follow: 0,
@@ -207,7 +208,7 @@ export function baseMods(): Mods {
     standingWave: 0,
     trickShot: 0,
     chainReaction: 0,
-    bellTower: 0,
+    slingshot: 0,
     poolShark: 0,
     cornerPocket: 0,
     earthquake: 0,

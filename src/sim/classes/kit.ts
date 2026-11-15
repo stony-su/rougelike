@@ -13,6 +13,8 @@ export interface Kit {
   step(w: World, p: Player, move: Vec2, dt: number): void;
   /** A dash or a fall cut the action short: drop whatever it was holding. */
   cancel(p: Player): void;
+  /** True while the action in hand cannot be cut short by a dash: the press waits until it is over. */
+  locked?(p: Player): boolean;
 }
 
 /** A buffered press of the special. True (and the press is used up) if the special is ready; says so if it is not. */

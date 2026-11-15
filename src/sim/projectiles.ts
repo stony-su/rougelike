@@ -6,7 +6,7 @@
 // shot with nobody in the room, so the path drawn is, bit for bit, the path flown.
 import { datan2, dcos, dsin } from '../core/dmath';
 import type { Vec2 } from '../core/exact';
-import { nearestEcho, pushBody } from './bodies';
+import { pushBody } from './bodies';
 import { BOMB_TOUCH, detonateBomb } from './bombs';
 import { HIT_BUMPER, HIT_POST, SKIN, castCircle, circleTime, newHit } from './cast';
 import type { Hit } from './cast';
@@ -15,8 +15,8 @@ import { applyMark, applyRoot } from './conditions';
 import { reflectFixed, reflectFree } from './geo';
 import type { Geo } from './geo';
 import { addRally, playerBySlot, rallyMul } from './rally';
-import { BODY, BOW, BREAK, DT, DUET, EDGE, HITSTOP, RALLY, REFLECT, RINGSTONE, STRING } from './tuning';
-import type { Bomb, BounceKind, Enemy, Player, Projectile, Ringstone, World } from './types';
+import { BODY, BOW, BREAK, DT, DUET, EDGE, HITSTOP, RALLY, REFLECT, STRING } from './tuning';
+import type { Bomb, BounceKind, Enemy, Player, Projectile, World } from './types';
 
 /** No shot ever flies faster than this, however many bumpers it meets. */
 const MAX_SHOT_SPEED = 40;
@@ -80,7 +80,6 @@ function make(id: number, o: ShotSpec): Projectile {
     quick: o.quick ?? 1,
     seek: o.seek ?? 0,
     shard: false,
-    tolls: 0,
     back: o.back ?? 1,
     hits: [],
     dead: false,
@@ -388,7 +387,6 @@ function splinter(w: World, pr: Projectile, from: Enemy, pieces: number, keeps: 
 
 const NOTHING = 0;
 const CHAMBER = 1;
-const STONE = 2;
 const ENEMY = 3;
 const BOMB = 4;
 const PLAYER = 5;
@@ -464,7 +462,6 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
     // The earliest thing in the way. The chamber wins a tie, then the lower id.
     let t = 1;
     let what = NOTHING;
-    let stone: Ringstone | null = null;
     let enemy: Enemy | null = null;
     let bomb: Bomb | null = null;
     let player: Player | null = null;
@@ -475,14 +472,6 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
     }
     if (w) {
       if (pr.faction === 'player') {
-        for (const st of w.stones) {
-          if (st.dead || st.flying || pr.hits.includes(st.id)) continue;
-          const ts = circleTime(pr.x, pr.y, dx, dy, st.x, st.y, st.radius + pr.radius);
-          if (ts < 0 || ts >= t) continue;
-          t = ts;
-          what = STONE;
-          stone = st;
-        }
         for (const e of w.enemies) {
           if (!hittable(e) || pr.hits.includes(e.id)) continue;
           const te = circleTime(pr.x, pr.y, dx, dy, e.x, e.y, e.radius + pr.radius);
@@ -525,8 +514,7 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
     }
 
     // Stop a hair short of anything solid, so the next move does not start inside it.
-    const solid = what === CHAMBER || what === STONE;
-    const tc = what === NOTHING ? 1 : solid ? Math.max(0, t - SKIN / len) : t;
+    const tc = what === NOTHING ? 1 : what === CHAMBER ? Math.max(0, t - SKIN / len) : t;
     pr.x += dx * tc;
     pr.y += dy * tc;
     pr.range -= len * tc;
@@ -574,54 +562,6 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
         const off: BounceKind = bumper ? 'bumper' : hit.kind === HIT_POST ? 'post' : 'wall';
         w.events.push({ type: 'ricochet', id: pr.id, by: pr.faction === 'player' ? pr.owner : -1, x: pr.x, y: pr.y, n: pr.bounced, off, nx: hit.nx, ny: hit.ny });
       }
-    } else if (what === STONE && stone && w) {
-      // A Ringstone sends the shot at the nearest Echo, harder, and it costs no bounce.
-      let nx = pr.x - stone.x;
-      let ny = pr.y - stone.y;
-      const nl = Math.sqrt(nx * nx + ny * ny) || 1;
-      nx /= nl;
-      ny /= nl;
-      const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy);
-      // whoever planted it: what a stone does to a shot depends on what they hold
-      const sm = playerBySlot(w, stone.owner)?.mods ?? null;
-      // Bell Tower: with the other stone in sight, the shot goes to it, a few times, before it is let go
-      let tower: Ringstone | null = null;
-      if (sm && sm.bellTower > 0 && pr.tolls < STRING.towerMost) {
-        for (const other of w.stones) {
-          if (other === stone || other.dead || other.flying || other.owner !== stone.owner) continue;
-          if (!castCircle(geo, false, stone.x, stone.y, other.x - stone.x, other.y - stone.y, pr.radius, hit)) tower = other;
-        }
-      }
-      const target = tower ?? nearestEcho(w, stone.x, stone.y, RINGSTONE.seek, 0);
-      if (tower) pr.tolls++;
-      let aimed = false;
-      if (target) {
-        const tx = target.x - pr.x;
-        const ty = target.y - pr.y;
-        const tl = Math.sqrt(tx * tx + ty * ty);
-        if (tl > 1e-6) {
-          pr.vx = (tx / tl) * sp;
-          pr.vy = (ty / tl) * sp;
-          aimed = true;
-        }
-      }
-      if (!aimed) {
-        reflectFree(pr.vx, pr.vy, nx, ny, v);
-        pr.vx = v.x;
-        pr.vy = v.y;
-      }
-      // Resonant Stone: it sends things on harder still, and pulses when it is struck
-      pr.boost = Math.max(pr.boost, BODY.stoneBoost, sm ? sm.stoneBoost : 0);
-      pr.bounced++;
-      pr.range = Math.max(pr.range, STRING.stoneRange);
-      pr.life = Math.max(pr.life, STRING.stoneLife);
-      pr.homing = 0;
-      // it will not meet this stone again until it has bounced off something else
-      pr.hits.length = 0;
-      pr.hits.push(stone.id);
-      stone.rungT = 0;
-      if (sm && sm.stonePulse > 0) burstAt(w, stone.x, stone.y, STRING.pulseRadius, sm.stonePulse, stone.owner, 'stone');
-      w.events.push({ type: 'ricochet', id: pr.id, by: pr.owner, x: pr.x, y: pr.y, n: pr.bounced, off: 'stone', nx, ny });
     } else if (what === ENEMY && enemy && w) {
       strike(w, pr, enemy);
     } else if (what === BOMB && bomb && w) {

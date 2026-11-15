@@ -7,6 +7,7 @@ import type { Vec2 } from '../core/exact';
 import { BUY_RATION, CAMP, REST_HEAL, atCamp, priceOf, raisable } from './camp';
 import type { CampSeat } from './camp';
 import { castCircle, newHit } from './cast';
+import { hookReach } from './classes/bow';
 import type { Hit } from './cast';
 import { hittable, onGuard, outOfReach, standing } from './combat';
 import type { ContentRegistry } from './defs';
@@ -19,7 +20,7 @@ import type { Command, Session } from './session';
 import { VOTE_NONE, VOTE_TAKE, VOTE_WALK, WAGER, onTable } from './wager';
 import { previewArrow } from './projectiles';
 import { telegraphCovers } from './telegraphs';
-import { BOW, BREAK, DASH, FIST, HAYMAKER, PLAYER, SIM_HZ, SWORD, WHIRL } from './tuning';
+import { BOW, BREAK, DASH, FIST, HAYMAKER, HOOK, PLAYER, SIM_HZ, SWORD, WHIRL } from './tuning';
 import { BTN, PRESS, emptyInput } from './types';
 import type { ClassId, Enemy, InputFrame, Player, Projectile, Room, Telegraph, World } from './types';
 
@@ -609,7 +610,50 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
   });
 }
 
-/** Keeps its distance and keeps the string busy; throws a Ringstone into a crowd. */
+/** How many directions a bot tries for its line, how far a line must carry it to be worth firing, and how much better off it must leave it. */
+const HOOK_TRIES = 16;
+const HOOK_WORTH = 3;
+const HOOK_GAIN = 2;
+
+/**
+ * The Bow's line as a way out. Of the directions round the bot, the one whose line sets it down
+ * furthest from every Echo, on ground no warning covers, and not in a corner. Aims the frame
+ * along it, presses, and returns true; false if no line would leave it better off than it stands.
+ */
+function hookAway(w: World, p: Player, f: InputFrame): boolean {
+  /** How good a place is to stand: far from the nearest Echo (beyond eight tiles is all one), and near the middle. */
+  const worth = (x: number, y: number): number => {
+    let near = 8;
+    for (const e of w.enemies) {
+      if (!hittable(e)) continue;
+      const d = dhypot(e.x - x, e.y - y) - e.radius;
+      if (d < near) near = d;
+    }
+    return near - 0.1 * dhypot(x - w.room.cx, y - w.room.cy);
+  };
+  let best = worth(p.x, p.y) + HOOK_GAIN;
+  let angle = -1;
+  let reach = 0;
+  for (let i = 0; i < HOOK_TRIES; i++) {
+    const a = (i / HOOK_TRIES) * TAU;
+    const far = hookReach(w, p, a, HOOK.range + p.mods.hookRange);
+    if (far < HOOK_WORTH) continue;
+    const x = p.x + dcos(a) * far;
+    const y = p.y + dsin(a) * far;
+    if (landsAt(w, x, y, p.radius + BERTH) < Infinity) continue;
+    const s = worth(x, y);
+    if (s > best) {
+      best = s;
+      angle = a;
+      reach = far;
+    }
+  }
+  if (angle < 0) return false;
+  setAim(f, p.x, p.y, p.x + dcos(angle) * reach, p.y + dsin(angle) * reach);
+  press(f, PRESS.special);
+  return true;
+}
+
 /** How many directions a bot tries when it looks for a shot off the walls, and how often it looks again (ticks). */
 const BANK_TRIES = 48;
 const BANK_EVERY = 15;
@@ -688,7 +732,12 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
       // the string stays busy whatever the feet are doing
       if (orb || (target && target.state !== 'spawn')) hold(f, BTN.attack, true);
 
-      if (evade(w, p, f, seen, o)) return f;
+      const line = o.special && p.specialCd <= 0 && p.state !== 'special';
+      if (evade(w, p, f, seen, o)) {
+        // under a warning about to land with no dash left to leave it by: out along the line, which nothing can follow
+        if (line && p.dashCharges <= 0 && landsAt(w, p.x, p.y, p.radius + BERTH) < 0.25) hookAway(w, p, f);
+        return f;
+      }
       incoming(w, p, seen, o, inc);
       if (inc.shot && inc.shot.kind !== 'orb') {
         sidestep(f, p, inc.shot);
@@ -701,7 +750,6 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
       const dx = target.x - p.x;
       const dy = target.y - p.y;
       const d = dhypot(dx, dy) || 1;
-      if (o.special && p.specialCd <= 0 && target.state !== 'spawn' && countNear(w, p, 9) >= 2) press(f, PRESS.special);
       // No shot at it from here (a wall between, and no way in off another): go and find one.
       if (castCircle(w.room.geo, false, p.x, p.y, dx, dy, BOW.radius, way.hit) && bank.angle < 0) {
         walkTo(w, p, f, target.x, target.y, way);
@@ -711,6 +759,8 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
       // it would never strike, and never open. So it is let come. Its bash is stepped out of, and
       // it is shot while the gong hangs at its side.
       if (onGuard(target) && (!o.special || bank.angle < 0) && !w.enemies.some((e) => hittable(e) && !onGuard(e))) return f;
+      // An Echo at arm's length: away along the line, through whatever stands in it, and the arrows that follow leave at once.
+      if (line && target.state !== 'spawn' && d < 2.6 + target.radius && hookAway(w, p, f)) return f;
       if (d < 4.2) {
         // too close: back off, drifting toward the middle of the room so as not to be cornered
         const cx = w.room.cx - p.x;

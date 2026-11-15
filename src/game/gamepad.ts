@@ -106,8 +106,8 @@ export function readPad(pad: PadState, out: PadRead): PadRead {
   return out;
 }
 
-/** How far away a stick aims: a light push aims close, a full one at the edge of a throw. */
-export const padAimDistance = (magnitude: number): number => 2 + 7 * Math.max(0, Math.min(1, magnitude));
+/** How far away a stick aims: a light push aims close, a full one at the end of the longest line the Bow can fire. */
+export const padAimDistance = (magnitude: number): number => 2 + 11 * Math.max(0, Math.min(1, magnitude));
 
 /** A stick cannot point as finely as a mouse, so its aim leans toward a target close to its line. */
 export const ASSIST = {
