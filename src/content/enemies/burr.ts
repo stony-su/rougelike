@@ -12,7 +12,7 @@ export const BURR: EnemyDef = {
   threat: 2,
   minChamber: 2,
   zones: ['outer', 'inner'],
-  locomotion: { kind: 'kite', min: 4, max: 7 },
+  locomotion: { kind: 'skirmish', min: 4, max: 7, turn: 0.9 },
   moves: [
     {
       id: 'lob',

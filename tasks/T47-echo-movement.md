@@ -1,7 +1,7 @@
 ---
 id: T47
 title: Echoes that surround, flank and reposition
-status: claimed
+status: done
 owner: stony-su
 milestone: 5
 weight: 2.5

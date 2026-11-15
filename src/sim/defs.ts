@@ -29,10 +29,17 @@ export interface RoomTemplate {
 
 /** How an enemy moves when it is not attacking. */
 export type LocomotionSpec =
-  /** Walk at the target until within `range`. `weave` adds a side-to-side sway. */
+  /** Walk at where the target is going until within `range`. `weave` adds a side-to-side sway. */
   | { kind: 'chase'; range: number; weave?: number }
+  /**
+   * Take a place on a ring of radius `ring` round the target, on a different side from its
+   * fellows, and strike from there. The places drift round at `drift` radians a second.
+   */
+  | { kind: 'surround'; ring: number; drift?: number }
   /** Hold a distance band from the target. */
   | { kind: 'kite'; min: number; max: number }
+  /** Hold a distance band, and after every attack move to another spot in it, about `turn` radians round the target. */
+  | { kind: 'skirmish'; min: number; max: number; turn: number }
   /** Stand still. */
   | { kind: 'hold' };
 

@@ -21,7 +21,7 @@ export const GONG: EnemyDef = {
   threat: 3,
   minChamber: 3,
   zones: ['outer', 'inner'],
-  locomotion: { kind: 'chase', range: 1.7 },
+  locomotion: { kind: 'surround', ring: 1.6 },
   moves: [
     {
       id: 'bash',

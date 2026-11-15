@@ -340,6 +340,31 @@ export const ELITE = {
   splitShove: 4,
 };
 
+/** How Echoes get about (steer.ts). */
+export const STEER = {
+  /**
+   * Cutting off: an Echo walks at where its target will be, this many seconds on at most, and
+   * less when it is close (as long as it would take to get there at `leadPace` times its speed).
+   */
+  leadMost: 0.6,
+  leadPace: 1.4,
+  /** Beyond this far from its target it hurries, by this much. */
+  rushBeyond: 7,
+  rush: 1.3,
+  /** Surrounding: fellows keep their places this far apart round the ring (radians) when there is room, and part at this rate. */
+  apartMost: 1.5,
+  partRate: 2.5,
+  /** It comes round the ring toward its place at most this far ahead of where it stands (radians). */
+  roundStep: 0.9,
+  /**
+   * Skirmishing: seconds before a spot is given up for another, seconds it gives a spot it cannot
+   * walk to, and how close (as a share of its near distance) its target may come before it moves off.
+   */
+  spotPatience: 5,
+  blockedPatience: 0.4,
+  tooClose: 0.75,
+};
+
 /**
  * Bosses cannot be stunned or launched. What they can be is staggered: this many Returns landed
  * on one, with no more than `staggerFade` seconds between them, stop it where it stands for

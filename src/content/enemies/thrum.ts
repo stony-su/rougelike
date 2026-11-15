@@ -11,7 +11,8 @@ export const THRUM: EnemyDef = {
   threat: 1,
   minChamber: 1,
   zones: ['outer', 'inner'],
-  locomotion: { kind: 'chase', range: 2.3, weave: 0.45 },
+  // a pack takes places all round its target and turns slowly about them
+  locomotion: { kind: 'surround', ring: 2.5, drift: 0.3 },
   moves: [
     {
       id: 'lunge',

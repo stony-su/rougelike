@@ -243,6 +243,14 @@ export interface Enemy {
   thinkT: number;
   /** The player (slot) this enemy is after. */
   target: number;
+  /**
+   * How it gets about (steer.ts). Surrounding: the angle round its target of the place it is
+   * making for. Skirmishing: the angle and the distance of its spot, and the seconds it will
+   * still give that spot.
+   */
+  slot: number;
+  spotR: number;
+  spotT: number;
   /** The point the current attack is aimed at, locked during the wind-up. */
   aimX: number;
   aimY: number;

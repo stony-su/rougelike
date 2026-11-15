@@ -15,7 +15,8 @@ export const PIPER: EnemyDef = {
   threat: 2,
   minChamber: 1,
   zones: ['outer', 'inner'],
-  locomotion: { kind: 'kite', min: 5, max: 7 },
+  // it plays from a new spot after every volley
+  locomotion: { kind: 'skirmish', min: 5, max: 7.5, turn: 1.1 },
   moves: [
     {
       id: 'volley',

@@ -1,8 +1,8 @@
 ---
 id: T34
 title: Tunings you can tell apart at a glance
-status: open
-owner:
+status: claimed
+owner: stony-su
 milestone: 5
 weight: 1.5
 needs: [T20]

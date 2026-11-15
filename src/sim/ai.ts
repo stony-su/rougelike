@@ -15,8 +15,8 @@ import { throwBomb } from './bombs';
 import { castCircle, pushOut } from './cast';
 import { HURT_GUARDED, damagePlayer, standing, stunEnemy } from './combat';
 import type { ActionSpec, EnemyDef, MoveSpec } from './defs';
-import { navFor, navStep } from './nav';
 import { spawnProjectile } from './projectiles';
+import { steer } from './steer';
 import { newStatus, slowOf, stepStatus } from './status';
 import { addTelegraph, findTelegraph, laneAngle, telegraphCovers } from './telegraphs';
 import { ELITE, RIPOSTE, SCALING } from './tuning';
@@ -128,6 +128,10 @@ export function spawnEnemy(w: World, def: EnemyDef, x: number, y: number, o: { e
     cooldowns: def.moves.map(() => w.rng.float(0.2, 1.1)),
     thinkT: 0,
     target: near ? near.slot : 0,
+    // it arrives on the side of its target it is on
+    slot: near ? datan2(y - near.y, x - near.x) : 0,
+    spotR: 0,
+    spotT: 0,
     aimX: x,
     aimY: y,
     telegraph: 0,
@@ -357,7 +361,6 @@ function stepAttack(w: World, e: Enemy, m: MoveSpec): void {
 
 function locomote(w: World, e: Enemy, dt: number, s: BodyScratch): void {
   const p = chooseTarget(w, e);
-  const loc = e.def.locomotion;
   let dx = 0;
   let dy = 0;
   let dist = 0;
@@ -382,37 +385,9 @@ function locomote(w: World, e: Enemy, dt: number, s: BodyScratch): void {
   let tx = 0;
   let ty = 0;
   if (p) {
-    if (!clear && loc.kind === 'chase') {
-      // Something is in the way: follow the walking field of that player round it.
-      const field = navFor(w, w.players.indexOf(p));
-      if (field && navStep(w.room, field, e.x, e.y, s.v)) {
-        tx = s.v.x * speed;
-        ty = s.v.y * speed;
-      }
-    } else if (loc.kind === 'chase') {
-      if (dist > loc.range) {
-        tx = dx * speed;
-        ty = dy * speed;
-        if (loc.weave) {
-          const s = dsin(w.time * 2.6 + e.seed * 6.283) * loc.weave * speed;
-          tx += -dy * s;
-          ty += dx * s;
-        }
-      }
-    } else if (loc.kind === 'kite') {
-      if (dist < loc.min) {
-        tx = -dx * speed;
-        ty = -dy * speed;
-      } else if (dist > loc.max) {
-        tx = dx * speed;
-        ty = dy * speed;
-      } else {
-        // Inside the band: drift sideways so it is not a sitting target.
-        const s = (e.seed < 0.5 ? -1 : 1) * speed * 0.4;
-        tx = -dy * s;
-        ty = dx * s;
-      }
-    }
+    steer(w, e, p, dist, clear, speed, dt, s.v);
+    tx = s.v.x;
+    ty = s.v.y;
   }
   e.vx = ddamp(e.vx, tx, 10, dt);
   e.vy = ddamp(e.vy, ty, 10, dt);
@@ -591,6 +566,8 @@ export function stepEnemies(w: World, dt: number): void {
         e.vy = ddamp(e.vy, 0, 12, dt);
         if (e.stateTime >= e.stateDur) {
           e.move = -1;
+          // one that skirmishes does not stay where it struck from
+          e.spotT = 0;
           setState(e, 'idle');
         }
         break;

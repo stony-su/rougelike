@@ -213,9 +213,23 @@ Marked by a pennant and a danger-coloured aura. +60% health, +15% damage, one tr
 
 A fight is 2 waves (3 from chamber 5). Each wave spends a threat budget of `3 + 0.9 × chamber`. At most one Cairn per wave before chamber 8; Burr and Skirl do not appear together before chamber 6. **Waves fit the party**: with a Sword in the chamber every wave includes at least one Echo that shoots or throws; with a Fist, at least two light bodies. Each zone's elite fight carries its elites in the last wave.
 
+### 5.3 How Echoes move
+
+An Echo that only walks at its target can be led in a circle for ever, so none of them only does that (`src/sim/steer.ts`):
+
+- **Cutting off.** Every Echo that closes in heads for where its target is going (up to 0.6 s ahead), not where it is.
+- **Surrounding** (Thrum, Gong). Each takes a place on a ring round its target, on a different side from its fellows, and comes at that place round the ring rather than through the middle. A Thrum pack's ring turns slowly, so the gaps move.
+- **Skirmishing** (Piper, Burr). They keep their distance, and after every attack move to another spot at that distance, about a radian round their target; if their target comes close they move off at once.
+- **Hurrying.** Beyond 7 tiles every Echo moves 30% faster, so the far side of a big chamber is no refuge.
+- When the straight way to its target is blocked by a wall or a pit, an Echo follows that player's walking field round it.
+
 ## 6. Bosses
 
 Bosses cannot be launched, stunned or dragged, but take carom damage (×1.5) from bodies launched into them. Health is ×(1 + 0.6 × extra players). Three Returns on a boss within 6 s stagger it for 1.5 s: it stops attacking and takes +50%.
+
+**A boss fills its floor.** Its chamber is small and open (no pits, no posts, a bumper toward each corner), it stands about twice the height of anything else, and it is seldom doing nothing: it runs through a rotation of patterns, each drawn on the floor before it lands, with less than a second between them. The patterns are built from *strikes* (`src/sim/strikes.ts`): warnings that land by themselves as a disc, a ring with a safe middle, a lane or a cone. After a stagger a boss cannot be staggered again for 9 s.
+
+**The Carillon as built.** 1150 health; phase 2 below half. Rotation: *Serve* (a fan of 3 orbs, 5 in phase 2; any basic attack sends one home, and the first to arrive cracks a bell for 60, the rest knock for 22 while the frame rings for 3 s) · *Marks* (a circle of radius 1.7 under every player, 3 times, 5 in phase 2) · *Peal* (3 rings of bolts, 4 in phase 2, with gaps that walk round) · *Toll* (a slam of radius 4.2 round the frame and then a ring out to 8, or the other way about) · *Cross* (four strips through the frame, then the four between them) · *Leap* (it comes down on whoever is furthest, and peals as it lands). A cracked bell calls Thrums. The table below is the first design, kept for reference.
 
 ### 6.1 Mini-boss: the Carillon (chamber 6)
 
