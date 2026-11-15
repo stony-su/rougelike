@@ -114,6 +114,7 @@ export function spawnEnemy(
     links: 0,
     launchImmune: 0,
     boost: 0,
+    assistBy: -1,
     caromWith: 0,
     caromLock: 0,
     stagger: 0,

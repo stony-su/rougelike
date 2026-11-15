@@ -193,11 +193,13 @@ describe('getting hurt', () => {
     expect(a.state).toBe('down');
     expect(ev.some((x) => x.type === 'playerDown' && x.player === 0)).toBe(true);
     expect(w.freeze).toBe(FREEZE.playerDown);
-    // a downed player does not act
+    // a downed player can only crawl: slowly, and a press does nothing
     const pad = new Pad().move(1, 0);
     const x0 = a.x;
-    run(w, 30, pad, new Pad());
-    expect(a.x).toBe(x0);
+    run(w, 30, pad.tap(PRESS.attack), new Pad());
+    expect(a.state).toBe('down');
+    expect(a.x - x0).toBeGreaterThan(0.2);
+    expect(a.x - x0).toBeLessThan(0.8);
   });
 
   it('hurts a player caught by an enemy shot, once', () => {

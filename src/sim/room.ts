@@ -68,6 +68,7 @@ export function buildRoom(t: RoomTemplate): Room {
     name: t.name,
     zone: t.zone,
     kind: t.kind,
+    look: t.look ?? 'court',
     w,
     h,
     tiles,

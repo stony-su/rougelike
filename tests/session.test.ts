@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { RelayCore, SILENCE_MS, TICK_MS } from '../src/net/relayCore';
 import { Loopback } from '../src/net/transport';
-import { swordBot } from '../src/sim/bots';
+import { classBot } from '../src/sim/bots';
 import type { Bot } from '../src/sim/bots';
 import { standing } from '../src/sim/combat';
 import { angleOf, moveInto, press, quantAngle, setAim, setMove } from '../src/sim/input';
@@ -12,10 +12,15 @@ import { createSession, stepSession, worldOf } from '../src/sim/session';
 import type { Bundle, Session, SessionConfig } from '../src/sim/session';
 import { decodeState, encodeState, hashSession, loadSession, saveSession } from '../src/sim/snapshot';
 import { AIM_STEPS, BTN, MOVE_STEPS, PRESS, emptyInput } from '../src/sim/types';
+import type { ClassId } from '../src/sim/types';
+
+/** Seats are filled with one of each class in turn, so every kit is in every multi-player check. */
+const CLASSES: ClassId[] = ['sword', 'bow', 'fist'];
+const bots = (n: number): Bot[] => Array.from({ length: n }, (_, i) => classBot(CLASSES[i % 3]));
 
 const config = (players: number, seed = 'test', stress = 0): SessionConfig => ({
   seed,
-  players: Array.from({ length: players }, (_, i) => ({ name: `P${i + 1}`, classId: 'sword' })),
+  players: Array.from({ length: players }, (_, i) => ({ name: `P${i + 1}`, classId: CLASSES[i % 3] })),
   buildId: 'test',
   inputDelay: 0,
   stress,
@@ -41,7 +46,7 @@ describe('determinism', () => {
   it('three players: the same bundles give the same hash at every tick', () => {
     const log: Bundle[] = [];
     const a = createSession(config(3), CONTENT);
-    const ha = play(a, [swordBot(), swordBot(), swordBot()], 1500, log);
+    const ha = play(a, bots(3), 1500, log);
     // a second session fed only the recorded bundles, with no bots of its own
     const b = createSession(config(3), CONTENT);
     const hb = log.map((bundle) => {
@@ -56,15 +61,15 @@ describe('determinism', () => {
   it('a different seed gives a different game', () => {
     const a = createSession(config(1, 'one'), CONTENT);
     const b = createSession(config(1, 'two'), CONTENT);
-    const ha = play(a, [swordBot()], 400);
-    const hb = play(b, [swordBot()], 400);
+    const ha = play(a, bots(1), 400);
+    const hb = play(b, bots(1), 400);
     expect(ha[399]).not.toBe(hb[399]);
   });
 
   it('one changed input changes the hash (the hash sees the state)', () => {
     const log: Bundle[] = [];
     const a = createSession(config(1), CONTENT);
-    const ha = play(a, [swordBot()], 300, log);
+    const ha = play(a, bots(1), 300, log);
     const b = createSession(config(1), CONTENT);
     let last = 0;
     log.forEach((bundle, i) => {
@@ -100,13 +105,13 @@ describe('snapshots', () => {
   it('a loaded session hashes the same and continues exactly as the original', () => {
     const log: Bundle[] = [];
     const a = createSession(config(2), CONTENT);
-    play(a, [swordBot(), swordBot()], 700, log);
+    play(a, bots(2), 700, log);
     const saved = saveSession(a);
     const b = loadSession(saved, CONTENT);
     expect(hashSession(b)).toBe(hashSession(a));
     // continue both with the same new bundles
     const more: Bundle[] = [];
-    const ha = play(a, [swordBot(), swordBot()], 600, more);
+    const ha = play(a, bots(2), 600, more);
     const hb = more.map((bundle) => {
       stepSession(b, bundle, CONTENT);
       for (const w of b.worlds) w.events.length = 0;
@@ -149,7 +154,7 @@ describe('commands', () => {
 
   it('restart begins again from the first chamber with fresh characters', () => {
     const s = createSession(config(2), CONTENT);
-    play(s, [swordBot(), swordBot()], 900);
+    play(s, bots(2), 900);
     const w0 = s.worlds[0];
     stepSession(s, { tick: s.tick + 1, inputs: [emptyInput(), emptyInput()], cmds: [{ slot: 1, seq: 1, kind: 'restart', a: 0 }] }, CONTENT);
     expect(s.attempt).toBe(1);
@@ -164,11 +169,11 @@ describe('the practice ladder', () => {
     const s = createSession(config(2, 'ladder'), CONTENT);
     let deepest = 1;
     let restarted = false;
-    const bots = [swordBot(), swordBot()];
+    const pair = bots(2);
     const core = new RelayCore(2);
     for (let i = 0; i < 60 * 240 && !(deepest >= 3 && restarted); i++) {
       // once the ladder has been seen to climb, the bots let go so that the party goes down
-      if (deepest < 3) bots.forEach((b, slot) => core.input(slot, b.think(worldOf(s, slot), slot), i * TICK_MS));
+      if (deepest < 3) pair.forEach((b, slot) => core.input(slot, b.think(worldOf(s, slot), slot), i * TICK_MS));
       else for (let slot = 0; slot < 2; slot++) core.input(slot, emptyInput(), i * TICK_MS);
       const attempt = s.attempt;
       stepSession(s, core.close(i * TICK_MS), CONTENT);
@@ -183,7 +188,7 @@ describe('the practice ladder', () => {
 
   it('the stress scene keeps its crowd and nobody is hurt', () => {
     const s = createSession(config(1, 'stress', 12), CONTENT);
-    play(s, [swordBot()], 600);
+    play(s, bots(1), 600);
     expect(s.worlds[0].enemies.length).toBeGreaterThanOrEqual(8);
     expect(s.worlds[0].enemies.length).toBeLessThanOrEqual(12);
     expect(s.worlds[0].players[0].hp).toBe(s.worlds[0].players[0].maxHp);

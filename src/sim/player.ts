@@ -9,7 +9,7 @@ import { SWORD_KIT } from './classes/sword';
 import { aimAngleOf, aimDistOf, moveInto } from './input';
 import { rest, shift, walk } from './move';
 import { stepRally } from './rally';
-import { DASH, KNOCK_DECAY, PLAYER } from './tuning';
+import { DASH, KNOCK_DECAY, PLAYER, REVIVE } from './tuning';
 import { PRESS, PRESS_COUNT } from './types';
 import type { ClassId, InputFrame, Player, World } from './types';
 
@@ -65,6 +65,7 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
     fireT: 0,
     guardT: 0,
     guardHit: false,
+    reviveT: 0,
   };
 }
 
@@ -121,10 +122,19 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
   p.stateTime += dt;
   p.hurtT += dt;
   stepRally(w, p, dt);
-  if (p.state === 'down') return;
 
   const move: Vec2 = { x: 0, y: 0 };
   moveInto(inp, move);
+  if (p.state === 'down') {
+    // down, but not out: a slow crawl toward help. Presses made meanwhile are not saved up.
+    p.bufAttack = 0;
+    p.bufSpecial = 0;
+    p.bufDash = 0;
+    p.bufInteract = 0;
+    p.aim = aimAngleOf(inp);
+    walk(w, p, move, REVIVE.crawl, dt);
+    return;
+  }
   const moving = move.x !== 0 || move.y !== 0;
   const kit = KITS[p.classId];
 

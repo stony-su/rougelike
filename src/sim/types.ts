@@ -3,7 +3,7 @@
 // headless, is identical on every laptop of a co-op session, and can be snapshotted and hashed.
 import type { Vec2 } from '../core/exact';
 import type { Rng } from '../core/rng';
-import type { ContentRegistry, EnemyDef, RoomKind, ZoneId } from './defs';
+import type { ContentRegistry, EnemyDef, RoomKind, RoomLook, ZoneId } from './defs';
 import type { RoomFlow } from './flow';
 import type { Geo } from './geo';
 import type { NavField } from './nav';
@@ -59,6 +59,7 @@ export interface Room {
   name: string;
   zone: ZoneId;
   kind: RoomKind;
+  look: RoomLook;
   w: number;
   h: number;
   /** Tile codes (see TILE in geo.ts), indexed [y * w + x]. */
@@ -161,6 +162,8 @@ export interface Player {
   /** Sword: seconds of Riposte guard left, and whether something landed in it. */
   guardT: number;
   guardHit: boolean;
+  /** While down: seconds an ally has stood close enough to help this player up. */
+  reviveT: number;
 }
 
 // ---------------------------------------------------------------- enemies
@@ -194,6 +197,8 @@ export interface Enemy {
   launchImmune: number;
   /** Extra damage (a fraction) its next slam or carom deals, from a bumper or a Ringstone. */
   boost: number;
+  /** A second player whose blow is also in this flight (a Duet), or -1: they share the Returns it makes. */
+  assistBy: number;
   /** The body it last caromed with, and seconds before that pair may carom again. */
   caromWith: number;
   caromLock: number;
@@ -310,6 +315,8 @@ export interface Projectile {
   boost: number;
   /** The enemy it is flying home to (a Riposte), or 0. */
   homing: number;
+  /** A second player who sent it on its way (an arrow banked off a blade), or -1: they share its Returns. */
+  assist: number;
   /** Ids of what it has struck since it last bounced off the chamber, so a skip or a pierce never strikes twice. */
   hits: number[];
   dead: boolean;
@@ -439,6 +446,9 @@ export type SimEvent =
   | { type: 'stagger'; id: number; x: number; y: number }
   | { type: 'rally'; player: number; value: number; weight: number; x: number; y: number }
   | { type: 'rallyBreak'; player: number; value: number }
+  /** Two players made a bounce between them: `a` set it up, `b` finished it. */
+  | { type: 'duet'; kind: 'bank' | 'alleyoop'; a: number; b: number; x: number; y: number }
+  | { type: 'revive'; player: number; by: number; x: number; y: number }
   | { type: 'stoneThrow'; id: number; player: number; x: number; y: number }
   | { type: 'stonePlant'; id: number; player: number; x: number; y: number }
   | { type: 'stoneEnd'; id: number; x: number; y: number }

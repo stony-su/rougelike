@@ -236,6 +236,20 @@ export class Fx {
         ps.ring(ev.x, ev.y, mixColor(RALLY.low, RALLY.high, k), 0.15, 0.6 + k * 1.2, 0.4, 0.55 + k * 0.4);
         break;
       }
+      case 'duet': {
+        // two colours, one bounce: a ring in each
+        ps.ring(ev.x, ev.y, colorOf(ev.a), 0.2, 1.5, 0.4, 0.9);
+        ps.ring(ev.x, ev.y, colorOf(ev.b), 0.1, 1.1, 0.32, 0.9);
+        ps.sparks(ev.x, ev.y, 0.6, 0, 0, paleOf(ev.b), 10, 1.2);
+        ps.flash(ev.x, ev.y, 0.6, paleOf(ev.a), 90, 0.14);
+        break;
+      }
+      case 'revive':
+        ps.ring(ev.x, ev.y, colorOf(ev.player), 0.3, 2.2, 0.5, 0.9);
+        ps.ring(ev.x, ev.y, paleOf(ev.by), 1.6, 0.3, 0.35, 0.7);
+        ps.sparks(ev.x, ev.y, 0.8, 0, -1, paleOf(ev.player), 12, 1.1);
+        ps.flash(ev.x, ev.y, 0.7, paleOf(ev.player), 140, 0.2);
+        break;
       case 'stonePlant':
         this.ripple(ev.x, ev.y, colorOf(ev.player), 1.1);
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 5);

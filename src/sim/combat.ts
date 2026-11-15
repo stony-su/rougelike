@@ -165,6 +165,7 @@ export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy
     p.vy = 0;
     p.charge = 0;
     p.guardT = 0;
+    p.reviveT = 0;
     freezeWorld(w, FREEZE.playerDown);
     w.events.push({ type: 'playerDown', player: p.slot, x: p.x, y: p.y });
   }

@@ -9,9 +9,8 @@
 import { spawnEnemy } from './ai';
 import { standing } from './combat';
 import type { ContentRegistry } from './defs';
-import { createFlow } from './flow';
 import { buildRoom, randomFloorPoint } from './room';
-import { SIM_HZ } from './tuning';
+import { REVIVE, SIM_HZ } from './tuning';
 import { emptyInput } from './types';
 import type { ClassId, InputFrame, World } from './types';
 import { createWorld, stepWorld } from './world';
@@ -80,7 +79,8 @@ const DOWN_BEAT = Math.round(2.4 * SIM_HZ);
 const CLEAR_BEAT = Math.round(3 * SIM_HZ);
 
 function startWorld(s: Session, content: ContentRegistry, chamber: number, entrants: Entrant[]): World {
-  const template = content.rooms[0];
+  // the rooms are taken in turn, so each chamber looks unlike the last
+  const template = content.rooms[(Math.max(1, chamber) - 1) % Math.max(1, content.rooms.length)];
   if (!template) throw new Error('The content has no rooms');
   return createWorld(buildRoom(template), `${s.config.seed}/${s.attempt}/${chamber}`, content, { chamber, entrants, inputDelay: s.config.inputDelay });
 }
@@ -151,8 +151,10 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
     if (s.config.stress > 0) {
       // Stress scene: a constant crowd, and nobody can be hurt.
       for (const p of w.players) p.hp = p.maxHp;
+      const kinds = Object.keys(content.enemies).sort();
       while (w.enemies.length < s.config.stress) {
-        const def = content.enemies[Object.keys(content.enemies).sort()[0]];
+        // one of each kind in turn
+        const def = content.enemies[kinds[w.enemies.length % kinds.length]];
         const at = randomFloorPoint(w.room, w.rng, 0.5, w.players[0], 3);
         spawnEnemy(w, def, at.x, at.y);
       }
@@ -166,18 +168,15 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
     s.clearFor = s.clearFor < 0 ? 0 : s.clearFor + 1;
     if (s.clearFor >= CLEAR_BEAT) {
       s.clearFor = -1;
-      w.chamber++;
-      const carried = w.flow.pickups;
-      w.flow = createFlow(w.chamber, w.players.length);
-      w.flow.pickups = carried;
-      // the fallen stand up again when a chamber is cleared
-      for (const p of w.players) {
-        if (!standing(p)) {
-          p.state = 'idle';
-          p.stateTime = 0;
-          p.hp = Math.max(1, Math.round(p.maxHp * 0.25));
-        }
-      }
+      // On to the next chamber: everyone walks in with what they have, and the fallen stand up again.
+      const entrants: Entrant[] = w.players.map((p) => ({
+        slot: p.slot,
+        classId: p.classId,
+        maxHp: p.maxHp,
+        hp: standing(p) ? p.hp : Math.max(1, Math.round(p.maxHp * REVIVE.hp)),
+        chimes: p.chimes + w.flow.pickups.reduce((sum, c) => sum + c.value, 0),
+      }));
+      s.worlds[0] = startWorld(s, content, w.chamber + 1, entrants);
     }
   }
 

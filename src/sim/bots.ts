@@ -155,6 +155,26 @@ function sidestep(f: InputFrame, p: Player, pr: Projectile): void {
   setMove(f, -pr.vy * side, pr.vx * side);
 }
 
+/**
+ * A teammate is down: go and stand by them. Returns true if the bot is on its way (it writes the
+ * movement); false if nobody needs help or it is already close enough to be helping.
+ */
+function rescue(w: World, p: Player, f: InputFrame): boolean {
+  let best: Player | null = null;
+  let bd = Infinity;
+  for (const q of w.players) {
+    if (q === p || q.state !== 'down') continue;
+    const d = (q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y);
+    if (d < bd) {
+      bd = d;
+      best = q;
+    }
+  }
+  if (!best || bd < 0.9 * 0.9) return false;
+  setMove(f, best.x - p.x, best.y - p.y);
+  return true;
+}
+
 /** A finger on a button: one press every few ticks, held in between. */
 function tap(f: InputFrame, latch: number): number {
   const next = (latch + 1) % 4;
@@ -212,6 +232,7 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
         return f;
       }
 
+      if (rescue(w, p, f)) return f;
       if (!target) return f;
       const dx = target.x - p.x;
       const dy = target.y - p.y;
@@ -248,6 +269,7 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
         sidestep(f, p, inc.shot);
         return f;
       }
+      if (rescue(w, p, f)) return f;
       if (!target) return f;
 
       const dx = target.x - p.x;
@@ -309,6 +331,7 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
         sidestep(f, p, inc.shot);
         return f;
       }
+      if (!charging && rescue(w, p, f)) return f;
       if (!target) return f;
 
       const dx = target.x - p.x;

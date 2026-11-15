@@ -8,21 +8,25 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "host": "node scripts/host.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.sim.json --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && vitest run && vite build",
     "test:watch": "vitest",
     "shot": "node scripts/shot.mjs",
-    "selftest": "node scripts/selftest.mjs"
+    "selftest": "node scripts/selftest.mjs",
+    "coop-check": "node scripts/coop-check.mjs"
   },
   "dependencies": {
     "pixi.js": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.2",
     "playwright-core": "^1.65.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "ws": "^8.23.0"
   }
 }

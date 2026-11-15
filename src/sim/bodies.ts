@@ -23,12 +23,21 @@ export const newBodyScratch = (): BodyScratch => ({ hit: newHit(), pos: { x: 0, 
 
 const speedOf = (e: Enemy): number => Math.sqrt(e.lvx * e.lvx + e.lvy * e.lvy);
 
+/** Nothing flies faster than the fastest launch, whatever sent it. */
+function capSpeed(e: Enemy): void {
+  const sp = speedOf(e);
+  if (sp <= BODY.maxSpeed) return;
+  e.lvx *= BODY.maxSpeed / sp;
+  e.lvy *= BODY.maxSpeed / sp;
+}
+
 function beginLaunch(w: World, e: Enemy, by: number, links: number): void {
   interruptEnemy(w, e);
   e.state = 'launched';
   e.stateTime = 0;
   e.stateDur = 0;
   e.launchBy = by;
+  e.assistBy = -1;
   e.links = links;
   w.events.push({ type: 'launch', id: e.id, by, x: e.x, y: e.y, speed: speedOf(e) });
 }
@@ -56,6 +65,30 @@ function settle(w: World, e: Enemy, by: number, links: number): boolean {
   return true;
 }
 
+/** Count a Return made by a body in flight: for whoever launched it, and for a second player whose blow is in the same flight. */
+function creditBounce(w: World, e: Enemy, x: number, y: number): void {
+  addRally(w, e.launchBy, RALLY.weight.sent, x, y);
+  if (e.assistBy >= 0 && e.assistBy !== e.launchBy) addRally(w, e.assistBy, RALLY.weight.sent, x, y);
+}
+
+/**
+ * A body already in flight is struck again by another player: it goes on along a new direction,
+ * `speedMul` times as fast, and both players now share whatever it hits. Returns the slot of the
+ * player who first launched it if that was someone else (a Duet), or -1.
+ */
+export function relaunch(w: World, e: Enemy, dx: number, dy: number, speedMul: number, by: number): number {
+  const first = e.launchBy;
+  const sp = Math.min(BODY.maxSpeed, speedOf(e) * speedMul);
+  e.lvx = dx * sp;
+  e.lvy = dy * sp;
+  e.launchBy = by;
+  e.links = 0;
+  const duet = first >= 0 && first !== by;
+  if (duet) e.assistBy = first;
+  w.events.push({ type: 'launch', id: e.id, by, x: e.x, y: e.y, speed: sp });
+  return duet ? first : -1;
+}
+
 /**
  * Shove a body along a unit direction. The speed gained is the impulse divided by its mass
  * (three times that while it is staggered). Returns true if the body is now in flight.
@@ -75,6 +108,8 @@ export function pushBody(w: World, e: Enemy, dx: number, dy: number, impulse: nu
  */
 export function addStagger(w: World, e: Enemy, n: number): void {
   if (!hittable(e) || isLight(e.def.mass) || e.staggered > 0) return;
+  // fresh from one daze it keeps its feet for a moment, or a quick pair of hands could hold it down for ever
+  if (e.stunImmune > 0 && e.state !== 'stun') return;
   e.stagger += n;
   e.staggerT = BODY.staggerFade;
   if (e.stagger < BODY.staggerAt) return;
@@ -118,18 +153,14 @@ function bounceOffChamber(w: World, e: Enemy, s: BodyScratch): void {
   }
   e.lvx = s.v.x * k;
   e.lvy = s.v.y * k;
-  const sp = speedOf(e);
-  if (sp > BODY.maxSpeed) {
-    e.lvx *= BODY.maxSpeed / sp;
-    e.lvy *= BODY.maxSpeed / sp;
-  }
+  capSpeed(e);
   w.events.push({ type: 'wallSlam', id: e.id, by: e.launchBy, x: e.x, y: e.y, speed: into, off, nx: h.nx, ny: h.ny });
   if (into > BODY.slamSpeed) {
     const by = e.launchBy;
     const amount = BODY.slamDamage * into * (1 + e.boost) * rallyMul(w, by);
     e.boost = 0;
     bounceDamage(w, e, amount, 'slam', by, -h.nx, -h.ny, into > 12);
-    addRally(w, by, RALLY.weight.sent, e.x, e.y);
+    creditBounce(w, e, e.x, e.y);
   }
   if (bumper) e.boost = Math.max(e.boost, BODY.bumperBoost);
 }
@@ -202,6 +233,8 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   const keep = (e.def.mass >= o.def.mass ? BODY.caromKeep : -BODY.caromKeep) * vn;
   e.lvx += (on + keep - en) * nx;
   e.lvy += (on + keep - en) * ny;
+  // a light body met head-on by a faster one is thrown back hard, but no harder than anything else flies
+  capSpeed(e);
   // The struck body takes its share, weighted by the masses.
   let gain = BODY.caromPass * vn * (e.def.mass / o.def.mass);
   if (o.staggered > 0) gain *= BODY.staggerLaunchMul;
@@ -219,7 +252,7 @@ function carom(w: World, e: Enemy, o: Enemy): void {
 
   bounceDamage(w, o, amount, 'carom', by, nx, ny, big);
   bounceDamage(w, e, amount, 'carom', by, -nx, -ny, big);
-  addRally(w, by, RALLY.weight.sent, cx, cy);
+  creditBounce(w, e, cx, cy);
   if (!o.dead && !settle(w, o, by, e.links + 1)) {
     // too heavy to fly from that: it staggers instead
     addStagger(w, o, 1);
@@ -293,7 +326,7 @@ function ringOut(w: World, e: Enemy): void {
   e.lvy = 0;
   w.events.push({ type: 'ringOut', id: e.id, by, x: e.x, y: e.y, killed: dies });
   damageEnemy(w, e, dies ? e.hp : e.maxHp * BODY.ringOutShare, { kind: 'ringout', by, dx: 0, dy: 1, heavy: true });
-  addRally(w, by, RALLY.weight.sent, e.x, e.y);
+  creditBounce(w, e, e.x, e.y);
   if (e.dead) return;
   interruptEnemy(w, e);
   e.state = 'pit';
@@ -324,6 +357,7 @@ function land(w: World, e: Enemy, s: BodyScratch): void {
   e.launchImmune = BODY.landRecover + BODY.launchImmune;
   e.links = 0;
   e.launchBy = -1;
+  e.assistBy = -1;
   e.boost = 0;
   // In flight only walls stop a body; on its feet again it must also stand clear of pit edges.
   s.pos.x = e.x;

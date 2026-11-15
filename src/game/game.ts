@@ -1,12 +1,10 @@
-// The game shell. It owns a session and a transport and does three things each frame: sends
-// this laptop's input to the relay, steps the session once for every bundle the relay hands
-// back, and draws the world its own player is in. It never changes the game any other way:
-// pausing and starting over are commands that travel with the inputs.
+// The game shell. It is given a driver (the page's own relay alone, or the connection to a host
+// in co-op) and does three things each frame: sends this laptop's input, lets the driver step
+// every tick that is due, and draws the world its own player is in. It never changes the game
+// any other way: pausing and starting over are commands that travel with the inputs.
 import { BitmapFont, BitmapText, UPDATE_PRIORITY } from 'pixi.js';
 import type { Application, Ticker } from 'pixi.js';
-import { CONTENT } from '../content';
-import { Loopback } from '../net/transport';
-import type { Transport } from '../net/transport';
+import { GameAudio } from '../audio';
 import { AimPreview } from '../render/aimPreview';
 import { Ambient } from '../render/ambient';
 import { Camera } from '../render/camera';
@@ -28,12 +26,13 @@ import { Trails } from '../render/trails';
 import { EXPERT, NOVICE, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
 import { aimAngleOf } from '../sim/input';
-import { MAX_PLAYERS, createSession, stepSession, worldOf } from '../sim/session';
+import { worldOf } from '../sim/session';
 import type { Session } from '../sim/session';
 import { hashSession } from '../sim/snapshot';
 import type { ClassId, SimEvent, World } from '../sim/types';
 import { Hud } from '../ui/hud';
 import { Label } from '../ui/label';
+import type { Driver } from './driver';
 import { Input } from './input';
 
 export interface GameOptions {
@@ -47,6 +46,13 @@ export interface GameOptions {
   stress: number;
 }
 
+/** In the practice court the number keys change class: the page starts again with the new one. */
+const CLASS_KEYS: ReadonlyArray<readonly [string, ClassId]> = [
+  ['Digit1', 'sword'],
+  ['Digit2', 'bow'],
+  ['Digit3', 'fist'],
+];
+
 function makeBot(name: string, classId: ClassId): Bot | null {
   if (name === 'expert') return classBot(classId, EXPERT);
   if (name === 'novice') return classBot(classId, NOVICE);
@@ -58,13 +64,8 @@ export class Game {
   readonly camera = new Camera();
   readonly input: Input;
   readonly textures: Textures;
-  readonly session: Session;
-  /** The seat this laptop plays. */
-  readonly localSlot = 0;
-
-  private readonly net: Transport;
-  /** One entry per seat: a bot, or null for a seat played by a person. */
-  private readonly bots: Array<Bot | null>;
+  /** A bot playing this laptop's own seat (automated checks), or null for a person. */
+  private readonly autopilot: Bot | null;
   /** The world being drawn: the one this laptop's player is in. */
   private viewed: World;
   private theme: ZoneTheme;
@@ -78,12 +79,18 @@ export class Game {
   private readonly aimPreview: AimPreview;
   /** The aim this laptop last sent, as an angle: the preview is drawn from exactly this. */
   private aimSent = 0;
+  /** Where the Echoes are (x, y pairs), for a controller's aim to lean toward. */
+  private readonly targets: number[] = [];
+  /** Where this laptop's player was last drawn: sounds are heard from here. */
+  private focusX = 0;
+  private focusY = 0;
   private readonly pickupView: PickupView;
   private readonly particles: Particles;
   private readonly numbers: DamageNumbers;
   private readonly fx: Fx;
   private readonly hud: Hud;
   private readonly ambient: Ambient;
+  private readonly audio = new GameAudio();
   private readonly pausedLabel: Label;
   private time = 0;
   private viewW = 0;
@@ -95,29 +102,28 @@ export class Game {
   private renderStart = 0;
   private lastFrameAt = 0;
 
+  /** The session being played. In co-op the driver replaces it when the host sends the whole game again. */
+  get session(): Session {
+    const s = this.driver.session;
+    if (!s) throw new Error('The game shell was started without a game');
+    return s;
+  }
+
+  /** The seat this laptop plays. */
+  get localSlot(): number {
+    return this.driver.localSlot;
+  }
+
   constructor(
     private readonly app: Application,
+    private readonly driver: Driver,
     private readonly opts: GameOptions,
   ) {
     app.stage.addChild(this.stage.root);
     this.textures = new Textures(app.renderer);
     this.input = new Input(app.canvas);
-
-    const classes = opts.classes.slice(0, MAX_PLAYERS);
-    if (classes.length === 0) classes.push('sword');
-    const seats = classes.length;
-    this.bots = classes.map((classId, slot) => (slot === this.localSlot ? makeBot(opts.autopilot, classId) : classBot(classId, EXPERT)));
-    this.session = createSession(
-      {
-        seed: opts.seed,
-        players: classes.map((classId, slot) => ({ name: `Player ${slot + 1}`, classId })),
-        buildId: 'dev',
-        inputDelay: 0,
-        stress: opts.stress,
-      },
-      CONTENT,
-    );
-    this.net = new Loopback(seats);
+    const mine = this.session.config.players[this.localSlot];
+    this.autopilot = makeBot(opts.autopilot, mine ? mine.classId : 'sword');
 
     this.viewed = worldOf(this.session, this.localSlot);
     const room = this.viewed.room;
@@ -137,6 +143,8 @@ export class Game {
     this.playerViews = new PlayerViews(this.stage);
     this.fx = new Fx(this.stage, this.particles, this.camera, this.numbers, this.theme);
     this.ambient = new Ambient(this.stage, this.textures, room, this.theme);
+    this.audio.setZone(room.zone);
+    this.audio.setClasses(this.session.config.players.map((p) => p.classId));
     this.hud = new Hud();
     this.pausedLabel = new Label('Paused', { size: 22, color: PAPER, bold: true, tracking: 0.3, align: 'center' });
     this.pausedLabel.visible = false;
@@ -154,6 +162,7 @@ export class Game {
 
     this.onResize();
     this.camera.frameRoom(room, true);
+    if (!this.autopilot && !driver.coop) this.hud.banner('1 Sword   2 Bow   3 Fist', PAPER, 4.5);
     app.ticker.add(this.frame, this);
     // Bracket Pixi's own render call (which runs at LOW priority) to time it.
     app.ticker.add(this.beforeRender, this, UPDATE_PRIORITY.LOW + 1);
@@ -175,6 +184,7 @@ export class Game {
     this.pickupView.destroy();
     this.roomView.destroy();
     this.ambient.destroy();
+    this.audio.destroy();
     this.particles.destroy();
     this.numbers.destroy();
     this.hud.destroy();
@@ -227,6 +237,9 @@ export class Game {
       views: this.enemyViews.count,
       view: [this.viewW, this.viewH],
       zoom: +this.camera.zoom.toFixed(3),
+      device: this.input.device,
+      slot: this.localSlot,
+      net: this.driver.net(),
     };
   }
 
@@ -249,6 +262,16 @@ export class Game {
     this.hud.layout(this.viewW, this.viewH);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.4);
     this.debugText?.position.set(14, this.viewH - 190);
+  }
+
+  /** Start the practice court again as another class, keeping everything else in the address. */
+  private changeClass(classId: ClassId): void {
+    const params = new URLSearchParams(window.location.search);
+    const team = this.session.config.players.map((p, slot) => (slot === this.localSlot ? classId : p.classId));
+    params.delete('class');
+    params.delete('team');
+    params.set(team.length > 1 ? 'team' : 'class', team.join(','));
+    window.location.search = params.toString();
   }
 
   private beforeRender(): void {
@@ -282,6 +305,7 @@ export class Game {
     this.enemyViews.setTheme(this.theme);
     this.fx.setTheme(this.theme);
     this.ambient.setRoom(room, this.theme);
+    this.audio.setZone(room.zone);
     this.camera.frameRoom(room, true);
   }
 
@@ -290,6 +314,7 @@ export class Game {
     this.enemyViews.handle(ev);
     this.roomView.handle(ev);
     this.fx.handle(ev);
+    this.audio.handle(ev, this.localSlot, this.focusX, this.focusY);
     switch (ev.type) {
       // the exact point of a bounce goes into the trail of whatever bounced
       case 'ricochet':
@@ -309,7 +334,13 @@ export class Game {
         break;
       case 'playerDown':
         if (w.players.every((p) => p.state === 'down')) this.hud.banner('Everyone is down', DANGER, 2.2);
-        else if (ev.player === this.localSlot) this.hud.banner('You are down', DANGER, 2.2);
+        else if (ev.player === this.localSlot) this.hud.banner(w.players.length > 1 ? 'Down: crawl to a teammate' : 'You are down', DANGER, 2.6);
+        break;
+      case 'revive':
+        if (ev.player === this.localSlot) this.hud.banner('Back on your feet', PAPER, 1.4);
+        break;
+      case 'duet':
+        if (ev.a === this.localSlot || ev.b === this.localSlot) this.hud.banner('Duet', CHIME, 0.9);
         break;
       default:
         break;
@@ -327,41 +358,48 @@ export class Game {
     this.lastFrameAt = now;
     const dt = Math.min(ticker.elapsedMS, 100) / 1000;
     this.time += dt;
-    const s = this.session;
+    const slot = this.localSlot;
 
-    // 1. This laptop's input goes to the relay, and so does every bot seat's.
-    for (let slot = 0; slot < this.bots.length; slot++) {
-      const bot = this.bots[slot];
-      if (bot) {
-        this.net.input(slot, bot.think(worldOf(s, slot), slot), now);
-      } else {
-        const mine = this.playerViews.get(slot);
-        const p = worldOf(s, slot).players.find((q) => q.slot === slot);
-        const frame = this.input.frame(this.camera, mine ? mine.x : p ? p.x : 0, mine ? mine.y : p ? p.y : 0);
-        if (slot === this.localSlot) this.aimSent = aimAngleOf(frame);
-        this.net.input(slot, frame, now);
+    // 1. This laptop's input goes to the relay: a person's hands, or a bot's.
+    const here = worldOf(this.session, slot);
+    if (this.autopilot) {
+      this.driver.input(this.autopilot.think(here, slot), now);
+    } else {
+      const view = this.playerViews.get(slot);
+      const p = here.players.find((q) => q.slot === slot);
+      this.targets.length = 0;
+      for (const e of here.enemies) if (!e.dead && e.state !== 'spawn' && e.state !== 'pit') this.targets.push(e.x, e.y);
+      const frame = this.input.frame(this.camera, view ? view.x : p ? p.x : 0, view ? view.y : p ? p.y : 0, this.targets);
+      this.aimSent = aimAngleOf(frame);
+      this.driver.input(frame, now);
+    }
+    if (!this.driver.coop) {
+      for (const [code, classId] of CLASS_KEYS) {
+        if (!this.input.takeCode(code)) continue;
+        const mine = this.session.config.players[slot];
+        if (mine && mine.classId !== classId) this.changeClass(classId);
       }
     }
-    if (this.input.take('pause')) this.net.command(this.localSlot, 'pause');
-    if (this.opts.debug && this.input.take('restart')) this.net.command(this.localSlot, 'restart');
+    // Browsers keep sound off until the page has been touched; any key, click or button will do.
+    if (this.input.touched) this.audio.unlock();
+    if (this.input.take('mute')) this.hud.banner(this.audio.toggleMute() ? 'Sound off' : 'Sound on', PAPER, 1.1);
+    if (this.input.take('pause')) this.driver.command('pause');
+    if (this.opts.debug && this.input.take('restart')) this.driver.command('restart');
     // presses nothing asked for do not wait around
     this.input.clearPresses();
 
-    // 2. Step once for every bundle the relay has closed.
-    for (const bundle of this.net.poll(now)) {
-      stepSession(s, bundle, CONTENT);
-      const mine = worldOf(s, this.localSlot);
+    // 2. Step every tick that is due. Ticks stepped in a run to catch up are old news: no effects for those.
+    this.driver.step(now, (session, muted) => {
+      const mine = worldOf(session, this.localSlot);
       if (mine !== this.viewed) this.watch(mine);
-      for (const w of s.worlds) {
-        if (w === this.viewed) for (const ev of w.events) this.onEvent(ev, w);
-        w.events.length = 0;
-      }
-    }
+      if (!muted) for (const ev of mine.events) this.onEvent(ev, mine);
+    });
 
     // 3. Draw the world this laptop's player is in, between the last two ticks.
+    const s = this.session;
     const w = this.viewed;
     const paused = s.pausedBy >= 0;
-    const alpha = paused || w.freeze > 0 ? 1 : this.net.alpha(now);
+    const alpha = paused || w.freeze > 0 ? 1 : this.driver.alpha(now);
     this.playerViews.update(w.players, alpha, dt, this.time);
     this.enemyViews.update(w, alpha, dt, this.time);
     this.projectileViews.update(w, alpha);
@@ -383,17 +421,21 @@ export class Game {
 
     const me = w.players.find((p) => p.slot === this.localSlot);
     // a person aims with what they are about to send; a bot with what it has sent
-    this.aimPreview.update(w, me, me && this.bots[this.localSlot] ? me.aim : this.aimSent, this.time);
+    this.aimPreview.update(w, me, me && this.autopilot ? me.aim : this.aimSent, this.time);
     const mineView = this.playerViews.get(this.localSlot);
     const fx = mineView ? mineView.x : w.room.cx;
     const fy = mineView ? mineView.y : w.room.cy;
     this.fx.setFocus(fx, fy, this.localSlot);
+    this.focusX = fx;
+    this.focusY = fy;
+    this.audio.update(dt);
     const aimX = me ? fx + Math.cos(me.aim) * 3 : fx;
     const aimY = me ? fy + Math.sin(me.aim) * 3 : fy;
     this.camera.update(dt, fx, fy, aimX, aimY);
     this.stage.applyCamera(this.camera);
     this.ambient.update(dt);
     this.hud.update(w, me, dt);
+    this.hud.setNet(this.driver.net());
     this.pausedLabel.visible = paused;
     this.stage.depth.sort();
 

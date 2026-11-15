@@ -5,12 +5,13 @@ import { dcos, dhypot, dsin } from '../../core/dmath';
 import { ddamp } from '../../core/exact';
 import type { Vec2 } from '../../core/exact';
 import { pointInSector } from '../../core/geom';
-import { pushBody } from '../bodies';
+import { pushBody, relaunch } from '../bodies';
 import { BOMB_TOUCH, batBomb } from '../bombs';
 import { damageEnemy, freezeBody, hittable } from '../combat';
 import { rest, shift, walk } from '../move';
 import { returnShot } from '../projectiles';
-import { BOMB, DT, HITSTOP, PLAYER, REFLECT, RIPOSTE, SWORD } from '../tuning';
+import { addRally, rallyMul } from '../rally';
+import { BOMB, DT, DUET, HITSTOP, PLAYER, RALLY, REFLECT, RIPOSTE, SWORD } from '../tuning';
 import type { Player, World } from '../types';
 import { wantsSpecial } from './kit';
 import type { Kit } from './kit';
@@ -66,6 +67,21 @@ function resolveSwing(w: World, p: Player): void {
       ky = ay;
     }
     const kl = dhypot(kx, ky) || 1;
+    if (e.state === 'launched') {
+      // Alley-oop: a body already in flight is sent on along the aim, faster, and hurt more for it.
+      // That is a Return, and if someone else launched it, a Duet: it counts for them too.
+      damageEnemy(w, e, SWORD.damage[c] * DUET.oopDamage * rallyMul(w, p.slot), { kind: 'return', by: p.slot, dx: ax, dy: ay, heavy: true, freeze: HITSTOP.heavy });
+      addRally(w, p.slot, RALLY.weight.sent, e.x, e.y);
+      if (!e.dead) {
+        const first = relaunch(w, e, ax, ay, DUET.oopSwordSpeed, p.slot);
+        if (first >= 0) {
+          addRally(w, first, RALLY.weight.sent, e.x, e.y);
+          w.events.push({ type: 'duet', kind: 'alleyoop', a: first, b: p.slot, x: e.x, y: e.y });
+        }
+      }
+      hits++;
+      continue;
+    }
     // Caught in its own attack, an Echo is batted away exactly where the swing was aimed.
     const batted = e.state === 'attack';
     damageEnemy(w, e, SWORD.damage[c], { kind: 'direct', by: p.slot, dx: kx / kl, dy: ky / kl, heavy: c === 2 || batted, freeze: batted ? HITSTOP.heavy : SWORD.freeze[c] });
@@ -86,7 +102,23 @@ function sweep(w: World, p: Player): void {
   const perfectAt = REFLECT.perfectDist + REFLECT.perDelayTick * w.inputDelay;
   let perfect = false;
   for (const pr of w.projectiles) {
-    if (pr.dead || pr.faction !== 'enemy') continue;
+    if (pr.dead) continue;
+    if (pr.faction === 'player') {
+      // Bank off the blade: an ally's arrow through the swing goes where the blade points, harder.
+      if (pr.kind !== 'arrow' || pr.owner === p.slot || pr.assist >= 0) continue;
+      if (!pointInSector(pr.x, pr.y, p.x, p.y, p.actAngle, half, reach, pr.radius)) continue;
+      const sp = dhypot(pr.vx, pr.vy);
+      pr.vx = dcos(p.aim) * sp;
+      pr.vy = dsin(p.aim) * sp;
+      pr.damage *= DUET.bankDamage;
+      pr.bounces += DUET.bankBounces;
+      pr.pierce += DUET.bankPierce;
+      pr.assist = p.slot;
+      pr.homing = 0;
+      pr.hits.length = 0;
+      w.events.push({ type: 'duet', kind: 'bank', a: p.slot, b: pr.owner, x: pr.x, y: pr.y });
+      continue;
+    }
     if (!pointInSector(pr.x, pr.y, p.x, p.y, p.actAngle, half, reach, pr.radius)) continue;
     // Left to the last moment, the return is a perfect one.
     const late = dhypot(pr.x - p.x, pr.y - p.y) <= perfectAt;

@@ -1,8 +1,11 @@
 // Draws the simulation's telegraphs on the floor in the danger colour.
 // Each shape is built once; a faint outline shows the full area and an inner fill grows to meet
-// it as the wind-up runs out, so the player can read both where and when.
+// it as the wind-up runs out, so the player can read both where and when. A fan of lanes (the
+// paths shots will fly) is the exception: it is redrawn as it turns, each lane cut off at the
+// first wall or post, because that is where the shot will stop.
 import { Container, Graphics, GraphicsContext } from 'pixi.js';
 import { TILE } from '../core/iso';
+import { castCircle, newHit } from '../sim/cast';
 import { laneAngle } from '../sim/telegraphs';
 import type { Telegraph, World } from '../sim/types';
 import { DANGER, DANGER_HOT } from './palette';
@@ -29,19 +32,7 @@ function shapesFor(t: Telegraph): Shapes {
     outline.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.1 }).circle(0, 0, r).stroke(stroke);
     fill.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.3 });
   } else if (t.shape === 'lane' && t.count > 1) {
-    // A fan of thin lines: exactly the paths the shots will fly, drawn about the middle one.
-    const l = t.length * T;
-    const hw = Math.max(2, (t.width * T) / 2);
-    const fan = { angle: 0, count: t.count, spread: t.spread };
-    for (let i = 0; i < t.count; i++) {
-      const a = laneAngle(fan, i);
-      const c = Math.cos(a);
-      const s = Math.sin(a);
-      const quad = [-s * -hw, c * -hw, c * l - s * -hw, s * l + c * -hw, c * l - s * hw, s * l + c * hw, -s * hw, c * hw];
-      outline.poly(quad).fill({ color: 0xffffff, alpha: 0.16 });
-      outline.moveTo(0, 0).lineTo(c * l, s * l).stroke({ width: 2, color: 0xffffff, alpha: 0.9, cap: 'round' });
-      fill.poly(quad).fill({ color: 0xffffff, alpha: 0.4 });
-    }
+    // a fan is drawn afresh each frame by drawFan; it has no fixed shape
   } else if (t.shape === 'lane') {
     const l = t.length * T;
     const hw = (t.width * T) / 2;
@@ -69,7 +60,31 @@ interface View {
   outline: Graphics;
   fill: Graphics;
   shape: Telegraph['shape'];
+  /** A fan of lanes, redrawn every frame. */
+  fan: boolean;
   seen: number;
+}
+
+const hit = newHit();
+
+/** The lanes of a fan, each as long as a shot would fly before the chamber stops it. `k` is how far the wind-up has run. */
+function drawFan(v: View, t: Telegraph, w: World, k: number): void {
+  const hw = Math.max(2.5, (t.width * T) / 2);
+  v.outline.clear();
+  v.fill.clear();
+  for (let i = 0; i < t.count; i++) {
+    const a = laneAngle(t, i);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const reach = castCircle(w.room.geo, false, t.x, t.y, c * t.length, s * t.length, t.width / 2, hit) ? hit.t * t.length : t.length;
+    const l = reach * T;
+    const quad = (len: number): number[] => [s * hw, -c * hw, c * len + s * hw, s * len - c * hw, c * len - s * hw, s * len + c * hw, -s * hw, c * hw];
+    v.outline.poly(quad(l)).fill({ color: 0xffffff, alpha: 0.14 });
+    v.outline.moveTo(0, 0).lineTo(c * l, s * l).stroke({ width: 2, color: 0xffffff, alpha: 0.9, cap: 'round' });
+    // where it will stop
+    v.outline.circle(c * l, s * l, 4).fill({ color: 0xffffff, alpha: 0.9 });
+    v.fill.poly(quad(l * k)).fill({ color: 0xffffff, alpha: 0.42 });
+  }
 }
 
 export class TelegraphViews {
@@ -91,17 +106,19 @@ export class TelegraphViews {
         fill.tint = DANGER;
         c.addChild(outline, fill);
         this.stage.decals.addChild(c);
-        v = { c, outline, fill, shape: t.shape, seen: this.frame };
+        v = { c, outline, fill, shape: t.shape, fan: t.shape === 'lane' && t.count > 1, seen: this.frame };
         this.views.set(t.id, v);
       }
       v.seen = this.frame;
       v.c.position.set(t.x * T, t.y * T);
-      v.c.rotation = t.shape === 'circle' ? 0 : t.angle;
+      v.c.rotation = t.shape === 'circle' || v.fan ? 0 : t.angle;
       const k = Math.min(1, t.t / t.dur);
+      if (v.fan) drawFan(v, t, w, t.t < t.dur ? k * k : 1);
       if (t.t < t.dur) {
         // The fill grows to meet the outline exactly when the attack lands.
         const e = k * k;
-        if (t.shape === 'lane') v.fill.scale.set(e, 1);
+        if (v.fan) v.fill.scale.set(1);
+        else if (t.shape === 'lane') v.fill.scale.set(e, 1);
         else v.fill.scale.set(e);
         v.fill.tint = DANGER;
         v.fill.alpha = 0.55 + 0.45 * k;

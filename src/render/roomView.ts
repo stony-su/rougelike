@@ -1,6 +1,11 @@
 // A chamber on screen: the floor slab with its pits, the walls that bound it, and the posts and
 // bumpers that stand on it.
 //
+// TWO LOOKS, whatever the colours. The court: a quiet checker and round posts. The survey:
+// contour rings traced over a height field (a tilted, gently rolling plain with a mound at every
+// pillar), like a map of ripples, and hexagonal pillars. Both are made by code from the room's
+// own tiles.
+//
 // WALLS BY RULE. A wall may stand tall only where no floor lies behind it on screen; such walls
 // are one static drawing under everything that moves. A wall with floor behind it is cut down to
 // a kerb, and all kerbs are one static drawing over everything that moves: nothing can stand in
@@ -9,7 +14,9 @@
 import { Graphics, GraphicsContext } from 'pixi.js';
 import { TILE as PX, depthKey, projX, projY } from '../core/iso';
 import { mixColor } from '../core/math';
+import { hashString } from '../core/rng';
 import { CIRCLE_BUMPER, TILE } from '../sim/geo';
+import { groundAt } from '../sim/room';
 import type { Room, SimEvent } from '../sim/types';
 import type { Sortable } from './depth';
 import type { ZoneTheme } from './palette';
@@ -87,6 +94,63 @@ function postContext(theme: ZoneTheme, r: number): GraphicsContext {
     .stroke({ width: 2, color: theme.highlight, alpha: 0.7 });
 }
 
+/** A hexagonal pillar: six faces, the ones toward the camera shaded from lit to dark, a rimmed cap. */
+function hexContext(theme: ZoneTheme, r: number): GraphicsContext {
+  const ctx = new GraphicsContext();
+  const n = 6;
+  const base: Array<[number, number]> = [];
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + Math.PI / 6;
+    base.push([projX(Math.cos(a) * r, Math.sin(a) * r), projY(Math.cos(a) * r, Math.sin(a) * r)]);
+  }
+  const h = POST_H * PX;
+  const faces: Array<{ a: [number, number]; b: [number, number]; mx: number }> = [];
+  for (let k = 0; k < n; k++) {
+    const a = base[k];
+    const b = base[(k + 1) % n];
+    if ((a[1] + b[1]) / 2 > -0.5) faces.push({ a, b, mx: (a[0] + b[0]) / 2 });
+  }
+  faces.sort((p, q) => p.mx - q.mx);
+  faces.forEach((f, i) => {
+    const t = faces.length <= 1 ? 0.5 : i / (faces.length - 1);
+    const col = t < 0.34 ? theme.wallLeft : t > 0.66 ? theme.wallRight : mixColor(theme.wallLeft, theme.wallRight, 0.55);
+    ctx.poly([f.a[0], f.a[1], f.b[0], f.b[1], f.b[0], f.b[1] - h, f.a[0], f.a[1] - h]).fill(col);
+  });
+  const top: number[] = [];
+  for (const p of base) top.push(p[0], p[1] - h);
+  ctx.poly(top).fill(theme.wallTop);
+  ctx.poly(top).stroke({ width: 1.8, color: theme.highlight, alpha: 0.75, join: 'round' });
+  // a ring cut into the cap
+  ctx.ellipse(0, -h, r * PX * 0.5, r * PX * 0.25).stroke({ width: 1.6, color: theme.highlight, alpha: 0.4 });
+  return ctx;
+}
+
+/** Smooth noise from a seed, for the lie of the land. */
+function valueNoise(seed: number): (x: number, y: number) => number {
+  const h = (ix: number, iy: number): number => {
+    let n = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ seed;
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  return (x, y) => {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const fx = x - ix;
+    const fy = y - iy;
+    const ux = fx * fx * (3 - 2 * fx);
+    const uy = fy * fy * (3 - 2 * fy);
+    const a = h(ix, iy);
+    const b = h(ix + 1, iy);
+    const c = h(ix, iy + 1);
+    const d = h(ix + 1, iy + 1);
+    return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+  };
+}
+
+// Marching squares. Corner bits: 1 = (x, y), 2 = (x+1, y), 4 = (x+1, y+1), 8 = (x, y+1).
+// Edges: 0 top, 1 right, 2 bottom, 3 left.
+const CASES: readonly (readonly number[])[] = [[], [3, 0], [0, 1], [3, 1], [1, 2], [3, 0, 1, 2], [0, 2], [3, 2], [2, 3], [2, 0], [0, 1, 2, 3], [2, 1], [1, 3], [1, 0], [0, 3], []];
+
 function bumperContext(theme: ZoneTheme, r: number): GraphicsContext {
   const w = r * PX * 1.22;
   const hh = w * 0.5;
@@ -133,7 +197,7 @@ export class RoomView {
     this.sorted.push(stage.depth.add(this.back, -1e6), stage.depth.add(this.front, 1e6));
     stage.decals.addChild(this.shadows);
 
-    const post = postContext(theme, 0.42);
+    const post = room.look === 'survey' ? hexContext(theme, 0.47) : postContext(theme, 0.42);
     const bumper = bumperContext(theme, 0.5);
     for (const c of room.geo.circles) {
       const isBumper = c.kind === CIRCLE_BUMPER;
@@ -209,9 +273,11 @@ export class RoomView {
           continue;
         }
         const shape = floorShape(t, x, y);
-        if (shape) g.poly(lift(shape, 0)).fill((x + y) % 2 === 0 ? theme.ground : theme.groundDark);
+        // the court is a checker; the survey ground is one tone, and its pattern is drawn over it
+        if (shape) g.poly(lift(shape, 0)).fill(room.look === 'survey' || (x + y) % 2 === 0 ? theme.ground : theme.groundDark);
       }
     }
+    if (room.look === 'survey') this.drawContours(g);
     // Pits: the far walls of the hole catch the light, in two bands; the near lip gets a pale edge.
     for (let y = 0; y < room.h; y++) {
       for (let x = 0; x < room.w; x++) {
@@ -260,6 +326,74 @@ export class RoomView {
     ringAt(room.rewardSpot.x, room.rewardSpot.y, 1.15, 0.9);
     ringAt(room.rewardSpot.x, room.rewardSpot.y, 0.8, 0.6);
     ringAt(room.rewardSpot.x, room.rewardSpot.y, 0.45, 0.9);
+  }
+
+  /**
+   * Contour rings over the floor: the land is a tilted, gently rolling plain with a mound at
+   * every pillar and bumper, and a line is traced at each step of height. Every fourth line is
+   * drawn brighter, as on a map.
+   */
+  private drawContours(g: Graphics): void {
+    const { room, theme } = this;
+    const noise = valueNoise(hashString(room.id));
+    const height = (x: number, y: number): number => {
+      let hgt = 0.22 * (x / room.w) + 0.16 * (y / room.h) + noise(x * 0.33, y * 0.33) * 0.62 + noise(x * 0.9, y * 0.9) * 0.12;
+      for (const c of room.geo.circles) {
+        const d2 = (x - c.x) * (x - c.x) + (y - c.y) * (y - c.y);
+        hgt += 1.05 * Math.exp(-d2 / (2 * 1.5 * 1.5));
+      }
+      return hgt;
+    };
+    const cs = 0.25;
+    const nx = Math.ceil(room.w / cs) + 1;
+    const ny = Math.ceil(room.h / cs) + 1;
+    const v = new Float32Array(nx * ny);
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        const hgt = height(i * cs, j * cs);
+        v[j * nx + i] = hgt;
+        if (hgt < lo) lo = hgt;
+        if (hgt > hi) hi = hgt;
+      }
+    }
+    const step = 0.105;
+    const px = [0, 0, 0, 0];
+    const py = [0, 0, 0, 0];
+    let index = 0;
+    for (let level = Math.ceil(lo / step) * step; level < hi; level += step, index++) {
+      let any = false;
+      for (let j = 0; j < ny - 1; j++) {
+        for (let i = 0; i < nx - 1; i++) {
+          const a = v[j * nx + i];
+          const b = v[j * nx + i + 1];
+          const c = v[(j + 1) * nx + i + 1];
+          const d = v[(j + 1) * nx + i];
+          const idx = (a >= level ? 1 : 0) | (b >= level ? 2 : 0) | (c >= level ? 4 : 0) | (d >= level ? 8 : 0);
+          if (idx === 0 || idx === 15) continue;
+          const x = i * cs;
+          const y = j * cs;
+          // only on the floor: not over pits, not under walls
+          if (groundAt(room, x + cs / 2, y + cs / 2) !== 'floor') continue;
+          px[0] = x + ((level - a) / (b - a || 1e-9)) * cs;
+          py[0] = y;
+          px[1] = x + cs;
+          py[1] = y + ((level - b) / (c - b || 1e-9)) * cs;
+          px[2] = x + ((level - d) / (c - d || 1e-9)) * cs;
+          py[2] = y + cs;
+          px[3] = x;
+          py[3] = y + ((level - a) / (d - a || 1e-9)) * cs;
+          const e = CASES[idx];
+          for (let k = 0; k < e.length; k += 2) {
+            g.moveTo(projX(px[e[k]], py[e[k]]), projY(px[e[k]], py[e[k]])).lineTo(projX(px[e[k + 1]], py[e[k + 1]]), projY(px[e[k + 1]], py[e[k + 1]]));
+            any = true;
+          }
+        }
+      }
+      const major = index % 4 === 0;
+      if (any) g.stroke({ width: major ? 2 : 1.3, color: major ? theme.accent : theme.contour, alpha: major ? 0.38 : 0.7, cap: 'round' });
+    }
   }
 
   /** One solid shape as a prism: the faces that look at the camera, then the top. */

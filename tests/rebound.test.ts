@@ -2,14 +2,16 @@
 // bumpers, stagger and Rally, each against the numbers in DESIGN.md section 2.
 import { describe, expect, it } from 'vitest';
 import { THRUM } from '../src/content/enemies';
+import { Rng } from '../src/core/rng';
 import { addStagger, pushBody } from '../src/sim/bodies';
 import { damageEnemy } from '../src/sim/combat';
 import type { EnemyDef } from '../src/sim/defs';
+import { spawnProjectile } from '../src/sim/projectiles';
 import { addRally, rallyMul } from '../src/sim/rally';
 import { groundAt, isClear } from '../src/sim/room';
 import { BODY, DT, RALLY, massFactor } from '../src/sim/tuning';
 import type { Enemy } from '../src/sim/types';
-import { bounceWorld, dummy, eventsOf, openWorld, run } from './helpers';
+import { bounceWorld, dummy, eventsOf, openWorld, place, run } from './helpers';
 
 const MEDIUM: EnemyDef = { ...THRUM, id: 'thrum', mass: 2.5, radius: 0.45 };
 const HEAVY: EnemyDef = { ...THRUM, id: 'thrum', mass: 5, radius: 0.6 };
@@ -416,6 +418,22 @@ describe('stagger', () => {
     expect(pushBody(w, heavy, 1, 0, 9, 0)).toBe(true);
     expect(speed(heavy)).toBeCloseTo((9 / 5) * BODY.staggerLaunchMul);
   });
+
+  it('cannot be staggered again the moment it recovers', () => {
+    const w = openWorld();
+    const heavy = dummy(w, 3.5, 10.5, 0, HEAVY);
+    addStagger(w, heavy, 3);
+    expect(heavy.state).toBe('stun');
+    run(w, Math.round(BODY.staggerTime / DT) + 3);
+    expect(heavy.state).toBe('idle');
+    addStagger(w, heavy, 3);
+    expect(heavy.state).toBe('idle');
+    expect(heavy.stagger).toBe(0);
+    // a little later it can be worn down again
+    run(w, 100);
+    addStagger(w, heavy, 3);
+    expect(heavy.state).toBe('stun');
+  });
 });
 
 describe('Rally', () => {
@@ -455,5 +473,64 @@ describe('Rally', () => {
     addRally(w, 1, 3, 0, 0);
     expect(w.players[0].rally).toBe(0);
     expect(w.players[1].rally).toBe(3);
+  });
+});
+
+describe('nothing tunnels', () => {
+  it('bodies launched at full speed in every direction stay inside the walls, however long they rattle about', () => {
+    const w = bounceWorld();
+    const rng = new Rng(99);
+    place(w.players[0], 2, 2);
+    const bodies = Array.from({ length: 10 }, (_, i) => dummy(w, 3 + i * 1.3, 5 + (i % 3) * 0.9, 1e9, { ...THRUM, mass: 2 + (i % 3) * 1.5 }));
+    let slams = 0;
+    let caroms = 0;
+    let falls = 0;
+    for (let t = 0; t < 6000; t++) {
+      if (t % 5 === 0) {
+        // keep them flying: a fresh shove in a random direction, as hard as anything gets
+        const e = bodies[rng.int(0, bodies.length - 1)];
+        const a = rng.float(0, Math.PI * 2);
+        e.launchImmune = 0;
+        // none of them is light enough to die in the pit, and none is allowed to wear out
+        e.hp = e.maxHp;
+        if (e.state === 'pit') continue;
+        pushBody(w, e, Math.cos(a), Math.sin(a), BODY.maxSpeed * e.def.mass * 2, 0);
+      }
+      const ev = run(w, 1);
+      slams += eventsOf(ev, 'wallSlam').length;
+      caroms += eventsOf(ev, 'carom').length;
+      falls += eventsOf(ev, 'ringOut').length;
+      for (const e of bodies) {
+        if (e.dead || e.state === 'pit') continue;
+        const ground = groundAt(w.room, e.x, e.y);
+        if (!Number.isFinite(e.x) || !Number.isFinite(e.y) || ground === 'solid') throw new Error(`a body got into a wall at tick ${t}: (${e.x}, ${e.y}) going (${e.lvx}, ${e.lvy})`);
+        if (Math.hypot(e.lvx, e.lvy) > BODY.maxSpeed + 1e-6) throw new Error(`a body is faster than anything may be: ${Math.hypot(e.lvx, e.lvy)}`);
+        // and once it is on its feet again it is on the floor, clear of everything
+        if (e.state !== 'launched' && ground !== 'floor') throw new Error(`a body is standing in a ${ground} at tick ${t}`);
+      }
+    }
+    // it really was a rattle: walls, each other, and the pit
+    expect(slams).toBeGreaterThan(400);
+    expect(caroms).toBeGreaterThan(30);
+    expect(falls).toBeGreaterThan(3);
+  });
+
+  it('shots bounced round the room at full speed never leave it', () => {
+    const w = bounceWorld();
+    const rng = new Rng(4);
+    place(w.players[0], 2, 2);
+    let bounces = 0;
+    for (let t = 0; t < 4000; t++) {
+      if (t % 6 === 0) {
+        const a = rng.float(0, Math.PI * 2);
+        spawnProjectile(w, { kind: 'arrow', faction: 'player', owner: 0, x: rng.float(3, 15), y: rng.float(2, 6), vx: Math.cos(a) * 40, vy: Math.sin(a) * 40, radius: 0.12, damage: 1, range: 400, life: 8, bounces: 30 });
+      }
+      const ev = run(w, 1);
+      bounces += eventsOf(ev, 'ricochet').length;
+      for (const pr of w.projectiles) {
+        if (!Number.isFinite(pr.x) || !Number.isFinite(pr.y) || groundAt(w.room, pr.x, pr.y) === 'solid') throw new Error(`a shot got into a wall at tick ${t}: (${pr.x}, ${pr.y})`);
+      }
+    }
+    expect(bounces).toBeGreaterThan(5000);
   });
 });

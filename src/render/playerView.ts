@@ -4,13 +4,14 @@
 import { Graphics } from 'pixi.js';
 import { ISO_COS, ISO_SIN, TILE, depthKey, projX, projY } from '../core/iso';
 import { damp, lerp } from '../core/math';
-import { DASH, HAYMAKER, PLAYER } from '../sim/tuning';
+import { DASH, HAYMAKER, PLAYER, REVIVE } from '../sim/tuning';
 import type { Player, SimEvent } from '../sim/types';
 import type { Sortable } from './depth';
 import { DANGER_HOT, PLAYER_COLORS, PLAYER_PALE, RIM } from './palette';
 import { animInput } from './rig/def';
 import { ARM_LENGTH } from './rig/hero';
 import { HERO_RIG, rigEntry } from './rig/registry';
+import { STRING_ANCHORS, stringDraw } from './rig/string';
 import type { RigEntry } from './rig/registry';
 import { RigView } from './rig/view';
 import type { Stage } from './stage';
@@ -188,6 +189,12 @@ export class PlayerView {
     const g = this.rig.over;
     g.clear();
     const pt = this.pt;
+    if (p.state === 'down') {
+      // Down: a ring over the head fills as a teammate stands by.
+      const k = Math.min(1, p.reviveT / REVIVE.time);
+      g.circle(0, -74, 11).stroke({ width: 3, color: this.color, alpha: 0.35 + 0.2 * Math.sin(time * 5) });
+      if (k > 0) g.moveTo(0, -85).arc(0, -74, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k).stroke({ width: 4, color: this.pale, alpha: 1, cap: 'round' });
+    }
     if (p.state === 'charge') {
       // The hand glows as it draws back, and a ring on the floor closes on the feet; both flash when full.
       const k = Math.min(1, p.charge / HAYMAKER.full);
@@ -205,6 +212,21 @@ export class PlayerView {
     } else {
       this.charge.visible = false;
       this.fullFor = -1;
+    }
+    if (p.classId === 'bow' && p.state !== 'down') {
+      // The string joins the two tips of the bow, and is pulled to the hand that draws it.
+      const top = this.pt;
+      this.rig.point(STRING_ANCHORS.part, STRING_ANCHORS.top[0], STRING_ANCHORS.top[1], top);
+      const tx = top.x;
+      const ty = top.y;
+      this.rig.point(STRING_ANCHORS.part, STRING_ANCHORS.bottom[0], STRING_ANCHORS.bottom[1], top);
+      const bx = top.x;
+      const by = top.y;
+      const d = stringDraw(this.anim);
+      this.rig.point('armNear', 0, ARM_LENGTH, top);
+      const mx = (tx + bx) / 2 + (top.x - (tx + bx) / 2) * d;
+      const my = (ty + by) / 2 + (top.y - (ty + by) / 2) * d;
+      g.moveTo(tx, ty).lineTo(mx, my).lineTo(bx, by).stroke({ width: 1.6, color: this.pale, alpha: 0.95, join: 'round' });
     }
     if (p.state === 'guard') {
       // The raised blade throws a bright standing arc in front: anything that lands here goes back.

@@ -77,6 +77,11 @@ export class RelayCore {
     return { tick: this.tick, inputs, cmds };
   }
 
+  /** Carry on from now: time that passed while the clock was stopped is forgotten, not made up. */
+  resume(nowMs: number): void {
+    this.startMs = nowMs - this.tick * TICK_MS;
+  }
+
   /** How far the clock is into the tick after the last one closed, 0..1, for drawing between ticks. */
   phase(nowMs: number): number {
     if (this.startMs < 0) return 0;

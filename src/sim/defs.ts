@@ -5,12 +5,19 @@
 /** The two halves of a run: the Outer Ring and the Inner Ring. */
 export type ZoneId = 'outer' | 'inner';
 export type RoomKind = 'combat' | 'arena';
+/**
+ * How a chamber is dressed, whatever its colours. 'court': a quiet checker with round posts.
+ * 'survey': contour rings like a map of ripples, with hexagonal pillars.
+ */
+export type RoomLook = 'court' | 'survey';
 
 export interface RoomTemplate {
   id: string;
   name: string;
   zone: ZoneId;
   kind: RoomKind;
+  /** Omitted, a court. */
+  look?: RoomLook;
   /** ASCII tile map; see the legend in src/content/rooms.ts. */
   map: readonly string[];
 }

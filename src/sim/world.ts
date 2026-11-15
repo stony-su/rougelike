@@ -10,7 +10,8 @@ import { stepProjectiles } from './projectiles';
 import { clampToFloor } from './room';
 import { stepStones } from './stones';
 import { stepTelegraphs } from './telegraphs';
-import { DT, PLAYER } from './tuning';
+import { standing } from './combat';
+import { DT, PLAYER, REVIVE } from './tuning';
 import type { ClassId, InputFrame, Player, Room, World } from './types';
 
 /** Who walks into a chamber: the seat, the class, and what they carry in from the run. */
@@ -104,6 +105,33 @@ function holdPositions(w: World): void {
   }
 }
 
+/** A downed player gets up when an ally has stood close for long enough. */
+function stepRevives(w: World, dt: number): void {
+  for (const p of w.players) {
+    if (p.state !== 'down') continue;
+    let helper = -1;
+    for (const q of w.players) {
+      if (q === p || !standing(q)) continue;
+      if ((q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y) <= REVIVE.radius * REVIVE.radius) {
+        helper = q.slot;
+        break;
+      }
+    }
+    if (helper < 0) {
+      p.reviveT = Math.max(0, p.reviveT - REVIVE.decay * dt);
+      continue;
+    }
+    p.reviveT += dt;
+    if (p.reviveT < REVIVE.time) continue;
+    p.reviveT = 0;
+    p.state = 'idle';
+    p.stateTime = 0;
+    p.hp = Math.max(1, Math.round(p.maxHp * REVIVE.hp));
+    p.iframes = REVIVE.iframes;
+    w.events.push({ type: 'revive', player: p.slot, by: helper, x: p.x, y: p.y });
+  }
+}
+
 /**
  * Advance the world by exactly one tick. `inputs` is indexed by seat (slot); a seat with no
  * input this tick stands idle.
@@ -119,6 +147,7 @@ export function stepWorld(w: World, inputs: ReadonlyArray<InputFrame | undefined
   }
   w.time += DT;
   for (const p of w.players) stepPlayer(w, p, inputs[p.slot] ?? idle, DT);
+  stepRevives(w, DT);
   stepEnemies(w, DT);
   stepProjectiles(w, DT);
   stepBombs(w, DT);

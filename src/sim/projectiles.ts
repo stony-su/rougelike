@@ -14,7 +14,7 @@ import { HURT_GUARDED, HURT_TAKEN, damageEnemy, damagePlayer, hittable, standing
 import { reflectFixed, reflectFree } from './geo';
 import type { Geo } from './geo';
 import { addRally, rallyMul } from './rally';
-import { BODY, BOW, BREAK, DT, HITSTOP, RALLY, REFLECT, RINGSTONE } from './tuning';
+import { BODY, BOW, BREAK, DT, DUET, HITSTOP, RALLY, REFLECT, RINGSTONE } from './tuning';
 import type { Bomb, BounceKind, Enemy, Player, Projectile, Ringstone, World } from './types';
 
 /** No shot ever flies faster than this, however many bumpers it meets. */
@@ -66,6 +66,7 @@ function make(id: number, o: ShotSpec): Projectile {
     perfect: false,
     boost: 0,
     homing: 0,
+    assist: -1,
     hits: [],
     dead: false,
   };
@@ -161,10 +162,14 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
   const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy) || 1;
   const ux = pr.vx / sp;
   const uy = pr.vy / sp;
-  // It is a Return if the shot was sent back, or has bounced or skipped on its way here.
-  const sent = pr.returned || pr.bounced > 0 || pr.skipped > 0 || pr.boost > 0;
+  // Alley-oop: an arrow that catches a body in flight hurts it more, shoves it on, and glances off.
+  const oop = e.state === 'launched' && !pr.returned;
+  const launcher = e.launchBy;
+  // It is a Return if the shot was sent back, has bounced or skipped on its way here, or two players had a hand in it.
+  const sent = pr.returned || pr.bounced > 0 || pr.skipped > 0 || pr.boost > 0 || pr.assist >= 0 || oop;
   let amount = pr.damage * (1 + BOW.bounceBonus * Math.min(pr.bounced, MAX_BOUNCE_BONUS)) * (1 + pr.boost);
   for (let i = 0; i < pr.skipped; i++) amount *= BOW.skipMul;
+  if (oop) amount *= DUET.oopDamage;
   if (sent) amount *= rallyMul(w, pr.owner);
   pr.boost = 0;
   damageEnemy(w, e, amount, {
@@ -177,9 +182,34 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
     freeze: pr.perfect ? HITSTOP.perfect : HITSTOP.light,
   });
   if (sent) addRally(w, pr.owner, pr.perfect ? RALLY.weight.perfect : pr.returned ? RALLY.weight.sent : RALLY.weight.arrow, e.x, e.y);
-  if (!e.dead) pushBody(w, e, ux, uy, pr.returned ? REFLECT.impulse : BOW.impulse, pr.owner);
+  // a Duet counts for the other player too: whoever banked the arrow, or whoever launched the body
+  if (pr.assist >= 0 && pr.assist !== pr.owner) addRally(w, pr.assist, RALLY.weight.arrow, e.x, e.y);
+  if (oop && launcher >= 0 && launcher !== pr.owner) {
+    addRally(w, launcher, RALLY.weight.arrow, e.x, e.y);
+    w.events.push({ type: 'duet', kind: 'alleyoop', a: launcher, b: pr.owner, x: e.x, y: e.y });
+  }
+  if (!e.dead) {
+    pushBody(w, e, ux, uy, (pr.returned ? REFLECT.impulse : BOW.impulse) + (oop ? DUET.oopArrowImpulse : 0), pr.owner);
+    if (oop && launcher >= 0 && launcher !== pr.owner) e.assistBy = launcher;
+  }
   pr.hits.push(e.id);
   if (pr.homing === e.id) pr.homing = 0;
+  if (oop) {
+    // Carom shot: an arrow never stops on a body in flight. It glances off and flies on, a bounce to the good.
+    let nx = pr.x - e.x;
+    let ny = pr.y - e.y;
+    const nl = Math.sqrt(nx * nx + ny * ny) || 1;
+    nx /= nl;
+    ny /= nl;
+    const into = pr.vx * nx + pr.vy * ny;
+    if (into < 0) {
+      pr.vx -= 2 * into * nx;
+      pr.vy -= 2 * into * ny;
+    }
+    pr.bounced++;
+    w.events.push({ type: 'ricochet', id: pr.id, by: pr.owner, x: pr.x, y: pr.y, n: pr.bounced, off: 'post', nx, ny });
+    return;
+  }
 
   if (pr.pierce > 0) {
     pr.pierce--;

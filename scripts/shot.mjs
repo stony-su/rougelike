@@ -1,7 +1,7 @@
 // Drives the locally installed Chrome (or Edge) through playwright-core: no browser download.
 // Usage:
 //   node scripts/shot.mjs --url http://localhost:5173/ --out name [--wait 1500] [--size 1600x900]
-//                         [--steps steps.json] [--headed] [--dir .verify]
+//                         [--steps steps.json] [--headed] [--dir .verify] [--pad]
 // A steps file is a JSON array of steps, run in order:
 //   {"wait": 500}                          pause (ms)
 //   {"waitFor": "js expression", "timeout": 15000}   wait until the expression is truthy in the page
@@ -11,6 +11,8 @@
 //   {"mouse": [800, 450]}                   move the mouse (viewport pixels)
 //   {"click": "left"} / {"click": "right"}  click at the current mouse position
 //   {"mdown": "left"} / {"mup": "left"}     press / release a mouse button
+//   {"pad": {"axes": [0.9, 0, 0, 0], "buttons": {"7": 1}}}   with --pad: set the fake controller's sticks and buttons
+//                                           (axes: left x, left y, right x, right y; buttons by standard index, 0 or 1)
 //   {"eval": "window.__resound.debug()"}  run script in the page; the result is printed
 //   {"shot": "name"}                        save a screenshot as <dir>/<name>.png
 //   {"shot": "name", "clip": [x, y, w, h]}  save only that region (CSS pixels); use --dsf 3 for close-ups
@@ -60,6 +62,23 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
 
+if (arg('pad', false) === true) {
+  // A fake controller in the browser's standard layout, driven by {"pad": ...} steps.
+  await page.addInitScript(() => {
+    const pad = {
+      id: 'Fake controller (standard layout)',
+      index: 0,
+      connected: true,
+      mapping: 'standard',
+      timestamp: 0,
+      axes: [0, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+    };
+    window.__pad = pad;
+    navigator.getGamepads = () => [pad, null, null, null];
+  });
+}
+
 await page.goto(String(url), { waitUntil: 'load' });
 await page.waitForTimeout(wait);
 
@@ -93,6 +112,15 @@ if (stepsPath && stepsPath !== true) {
       await page.mouse.down({ button: s.click });
       await page.waitForTimeout(s.ms ?? 30);
       await page.mouse.up({ button: s.click });
+    }
+    else if (s.pad) {
+      await page.evaluate((p) => {
+        const pad = window.__pad;
+        if (!pad) throw new Error('No fake controller: run with --pad');
+        if (p.axes) pad.axes = p.axes.slice();
+        for (const [i, v] of Object.entries(p.buttons ?? {})) pad.buttons[Number(i)] = { pressed: v > 0.5, touched: v > 0, value: v };
+        pad.timestamp = performance.now();
+      }, s.pad);
     }
     else if (s.mdown) await page.mouse.down({ button: s.mdown });
     else if (s.mup) await page.mouse.up({ button: s.mup });

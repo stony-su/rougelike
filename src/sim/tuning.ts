@@ -234,6 +234,33 @@ export const BOMB = {
   radius: 0.28,
 };
 
+// ---------------------------------------------------------------- together
+
+/** A downed player crawls, and stands again when an ally has stood close for long enough. */
+export const REVIVE = {
+  radius: 1.4,
+  time: 2,
+  /** Share of maximum health on standing up, by a teammate's hand or when the chamber is cleared. */
+  hp: 0.3,
+  iframes: 1,
+  /** Crawling speed, as a share of running speed. */
+  crawl: 0.25,
+  /** Progress lost per second while nobody is close. */
+  decay: 0.5,
+};
+
+/** Duets: bounces two players make between them. Each counts as a Return for both. */
+export const DUET = {
+  /** An ally's arrow through a sword swing: re-aimed, harder, with one more ricochet and one pierce. */
+  bankDamage: 1.6,
+  bankBounces: 1,
+  bankPierce: 1,
+  /** A launched body struck again in flight: a sword sends it on faster, an arrow adds a shove; either way it is hurt more. */
+  oopSwordSpeed: 1.4,
+  oopArrowImpulse: 6,
+  oopDamage: 1.5,
+};
+
 // ---------------------------------------------------------------- the rest
 
 /** Knockback on a player is a velocity that decays at this exponential rate. */
