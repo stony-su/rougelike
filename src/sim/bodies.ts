@@ -10,7 +10,7 @@ import { reflectFixed, reflectFree } from './geo';
 import { addRally, rallyMul } from './rally';
 import { groundAt, nearestFloor } from './room';
 import { addTelegraph } from './telegraphs';
-import { BODY, ELITE, HITSTOP, RALLY, RINGSTONE, isLight, massFactor } from './tuning';
+import { BODY, BOSS, ELITE, HITSTOP, RALLY, RINGSTONE, isLight, massFactor } from './tuning';
 import type { BounceKind, Enemy, Ringstone, World } from './types';
 
 /** Scratch space for one pass over the bodies, so the step allocates nothing per body. */
@@ -272,7 +272,8 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   const cy = e.y + ny * e.radius;
   w.events.push({ type: 'carom', a: e.id, b: o.id, by, x: cx, y: cy, speed: vn, links: e.links + 1 });
 
-  bounceDamage(w, o, amount, 'carom', by, nx, ny, big);
+  // a body thrown into a boss is the hardest thing a boss can be hit with
+  bounceDamage(w, o, fixed ? amount * BOSS.caromBonus : amount, 'carom', by, nx, ny, big);
   bounceDamage(w, e, amount, 'carom', by, -nx, -ny, big);
   resonate(w, o);
   resonate(w, e);

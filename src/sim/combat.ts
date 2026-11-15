@@ -3,7 +3,7 @@
 import { dcos, dhypot, dsin } from '../core/dmath';
 import { applyBurn, applyChill, clearElements } from './conditions';
 import { removeTelegraph } from './telegraphs';
-import { FREEZE, KNOCK_DECAY, PLAYER, RALLY, RIPOSTE, STUN_IMMUNITY, TRAIT, TUNE } from './tuning';
+import { BOSS, FREEZE, KNOCK_DECAY, PLAYER, RALLY, RIPOSTE, STUN_IMMUNITY, TRAIT, TUNE } from './tuning';
 import type { Enemy, HitKind, Player, World } from './types';
 
 /**
@@ -125,6 +125,27 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
       }
     }
   }
+  if (e.def.boss) {
+    // A boss is never stunned, but Returns landed one after another stagger it: it stops, and takes more.
+    if (e.staggered > 0) {
+      amount *= BOSS.staggerBonus;
+    } else if (returned && src.by >= 0 && e.stunImmune <= 0) {
+      e.stagger++;
+      e.staggerT = BOSS.staggerFade;
+      if (e.stagger >= BOSS.staggerAt) {
+        e.stagger = 0;
+        e.staggerT = 0;
+        e.staggered = BOSS.staggerTime;
+        e.stunImmune = BOSS.staggerTime + BOSS.staggerRest;
+        e.vx = 0;
+        e.vy = 0;
+        e.state = 'stun';
+        e.stateTime = 0;
+        e.stateDur = BOSS.staggerTime;
+        w.events.push({ type: 'stagger', id: e.id, x: e.x, y: e.y });
+      }
+    }
+  }
   if (e.status.markT > 0) amount *= 1 + e.status.markBonus;
   if (e.armor < 1) {
     // Armour holds until the body is bounced off something; the breaking blow lands in full.
@@ -173,6 +194,8 @@ export function killEnemy(w: World, e: Enemy): void {
   e.stateTime = 0;
   removeTelegraph(w, e.telegraph);
   e.telegraph = 0;
+  // whatever it had warned of dies with it: no strike lands for a boss that has fallen
+  for (const t of w.telegraphs) if (t.owner === e.id && !t.struck) t.dead = true;
   w.stats.kills++;
   w.deaths.push({ x: e.x, y: e.y, defId: e.defId, elite: e.elite, mate: e.mate, maxHp: e.maxHp });
   w.events.push({ type: 'enemyDeath', id: e.id, kind: e.defId, x: e.x, y: e.y, dx: e.lastHitX, dy: e.lastHitY, elite: e.elite });
@@ -182,7 +205,7 @@ export function killEnemy(w: World, e: Enemy): void {
 export function interruptEnemy(w: World, e: Enemy): void {
   removeTelegraph(w, e.telegraph);
   e.telegraph = 0;
-  if (e.move >= 0) e.cooldowns[e.move] = Math.max(e.cooldowns[e.move], 0.7);
+  if (e.move >= 0 && e.move < e.cooldowns.length) e.cooldowns[e.move] = Math.max(e.cooldowns[e.move], 0.7);
   e.move = -1;
   e.vx = 0;
   e.vy = 0;

@@ -21,13 +21,20 @@ interface Shapes {
 const cache = new Map<string, Shapes>();
 
 function shapesFor(t: Telegraph): Shapes {
-  const key = `${t.shape}:${t.radius}:${t.length}:${t.width}:${t.halfArc}:${t.count}:${t.spread}`;
+  const key = `${t.shape}:${t.radius}:${t.length}:${t.width}:${t.halfArc}:${t.count}:${t.spread}:${t.inner}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const outline = new GraphicsContext();
   const fill = new GraphicsContext();
   const stroke = { width: 3, color: 0xffffff, alpha: 1, join: 'round' as const };
-  if (t.shape === 'circle') {
+  if (t.shape === 'circle' && t.inner > 0) {
+    // a ring: the middle is cut out of it, and its inner edge is drawn as plainly as its outer one
+    const r = t.radius * T;
+    const ri = t.inner * T;
+    outline.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.12 }).circle(0, 0, ri).cut();
+    outline.circle(0, 0, r).stroke(stroke).circle(0, 0, ri).stroke(stroke);
+    fill.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.3 }).circle(0, 0, ri).cut();
+  } else if (t.shape === 'circle') {
     const r = t.radius * T;
     outline.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.1 }).circle(0, 0, r).stroke(stroke);
     fill.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.3 });
@@ -129,7 +136,8 @@ export class TelegraphViews {
       if (t.t < t.dur) {
         // The fill grows to meet the outline exactly when the attack lands.
         const e = k * k;
-        if (v.fan) v.fill.scale.set(1);
+        // a ring does not grow from its middle (its middle is the safe place): it only brightens
+        if (v.fan || t.inner > 0) v.fill.scale.set(1);
         else if (t.shape === 'lane') v.fill.scale.set(e, 1);
         else v.fill.scale.set(e);
         v.fill.tint = DANGER;

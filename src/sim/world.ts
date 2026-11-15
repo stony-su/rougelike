@@ -9,6 +9,7 @@ import { createPlayer, equip, readPresses, stepPlayer } from './player';
 import { stepProjectiles } from './projectiles';
 import { clampToFloor } from './room';
 import { stepStones } from './stones';
+import { stepStrikes } from './strikes';
 import { stepTelegraphs } from './telegraphs';
 import { standing } from './combat';
 import { DT, PLAYER, REVIVE } from './tuning';
@@ -163,6 +164,7 @@ export function stepWorld(w: World, inputs: ReadonlyArray<InputFrame | undefined
   stepBombs(w, DT);
   stepStones(w, DT);
   stepFlow(w, DT);
+  stepStrikes(w, DT);
   stepTelegraphs(w, DT);
   sweepDead(w);
 }

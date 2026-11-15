@@ -367,7 +367,11 @@ function locomote(w: World, e: Enemy, dt: number, s: BodyScratch): void {
     dx = p.x - e.x;
     dy = p.y - e.y;
     dist = dhypot(dx, dy) || 1e-6;
-    if (!e.airborne && castCircle(w.room.geo, true, e.x, e.y, dx, dy, e.radius * 0.9, s.hit)) {
+    // The way is clear if it can walk up to its target: as far as where the two bodies touch, not to
+    // the target's very middle. (Measured to the middle, someone tucked into a corner could never be
+    // reached, and nothing that strikes up close would ever strike them.)
+    const upTo = Math.max(0, dist - e.radius - p.radius) / dist;
+    if (!e.airborne && castCircle(w.room.geo, true, e.x, e.y, dx * upTo, dy * upTo, e.radius * 0.9, s.hit)) {
       way = castCircle(w.room.geo, false, e.x, e.y, dx, dy, 0.16, s.hit) ? WAY_BLOCKED : WAY_FLIGHT;
     }
     dx /= dist;
@@ -562,7 +566,9 @@ export function stepEnemies(w: World, dt: number): void {
         break;
       case 'windup':
         if (!m) {
-          setState(e, 'idle');
+          // a brain that is not using a move of the definition runs its own wind-ups and blows
+          if (brain) brain.decide(w, e, dt);
+          else setState(e, 'idle');
           break;
         }
         trackWindup(w, e, m);
@@ -570,12 +576,17 @@ export function stepEnemies(w: World, dt: number): void {
         break;
       case 'attack':
         if (!m) {
-          setState(e, 'idle');
+          if (brain) brain.decide(w, e, dt);
+          else setState(e, 'idle');
           break;
         }
         stepAttack(w, e, m);
         break;
       case 'recover':
+        if (!m && brain) {
+          brain.decide(w, e, dt);
+          break;
+        }
         e.vx = ddamp(e.vx, 0, 12, dt);
         e.vy = ddamp(e.vy, 0, 12, dt);
         if (e.stateTime >= e.stateDur) {

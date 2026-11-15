@@ -424,6 +424,9 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
     case 'takeoff':
       here(out, at, 'climbOut', ev.x, ev.y, 0.7);
       break;
+    case 'strike':
+      here(out, at, 'echoSlam', ev.x, ev.y, ev.shape === 'circle' ? clamp(ev.radius / 3, 0.6, 1) : 0.8);
+      break;
     case 'bellCrack':
       here(out, at, 'reflectPerfect', ev.x, ev.y, 1);
       here(out, at, 'armorBreak', ev.x, ev.y, 0.9);
@@ -510,6 +513,7 @@ export const SAMPLE_EVENTS: { readonly [K in SimEvent['type']]: Extract<SimEvent
   takeoff: { type: 'takeoff', id: 1, x: 0, y: 0 },
   bossPhase: { type: 'bossPhase', id: 1, kind: 'toll', phase: 1, x: 0, y: 0 },
   bellCrack: { type: 'bellCrack', id: 1, n: 1, x: 0, y: 0 },
+  strike: { type: 'strike', shape: 'circle', x: 0, y: 0, angle: 0, radius: 3, inner: 0, length: 0, width: 0 },
 };
 
 /** A copy of an event moved to another place in the chamber. An event that happens nowhere comes back unchanged. */

@@ -115,6 +115,8 @@ export interface EnemyDef {
   phases?: readonly number[];
   /** Things on it that the party can break (bells, say): shown as pips by its health, with `mem[0]` of them gone. */
   pips?: number;
+  /** How many times bigger than its rig was drawn it stands on screen. A boss should tower. Default 1. */
+  scale?: number;
 }
 
 // ---------------------------------------------------------------- registry

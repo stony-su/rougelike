@@ -83,10 +83,11 @@ export function planRoute(seed: string): Stop[] {
       size = 18;
       name = `${ZONE_NAMES[zone]} Side-chamber`;
     } else if (kind === 'miniboss') {
-      size = 28;
+      // a boss fills its floor: small enough that what it does reaches everywhere
+      size = 22;
       name = 'The Carillon Hall';
     } else if (kind === 'boss') {
-      size = 30;
+      size = 24;
       name = 'The Crater';
     } else {
       // a different shape from the last fight, so the road keeps changing under the party
@@ -103,7 +104,8 @@ export function planRoute(seed: string): Stop[] {
 
 /** What the generator is asked to build for a stop. */
 export function roomSpec(stop: Stop): RoomSpec {
-  return { zone: stop.zone, kind: stop.kind === 'miniboss' || stop.kind === 'boss' ? 'arena' : 'combat', look: stop.look, size: stop.size, shape: stop.shape, name: stop.name };
+  const boss = stop.kind === 'miniboss' || stop.kind === 'boss';
+  return { zone: stop.zone, kind: boss ? 'arena' : 'combat', look: stop.look, size: stop.size, shape: stop.shape, name: stop.name, arena: boss };
 }
 
 /** How a stop's chamber runs: its waves, how much each may spend, and what clearing it pays. */

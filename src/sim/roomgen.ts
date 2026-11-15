@@ -22,6 +22,11 @@ export interface RoomSpec {
   size: number;
   shape?: RoomShape;
   name?: string;
+  /**
+   * A boss's floor: open, with no pits to be cornered against and no posts to hide behind, and
+   * four bumpers toward its corners to bank off.
+   */
+  arena?: boolean;
 }
 
 type Grid = string[][];
@@ -207,8 +212,8 @@ function attempt(seed: string, spec: RoomSpec, shape: RoomShape): RoomTemplate {
       }
     }
   }
-  const mode = rng.pick([1, 2, 3, 3, 4]);
-  const pits = shape === 'ring' ? 0 : rng.int(0, 2);
+  const mode = spec.arena ? 3 : rng.pick([1, 2, 3, 3, 4]);
+  const pits = shape === 'ring' || spec.arena ? 0 : rng.int(0, 2);
   for (let i = 0, tries = 0; i < pits && tries < 60; tries++) {
     const x = rng.int(4, gw - 5);
     const y = rng.int(4, gh - 5);
@@ -228,8 +233,12 @@ function attempt(seed: string, spec: RoomSpec, shape: RoomShape): RoomTemplate {
   }
   // Posts and bumpers: enough that nowhere on a big floor is far from something to bounce off.
   const area = m.reduce((n, row) => n + row.filter(Boolean).length, 0);
-  const posts = Math.max(2, Math.round(area / rng.float(70, 110)));
-  const bumpers = Math.max(1, Math.round(area / rng.float(170, 260)));
+  const posts = spec.arena ? 0 : Math.max(2, Math.round(area / rng.float(70, 110)));
+  const bumpers = spec.arena ? 0 : Math.max(1, Math.round(area / rng.float(170, 260)));
+  if (spec.arena) {
+    // one bumper toward each corner, mirrored both ways: the nearest spot to the corner that has room
+    for (let inset = 3; inset < Math.min(cx, cy) - 2; inset++) if (mirrored(2 + inset, 2 + inset, 'B', 2, 3)) break;
+  }
   for (let placed = 0, tries = 0; placed < posts && tries < 200; tries++) {
     if (mirrored(rng.int(3, gw - 4), rng.int(3, gh - 4), 'o', 2, mode)) placed += mode === 3 ? 4 : mode === 0 ? 1 : 2;
   }

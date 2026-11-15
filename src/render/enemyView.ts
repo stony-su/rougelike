@@ -91,6 +91,8 @@ class EnemyView {
   /** Seconds since death, or -1 while alive. */
   deadFor = -1;
   seen = 0;
+  /** How many times bigger than its rig was drawn it stands (a boss towers). */
+  readonly size: number;
   /** How far it has tumbled, in radians, while launched. */
   private spin = 0;
   /** 0 on its feet, 1 fully in the air: eased so take-off and landing are not a snap. */
@@ -113,7 +115,8 @@ class EnemyView {
     this.sort = stage.depth.add(this.rig.root, depthKey(e.x, e.y));
     this.halo = new Graphics(halo());
     this.halo.tint = RIM;
-    this.halo.scale.set(this.entry.def.footprint * 1.25);
+    this.size = e.def.scale ?? 1;
+    this.halo.scale.set(this.entry.def.footprint * this.size * 1.25);
     this.halo.alpha = 0;
     this.mark = new Graphics(spawnMark());
     this.mark.tint = DANGER;
@@ -174,14 +177,14 @@ class EnemyView {
     const rooted = st.rootT > 0;
     this.halo.tint = rooted ? STATUS.root : elite ? DANGER : RIM;
     const haloAlpha = rooted ? 0.5 : elite ? 0.3 + 0.08 * Math.sin(time * 5 + e.seed * 6) : 0.16;
-    this.halo.scale.set(this.entry.def.footprint * (elite ? 1.7 : 1.25));
+    this.halo.scale.set(this.entry.def.footprint * this.size * (elite ? 1.7 : 1.25));
 
     if (e.state === 'spawn') {
       const k = a.phase;
       this.rig.root.alpha = Math.min(1, k * 1.6);
       this.mark.visible = true;
       this.mark.alpha = (1 - k) * 0.9;
-      this.mark.scale.set(this.entry.def.footprint * (1.9 - 0.9 * k));
+      this.mark.scale.set(this.entry.def.footprint * this.size * (1.9 - 0.9 * k));
       this.mark.rotation = k * 1.2;
       this.halo.alpha = haloAlpha * k;
     } else if (this.falling >= 0) {
@@ -190,13 +193,13 @@ class EnemyView {
       this.sink(this.falling);
     } else {
       this.rig.root.alpha = 1;
-      this.rig.root.scale.set(1);
+      this.rig.root.scale.set(this.size);
       this.mark.visible = false;
       this.halo.alpha = haloAlpha * (1 - this.air * 0.6);
     }
 
     // Signs over the head.
-    const top = this.rig.root.y - this.entry.def.height - 14 + Math.sin(time * 3 + e.seed * 6) * 2;
+    const top = this.rig.root.y - this.entry.def.height * this.size - 14 + Math.sin(time * 3 + e.seed * 6) * 2;
     if (elite && !this.badge) {
       this.badge = new Graphics(badge());
       this.badge.tint = DANGER;
@@ -223,7 +226,7 @@ class EnemyView {
   /** Shrink and drop out of sight, `t` seconds into the fall. */
   private sink(t: number): void {
     const k = Math.min(1, t / FALL_TIME);
-    this.rig.root.scale.set(1 - 0.75 * k * k);
+    this.rig.root.scale.set((1 - 0.75 * k * k) * this.size);
     this.rig.root.alpha = 1 - k * k;
     this.rig.root.y += k * k * T * 0.7;
     this.rig.root.rotation = this.spin + k * 2.4;
@@ -290,7 +293,7 @@ class EnemyView {
     this.x = x;
     this.y = y;
     // A tumbling body turns about its middle and rides a little above the floor.
-    const mid = this.entry.def.height * 0.45;
+    const mid = this.entry.def.height * this.size * 0.45;
     const lift = this.air * (mid + 9);
     this.rig.root.pivot.set(0, -mid * this.air);
     this.rig.root.position.set(projX(x, y), projY(x, y) - lift);
@@ -329,7 +332,7 @@ export class EnemyViews {
   /** Interpolated position of a live enemy's view, for effects that follow it. */
   position(id: number): { x: number; y: number; height: number } | null {
     const v = this.live.get(id);
-    return v ? { x: v.x, y: v.y, height: v.entry.def.height } : null;
+    return v ? { x: v.x, y: v.y, height: v.entry.def.height * v.size } : null;
   }
 
   /** Call for each launched body this frame with where it is and who sent it. */

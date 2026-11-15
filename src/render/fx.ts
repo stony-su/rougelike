@@ -400,6 +400,17 @@ export class Fx {
       case 'takeoff':
         ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 6);
         break;
+      case 'strike':
+        // the warning itself flashes where it lands; this is the dust and the jolt
+        if (ev.shape === 'circle') {
+          ps.ring(ev.x, ev.y, DANGER, Math.max(ev.inner, ev.radius * 0.4), ev.radius * 1.08, 0.3, 0.9);
+          ps.dust(ev.x, ev.y, 0, 0, this.theme.highlight, 8);
+        } else {
+          const reach = ev.shape === 'lane' ? ev.length : ev.radius;
+          for (let i = 1; i <= 4; i++) ps.dust(ev.x + Math.cos(ev.angle) * reach * (i / 4), ev.y + Math.sin(ev.angle) * reach * (i / 4), 0, 0, this.theme.highlight, 4);
+        }
+        this.shake(ev.x, ev.y, 0.3);
+        break;
       case 'bellCrack':
         ps.flash(ev.x, ev.y, 0.9, CHIME, 300, 0.25);
         ps.ring(ev.x, ev.y, CHIME, 0.4, 5, 0.6, 0.9);

@@ -3,14 +3,16 @@
 // exercise the real game. Bots get no hidden powers: they see the telegraphs and shots a player
 // sees, and may be given a human-like reaction delay.
 import { TAU, dcos, dhypot, dsin } from '../core/dmath';
+import type { Vec2 } from '../core/exact';
 import { hittable, onGuard, standing } from './combat';
 import type { ContentRegistry } from './defs';
 import { DRAFT_TICKS, completes } from './draft';
 import { hold, press, setAim, setMove } from './input';
+import { isClear } from './room';
 import type { Command, Session } from './session';
 import { previewArrow } from './projectiles';
 import { telegraphCovers } from './telegraphs';
-import { BREAK, FIST, HAYMAKER, SWORD } from './tuning';
+import { BOW, BREAK, FIST, HAYMAKER, SWORD } from './tuning';
 import { BTN, PRESS, emptyInput } from './types';
 import type { ClassId, Enemy, InputFrame, Player, Projectile, Telegraph, World } from './types';
 
@@ -137,20 +139,89 @@ function incoming(w: World, p: Player, seen: Notice, reaction: number, out: Inco
   }
 }
 
-/** Steer out of a telegraph the fastest way: sideways out of a lane, straight out of a circle or cone. */
-function escapeFrom(f: InputFrame, p: Player, t: Telegraph): void {
+/** The plain way out of a telegraph, as a direction: sideways out of a lane, straight out of a circle or cone, inward out of a ring if that is nearer. */
+function wayOut(p: Player, t: Telegraph, out: Vec2): void {
   if (t.shape === 'lane') {
     const c = dcos(t.angle);
     const s = dsin(t.angle);
     const across = -(p.x - t.x) * s + (p.y - t.y) * c;
     const side = across >= 0 ? 1 : -1;
-    setMove(f, -s * side, c * side);
-  } else {
-    const ex = p.x - t.x;
-    const ey = p.y - t.y;
-    if (dhypot(ex, ey) > 1e-6) setMove(f, ex, ey);
-    else setMove(f, 1, 0);
+    out.x = -s * side;
+    out.y = c * side;
+    return;
   }
+  const ex = p.x - t.x;
+  const ey = p.y - t.y;
+  const d = dhypot(ex, ey);
+  if (d <= 1e-6) {
+    out.x = 1;
+    out.y = 0;
+    return;
+  }
+  const inward = t.shape === 'circle' && t.inner > 0 && d - t.inner < t.radius - d;
+  out.x = (inward ? -ex : ex) / d;
+  out.y = (inward ? -ey : ey) / d;
+}
+
+/** How a bot looks for somewhere safe: this many directions, at each of these distances, nearest first. */
+const FLEE_DIRS = 16;
+const FLEE_STEPS: readonly number[] = [0.9, 1.8, 3];
+
+/**
+ * Get out from under a warning. Where warnings lie thick (a boss's patterns), the plain way out
+ * of one can lead into the next, so the bot looks at the places it could reach and goes to the
+ * nearest one that no warning covers, preferring the plain way out when that is one of them.
+ */
+function flee(w: World, p: Player, f: InputFrame, threat: Telegraph): void {
+  const plain: Vec2 = { x: 0, y: 0 };
+  wayOut(p, threat, plain);
+  for (const dist of FLEE_STEPS) {
+    let best = -Infinity;
+    let bx = 0;
+    let by = 0;
+    for (let i = 0; i < FLEE_DIRS; i++) {
+      const a = (i / FLEE_DIRS) * TAU;
+      const ux = dcos(a);
+      const uy = dsin(a);
+      const x = p.x + ux * dist;
+      const y = p.y + uy * dist;
+      if (!isClear(w.room, x, y, p.radius)) continue;
+      let covered = false;
+      for (const t of w.telegraphs) {
+        if (t.t < t.dur && telegraphCovers(t, x, y, p.radius + 0.2)) {
+          covered = true;
+          break;
+        }
+      }
+      if (covered) continue;
+      const along = ux * plain.x + uy * plain.y;
+      if (along > best) {
+        best = along;
+        bx = ux;
+        by = uy;
+      }
+    }
+    if (best > -Infinity) {
+      setMove(f, bx, by);
+      return;
+    }
+  }
+  setMove(f, plain.x, plain.y);
+}
+
+/** The nearest orb still on its way to someone, within `range` of the player, or null. */
+function nearestOrb(w: World, p: Player, range: number): Projectile | null {
+  let best: Projectile | null = null;
+  let bd = range * range;
+  for (const pr of w.projectiles) {
+    if (pr.dead || pr.faction !== 'enemy' || pr.kind !== 'orb') continue;
+    const d = (pr.x - p.x) * (pr.x - p.x) + (pr.y - p.y) * (pr.y - p.y);
+    if (d < bd) {
+      bd = d;
+      best = pr;
+    }
+  }
+  return best;
 }
 
 /** Step sideways out of the line of a shot. */
@@ -191,7 +262,7 @@ function tap(f: InputFrame, latch: number): number {
 function evade(w: World, p: Player, f: InputFrame, seen: Notice, o: BotOptions): boolean {
   const threat = threatTo(w, p, seen, o.reaction);
   if (!threat) return false;
-  escapeFrom(f, p, threat);
+  flee(w, p, f, threat);
   const left = threat.dur - threat.t;
   if (o.dashes && left < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
   return true;
@@ -231,7 +302,7 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
           return f;
         }
         if (p.state === 'guard') return f;
-        escapeFrom(f, p, threat);
+        flee(w, p, f, threat);
         if (o.dashes && left < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
         return f;
       }
@@ -308,7 +379,12 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
 
       const target = nearestEnemy(w, p);
       if (target) setAim(f, p.x, p.y, target.x, target.y);
-      if (target && o.special && onGuard(target)) {
+      // an orb on its way: an arrow sends it home, so that comes first
+      const orb = nearestOrb(w, p, 7);
+      if (orb) {
+        const lead = dhypot(orb.x - p.x, orb.y - p.y) / BOW.speed;
+        setAim(f, p.x, p.y, orb.x + orb.vx * lead, orb.y + orb.vy * lead);
+      } else if (target && o.special && onGuard(target)) {
         // behind a shield: look for a way round it off the walls, and look again every so often
         if (w.tick - bank.at >= BANK_EVERY || bank.target !== target.id) {
           bank.at = w.tick;
@@ -318,12 +394,13 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
         if (bank.angle >= 0) setAim(f, p.x, p.y, p.x + dcos(bank.angle) * 6, p.y + dsin(bank.angle) * 6);
       }
       // the string stays busy whatever the feet are doing
-      if (target && target.state !== 'spawn') hold(f, BTN.attack, true);
+      if (orb || (target && target.state !== 'spawn')) hold(f, BTN.attack, true);
 
       if (evade(w, p, f, seen, o)) return f;
       incoming(w, p, seen, o.reaction, inc);
-      if (inc.shot) {
+      if (inc.shot && inc.shot.kind !== 'orb') {
         sidestep(f, p, inc.shot);
+        if (o.dashes && inc.eta < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
         return f;
       }
       if (rescue(w, p, f)) return f;
@@ -338,7 +415,13 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
         const cx = w.room.cx - p.x;
         const cy = w.room.cy - p.y;
         const cl = dhypot(cx, cy) || 1;
-        setMove(f, -dx / d + (cx / cl) * 0.6, -dy / d + (cy / cl) * 0.6);
+        if (isClear(w.room, p.x - (dx / d) * 0.9, p.y - (dy / d) * 0.9, p.radius)) {
+          setMove(f, -dx / d + (cx / cl) * 0.6, -dy / d + (cy / cl) * 0.6);
+        } else {
+          // cornered: there is no more backing off, so out past it toward the middle, with a dash if there is one
+          setMove(f, cx, cy);
+          if (o.dashes && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
+        }
       } else if (d > 8) {
         setMove(f, dx, dy);
       } else {
@@ -376,16 +459,31 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
 
       const threat = threatTo(w, p, seen, o.reaction);
       if (threat) {
-        escapeFrom(f, p, threat);
+        flee(w, p, f, threat);
         // keep the hand drawn back while stepping aside
         if (charging) hold(f, BTN.attack, true);
         const left = threat.dur - threat.t;
         if (o.dashes && left < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
         return f;
       }
+      // an orb on its way is punched home rather than stepped round: face it early, and strike as it arrives
+      const orb = nearestOrb(w, p, 4);
+      if (orb) {
+        const od = dhypot(orb.x - p.x, orb.y - p.y);
+        setAim(f, p.x, p.y, orb.x, orb.y);
+        if (charging) {
+          // a hand already drawn back is let go at it
+          if (od > HAYMAKER.reach + HAYMAKER.lunge + orb.radius) hold(f, BTN.attack, true);
+          return f;
+        }
+        if (od <= FIST.reach + orb.radius + 0.5 && p.state !== 'attack') latch = tap(f, 3);
+        if (p.state !== 'release') return f;
+      }
       incoming(w, p, seen, o.reaction, inc);
-      if (inc.shot && !charging) {
+      if (inc.shot && !charging && inc.shot.kind !== 'orb') {
         sidestep(f, p, inc.shot);
+        // too late to step round it: through it
+        if (o.dashes && inc.eta < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
         return f;
       }
       if (!charging && rescue(w, p, f)) return f;

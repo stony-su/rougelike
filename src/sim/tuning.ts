@@ -340,6 +340,22 @@ export const ELITE = {
   splitShove: 4,
 };
 
+/**
+ * Bosses cannot be stunned or launched. What they can be is staggered: this many Returns landed
+ * on one, with no more than `staggerFade` seconds between them, stop it where it stands for
+ * `staggerTime` seconds, and everything it takes meanwhile is multiplied by `staggerBonus`. Then
+ * it cannot be staggered again for `staggerRest` seconds. A body launched into a boss hurts it
+ * `caromBonus` times as much as it would hurt another body.
+ */
+export const BOSS = {
+  staggerAt: 3,
+  staggerFade: 6,
+  staggerTime: 1.5,
+  staggerBonus: 1.5,
+  staggerRest: 9,
+  caromBonus: 1.5,
+};
+
 /** Numbers of the traits an Echo's definition may carry. */
 export const TRAIT = {
   /** Seconds a flyer lies stunned when it is knocked out of the air. */

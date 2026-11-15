@@ -435,6 +435,16 @@ export interface Telegraph {
   /** Lanes only: how many lanes fan out, and the total angle they span. One lane spans nothing. */
   count: number;
   spread: number;
+  /** Circles only: everyone closer to the middle than this is safe, so the warning is a ring. 0 for a disc. */
+  inner: number;
+  /**
+   * A strike (strikes.ts): when the warning runs out, every player it covers takes this much
+   * damage and is shoved this hard from its middle. 0 for a warning whose owner acts for itself.
+   */
+  damage: number;
+  knock: number;
+  /** True once its strike has landed. */
+  struck: boolean;
   /** Seconds elapsed and total. */
   t: number;
   dur: number;
@@ -523,6 +533,8 @@ export type SimEvent =
   | { type: 'grounded'; id: number; x: number; y: number }
   | { type: 'takeoff'; id: number; x: number; y: number }
   | { type: 'bossPhase'; id: number; kind: string; phase: number; x: number; y: number }
+  /** A strike landed: a warning that carried its own blow (strikes.ts). */
+  | { type: 'strike'; shape: TelegraphShape; x: number; y: number; angle: number; radius: number; inner: number; length: number; width: number }
   /** An orb came home and cracked a bell of the Carillon: its `n`th. */
   | { type: 'bellCrack'; id: number; n: number; x: number; y: number };
 

@@ -11,7 +11,7 @@ export function addTelegraph(
   x: number,
   y: number,
   dur: number,
-  o: { angle?: number; radius?: number; length?: number; width?: number; halfArc?: number; trackUntil?: number; count?: number; spread?: number },
+  o: { angle?: number; radius?: number; length?: number; width?: number; halfArc?: number; trackUntil?: number; count?: number; spread?: number; inner?: number; damage?: number; knock?: number },
 ): Telegraph {
   const t: Telegraph = {
     id: w.nextId++,
@@ -26,6 +26,10 @@ export function addTelegraph(
     halfArc: o.halfArc ?? 0,
     count: o.count ?? 1,
     spread: o.spread ?? 0,
+    inner: o.inner ?? 0,
+    damage: o.damage ?? 0,
+    knock: o.knock ?? 0,
+    struck: false,
     t: 0,
     dur,
     trackUntil: o.trackUntil ?? 0,
@@ -58,7 +62,11 @@ export function telegraphCovers(t: Telegraph, x: number, y: number, r: number): 
       const dx = x - t.x;
       const dy = y - t.y;
       const rr = t.radius + r;
-      return dx * dx + dy * dy <= rr * rr;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > rr * rr) return false;
+      // a ring: whoever stands wholly inside its middle is safe
+      const safe = t.inner - r;
+      return !(safe > 0 && d2 < safe * safe);
     }
     case 'lane': {
       const dx = x - t.x;
