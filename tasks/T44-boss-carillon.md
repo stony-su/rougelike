@@ -1,8 +1,8 @@
 ---
 id: T44
 title: Mini-boss: the Carillon
-status: open
-owner:
+status: claimed
+owner: stony-su
 milestone: 4
 weight: 2.5
 needs: [T22]

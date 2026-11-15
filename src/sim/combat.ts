@@ -174,7 +174,7 @@ export function killEnemy(w: World, e: Enemy): void {
   removeTelegraph(w, e.telegraph);
   e.telegraph = 0;
   w.stats.kills++;
-  w.deaths.push({ x: e.x, y: e.y, defId: e.defId, elite: e.elite });
+  w.deaths.push({ x: e.x, y: e.y, defId: e.defId, elite: e.elite, mate: e.mate, maxHp: e.maxHp });
   w.events.push({ type: 'enemyDeath', id: e.id, kind: e.defId, x: e.x, y: e.y, dx: e.lastHitX, dy: e.lastHitY, elite: e.elite });
 }
 

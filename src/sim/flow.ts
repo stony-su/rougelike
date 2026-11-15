@@ -5,10 +5,11 @@ import type { Vec2 } from '../core/exact';
 import { nearestPlayer, spawnEnemy } from './ai';
 import { standing } from './combat';
 import type { EnemyDef } from './defs';
+import { ELITE_TRAITS, eliteDied, spawnElite } from './elites';
 import { isClear, randomFloorPoint } from './room';
 import type { StopKind } from './run';
 import { SCALING } from './tuning';
-import type { Enemy, World } from './types';
+import type { World } from './types';
 
 export interface Pickup {
   id: number;
@@ -145,8 +146,14 @@ function sendWave(w: World): void {
   }
   const defs = composeWave(w, f.budget);
   const spots = spawnSpots(w, defs.length);
-  const spawned: Enemy[] = [];
-  defs.forEach((d, i) => spawned.push(spawnEnemy(w, d, spots[i].x, spots[i].y)));
+  // The hardest fights carry their elites in the last wave: the biggest things in it, one more with company.
+  const hard = f.kind === 'elite' || f.kind === 'miniboss' || f.kind === 'boss';
+  const elites = hard && f.wave >= f.waves ? 1 + (w.players.length > 1 ? 1 : 0) : 0;
+  const biggest = defs.map((_, i) => i).sort((a, b) => defs[b].threat - defs[a].threat || a - b);
+  defs.forEach((d, i) => {
+    if (biggest.indexOf(i) < elites) spawnElite(w, d, spots[i].x, spots[i].y, w.rng.pick(ELITE_TRAITS));
+    else spawnEnemy(w, d, spots[i].x, spots[i].y);
+  });
   w.events.push({ type: 'waveStart', wave: f.wave });
 }
 
@@ -228,6 +235,7 @@ export function stepFlow(w: World, dt: number): void {
     for (const d of w.deaths) {
       const def = w.content.enemies[d.defId];
       if (def) dropChimes(w, d.x, d.y, w.rng.int(def.chimes[0], def.chimes[1]) * (d.elite ? 3 : 1));
+      if (d.elite) eliteDied(w, d);
     }
     w.deaths.length = 0;
   }

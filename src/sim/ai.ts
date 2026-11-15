@@ -19,7 +19,7 @@ import { navFor, navStep } from './nav';
 import { spawnProjectile } from './projectiles';
 import { newStatus, slowOf, stepStatus } from './status';
 import { addTelegraph, findTelegraph, laneAngle, telegraphCovers } from './telegraphs';
-import { RIPOSTE, SCALING } from './tuning';
+import { ELITE, RIPOSTE, SCALING } from './tuning';
 import type { Enemy, Player, World } from './types';
 
 export const SPAWN_TIME = 0.75;
@@ -147,6 +147,10 @@ export function spawnEnemy(w: World, def: EnemyDef, x: number, y: number, o: { e
     groundedT: 0,
     guardOpen: 0,
     phase: 0,
+    mate: 0,
+    ringT: 0,
+    ringX: 0,
+    ringY: 0,
     freeze: 0,
     status: newStatus(),
     dead: false,
@@ -425,6 +429,26 @@ function locomote(w: World, e: Enemy, dt: number, s: BodyScratch): void {
 /** Standing on the floor and taking up room: not arriving, not in flight, not down a pit. */
 const grounded = (e: Enemy): boolean => !e.dead && e.state !== 'spawn' && e.state !== 'launched' && e.state !== 'pit';
 
+/** A Tethered pair never stands further apart than its tether: whichever strays is pulled back, and so is the other. */
+function tethers(w: World): void {
+  for (const a of w.enemies) {
+    // each pair once: the one with the lower id sees to it
+    if (a.mate <= a.id || !grounded(a)) continue;
+    let b: Enemy | null = null;
+    for (const o of w.enemies) if (o.id === a.mate) b = o;
+    if (!b || !grounded(b)) continue;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const d = dhypot(dx, dy);
+    if (d <= ELITE.tetherLength || d < 1e-6) continue;
+    const pull = (d - ELITE.tetherLength) / 2 / d;
+    a.x += dx * pull;
+    a.y += dy * pull;
+    b.x -= dx * pull;
+    b.y -= dy * pull;
+  }
+}
+
 /** Keep bodies from overlapping: enemies push each other apart, and are pushed off the players. */
 function separate(w: World, tmp: Vec2): void {
   const es = w.enemies;
@@ -503,6 +527,19 @@ export function stepEnemies(w: World, dt: number): void {
         w.events.push({ type: 'takeoff', id: e.id, x: e.x, y: e.y });
       }
     }
+    // a Resonant elite's ring lands where it was bounced, once the warning has run
+    if (e.ringT > 0) {
+      e.ringT -= dt;
+      if (e.ringT <= 0) {
+        e.ringT = 0;
+        for (const p of w.players) {
+          const reach = ELITE.ringRadius + p.radius;
+          if (!standing(p) || (p.x - e.ringX) * (p.x - e.ringX) + (p.y - e.ringY) * (p.y - e.ringY) > reach * reach) continue;
+          damagePlayer(w, p, ELITE.ringDamage * e.damageMul, e.ringX, e.ringY, ELITE.ringKnock);
+        }
+        w.events.push({ type: 'slam', x: e.ringX, y: e.ringY, radius: ELITE.ringRadius });
+      }
+    }
     const brain = e.def.brain ? w.content.brains[e.def.brain] : undefined;
     if (brain && e.state !== 'spawn') {
       brain.always(w, e, dt);
@@ -559,6 +596,7 @@ export function stepEnemies(w: World, dt: number): void {
     }
     if (e.state !== 'spawn' && e.state !== 'pit' && !e.dead) stepBody(w, e, dt, s);
   }
+  tethers(w);
   separate(w, tmp);
 }
 

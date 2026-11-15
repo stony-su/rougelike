@@ -315,6 +315,31 @@ export const SCALING = {
   coopBossHp: 0.6,
 };
 
+/** Elites: an ordinary Echo with more health, a harder hit and one trait (elites.ts). */
+export const ELITE = {
+  hp: 1.6,
+  damage: 1.15,
+  /** Resonant: every bounce rings, after a short warning, for whoever stands near. */
+  ringRadius: 2,
+  ringWarn: 0.5,
+  ringDamage: 10,
+  ringKnock: 3,
+  /** Tethered: two with more health each, never further apart than the tether; a launch drags the other at this share of the speed, and the survivor of the pair is this much faster. */
+  tetherHp: 1.8,
+  tetherLength: 4,
+  tetherDrag: 0.5,
+  tetherRage: 1.3,
+  /** Hasty: wind-ups are this long, and it walks this fast. */
+  hastyWindup: 0.7,
+  hastySpeed: 1.25,
+  /** Plated: the share of a blow it takes until a slam or a carom breaks the plate. */
+  platedArmor: 0.25,
+  /** Splitting: it falls into two with this share of its health, this much smaller, shoved apart this hard. */
+  splitHp: 0.4,
+  splitSize: 0.8,
+  splitShove: 4,
+};
+
 /** Numbers of the traits an Echo's definition may carry. */
 export const TRAIT = {
   /** Seconds a flyer lies stunned when it is knocked out of the air. */

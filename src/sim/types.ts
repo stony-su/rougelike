@@ -277,6 +277,12 @@ export interface Enemy {
   guardOpen: number;
   /** The phase of the fight a boss is in, from 0. Always 0 for anything else. */
   phase: number;
+  /** The id of the other of a Tethered pair of elites, or 0. */
+  mate: number;
+  /** A Resonant elite's ring: seconds until it lands (0 when none is coming), and where. */
+  ringT: number;
+  ringX: number;
+  ringY: number;
   /** Per-body hit-stop: ticks this enemy stays frozen. */
   freeze: number;
   status: EnemyStatus;
@@ -556,7 +562,7 @@ export interface World {
    */
   nav: Array<NavField | null>;
   /** Enemies that died this tick, for drops. Cleared by the flow step. */
-  deaths: Array<{ x: number; y: number; defId: string; elite: string | null }>;
+  deaths: Array<{ x: number; y: number; defId: string; elite: string | null; mate: number; maxHp: number }>;
   /** Totals for the results screen and for tests. */
   stats: {
     kills: number;

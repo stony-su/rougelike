@@ -9,7 +9,8 @@ import { damageEnemy, hittable, interruptEnemy, outOfReach, stunEnemy } from './
 import { reflectFixed, reflectFree } from './geo';
 import { addRally, rallyMul } from './rally';
 import { groundAt, nearestFloor } from './room';
-import { BODY, HITSTOP, RALLY, RINGSTONE, isLight, massFactor } from './tuning';
+import { addTelegraph } from './telegraphs';
+import { BODY, ELITE, HITSTOP, RALLY, RINGSTONE, isLight, massFactor } from './tuning';
 import type { BounceKind, Enemy, Ringstone, World } from './types';
 
 /** Scratch space for one pass over the bodies, so the step allocates nothing per body. */
@@ -40,6 +41,24 @@ function beginLaunch(w: World, e: Enemy, by: number, links: number): void {
   e.assistBy = -1;
   e.links = links;
   w.events.push({ type: 'launch', id: e.id, by, x: e.x, y: e.y, speed: speedOf(e) });
+  // A Tethered pair: the one that was not struck is dragged along behind.
+  if (e.mate > 0) {
+    for (const m of w.enemies) {
+      if (m.id !== e.mate || !hittable(m) || m.state === 'launched') continue;
+      m.lvx += e.lvx * ELITE.tetherDrag;
+      m.lvy += e.lvy * ELITE.tetherDrag;
+      settle(w, m, by, links + 1);
+    }
+  }
+}
+
+/** A Resonant elite rings every time it is bounced: the warning goes down now, and the ring lands after it (ai.ts). */
+function resonate(w: World, e: Enemy): void {
+  if (e.elite !== 'resonant' || e.dead || e.ringT > 0) return;
+  e.ringT = ELITE.ringWarn;
+  e.ringX = e.x;
+  e.ringY = e.y;
+  addTelegraph(w, 'circle', e.id, e.x, e.y, ELITE.ringWarn, { radius: ELITE.ringRadius, trackUntil: 0 });
 }
 
 /**
@@ -160,6 +179,7 @@ function bounceOffChamber(w: World, e: Enemy, s: BodyScratch): void {
     const amount = BODY.slamDamage * into * (1 + e.boost) * rallyMul(w, by);
     e.boost = 0;
     bounceDamage(w, e, amount, 'slam', by, -h.nx, -h.ny, into > 12);
+    resonate(w, e);
     creditBounce(w, e, e.x, e.y);
   }
   if (bumper) e.boost = Math.max(e.boost, BODY.bumperBoost);
@@ -254,6 +274,8 @@ function carom(w: World, e: Enemy, o: Enemy): void {
 
   bounceDamage(w, o, amount, 'carom', by, nx, ny, big);
   bounceDamage(w, e, amount, 'carom', by, -nx, -ny, big);
+  resonate(w, o);
+  resonate(w, e);
   creditBounce(w, e, cx, cy);
   if (!o.dead && !fixed && !settle(w, o, by, e.links + 1)) {
     // too heavy to fly from that: it staggers instead
