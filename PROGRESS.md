@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 60% complete.** 11 of 35 tasks are done, 2 in progress, 15 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 62% complete.** 13 of 35 tasks are done, 1 in progress, 14 ready to take, 7 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -12,15 +12,14 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 18% | 100% |
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 12% | 100% |
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 13.5% | 100% |
-| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 24% |
+| 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 25% | 32% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 14.5% | 17% |
 | 6 | Menus, saving, sound | 5% | 0% |
 | 7 | Polish and balance | 4% | 0% |
 
 ## In progress
 
-- [T40](tasks/T40-echo-gong.md) **Echo: the Gong**: stony-su
-- [T41](tasks/T41-echo-cairn.md) **Echo: the Cairn**: stony-su
+- [T43](tasks/T43-elites.md) **Elites: five traits and their aura**: stony-su
 
 ## To do: ready to take
 
@@ -30,7 +29,6 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T31](tasks/T31-tunings-bow.md) **Tunings: the Bow (ten, and three Harmonies)** (2.5% of the game)
 - [T32](tasks/T32-tunings-fist.md) **Tunings: the Fist (ten, and three Harmonies)** (2.5% of the game)
 - [T42](tasks/T42-echo-skirl.md) **Echo: the Skirl** (1% of the game)
-- [T43](tasks/T43-elites.md) **Elites: five traits and their aura** (1.5% of the game)
 - [T44](tasks/T44-boss-carillon.md) **Mini-boss: the Carillon** (2.5% of the game)
 - [T45](tasks/T45-boss-toll.md) **Final boss: the Toll, in three phases** (3.5% of the game)
 - [T50](tasks/T50-camp.md) **Camp: the Tuner (shop) and the Still Pool (rest)** (2% of the game)
@@ -62,6 +60,8 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 - [T20](tasks/T20-upgrade-engine.md) Upgrade engine: Tunings on players, a draft after every fight
 - [T22](tasks/T22-boss-framework.md) Boss framework and Echo traits
 - [T33](tasks/T33-tunings-common.md) Tunings: the common twelve, and three Harmonies
+- [T40](tasks/T40-echo-gong.md) Echo: the Gong
+- [T41](tasks/T41-echo-cairn.md) Echo: the Cairn
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 
 ## Future plans: designed, kept for later

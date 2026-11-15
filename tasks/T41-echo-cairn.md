@@ -1,7 +1,7 @@
 ---
 id: T41
 title: Echo: the Cairn
-status: claimed
+status: done
 owner: stony-su
 milestone: 4
 weight: 1

@@ -1,8 +1,8 @@
 ---
 id: T43
 title: Elites: five traits and their aura
-status: open
-owner:
+status: claimed
+owner: stony-su
 milestone: 5
 weight: 1.5
 needs: [T22]

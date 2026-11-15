@@ -2,12 +2,13 @@
 // mouse or controller produces, so tests, balance sweeps and the in-browser autopilot all
 // exercise the real game. Bots get no hidden powers: they see the telegraphs and shots a player
 // sees, and may be given a human-like reaction delay.
-import { dcos, dhypot, dsin } from '../core/dmath';
-import { hittable, standing } from './combat';
+import { TAU, dcos, dhypot, dsin } from '../core/dmath';
+import { hittable, onGuard, standing } from './combat';
 import type { ContentRegistry } from './defs';
 import { DRAFT_TICKS, completes } from './draft';
 import { hold, press, setAim, setMove } from './input';
 import type { Command, Session } from './session';
+import { previewArrow } from './projectiles';
 import { telegraphCovers } from './telegraphs';
 import { BREAK, FIST, HAYMAKER, SWORD } from './tuning';
 import { BTN, PRESS, emptyInput } from './types';
@@ -249,10 +250,54 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
 }
 
 /** Keeps its distance and keeps the string busy; throws a Ringstone into a crowd. */
+/** How many directions a bot tries when it looks for a shot off the walls, and how often it looks again (ticks). */
+const BANK_TRIES = 48;
+const BANK_EVERY = 15;
+
+/**
+ * For a target behind a shield: an aim that sends an arrow off the chamber and into it from where
+ * the shield is not, or -1 if none of the directions tried does. It reads the same path the
+ * arrow will fly (the aim preview's), as a person reading the room's angles would.
+ */
+function bankShot(w: World, p: Player, e: Enemy, pts: number[]): number {
+  const sh = e.def.shield;
+  if (!sh) return -1;
+  const fx = dcos(e.facing);
+  const fy = dsin(e.facing);
+  const stops = dcos(sh.arc);
+  let best = -1;
+  let bestD = e.radius + 0.1;
+  for (let i = 0; i < BANK_TRIES; i++) {
+    const angle = (i / BANK_TRIES) * TAU;
+    previewArrow(w, p, angle, 2, pts);
+    for (let k = 0; k + 3 < pts.length; k += 2) {
+      const lx = pts[k + 2] - pts[k];
+      const ly = pts[k + 3] - pts[k + 1];
+      const len = dhypot(lx, ly);
+      if (len < 1e-6) continue;
+      const ux = lx / len;
+      const uy = ly / len;
+      const along = Math.max(0, Math.min(len, (e.x - pts[k]) * ux + (e.y - pts[k + 1]) * uy));
+      const d = dhypot(pts[k] + ux * along - e.x, pts[k + 1] + uy * along - e.y);
+      if (d >= e.radius + 0.1) continue;
+      // this leg reaches it: from the front it would only ring off, and the arrow would be spent
+      if (-(ux * fx + uy * fy) > stops) break;
+      if (k > 0 && d < bestD) {
+        bestD = d;
+        best = angle;
+      }
+      break;
+    }
+  }
+  return best;
+}
+
 export function bowBot(o: BotOptions = EXPERT): Bot {
   const f = emptyInput();
   const seen = newNotice();
   const inc: Incoming = { shot: null, eta: 0 };
+  const bank = { angle: -1, at: -BANK_EVERY, target: 0 };
+  const path: number[] = [];
   return {
     name: o.dashes ? 'bow' : 'bow-novice',
     think(w: World, slot: number): InputFrame {
@@ -263,6 +308,15 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
 
       const target = nearestEnemy(w, p);
       if (target) setAim(f, p.x, p.y, target.x, target.y);
+      if (target && o.special && onGuard(target)) {
+        // behind a shield: look for a way round it off the walls, and look again every so often
+        if (w.tick - bank.at >= BANK_EVERY || bank.target !== target.id) {
+          bank.at = w.tick;
+          bank.target = target.id;
+          bank.angle = bankShot(w, p, target, path);
+        }
+        if (bank.angle >= 0) setAim(f, p.x, p.y, p.x + dcos(bank.angle) * 6, p.y + dsin(bank.angle) * 6);
+      }
       // the string stays busy whatever the feet are doing
       if (target && target.state !== 'spawn') hold(f, BTN.attack, true);
 
