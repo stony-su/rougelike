@@ -255,6 +255,35 @@ export const REVIVE = {
   decay: 0.5,
 };
 
+/** What the Bow's Tunings do, beyond the numbers on their cards. */
+export const STRING = {
+  /** Crescendo: the bounce from which an arrow bursts where it lands, and how wide. */
+  crescendoFrom: 2,
+  crescendoRadius: 1.2,
+  /** Seeking Echo: how near an Echo must be for an arrow to come round to it. */
+  seekRange: 7,
+  /** Splinter: how far a killing arrow's pieces look for something to fly at, and what each carries. */
+  splinterRange: 6,
+  splinterShare: 0.6,
+  /** Pinning Note: seconds before the same Echo can be rooted again. */
+  pinRest: 3,
+  /** Resonant Stone: how wide a struck stone's pulse is. */
+  pulseRadius: 1.8,
+  /** Lodestone: how much further than its speed a stone's pull reaches. */
+  lodeReach: 1.5,
+  /** Heavy Fourth: which arrow of a held volley is the heavy one, and the ricochets it gains. */
+  heavyEvery: 4,
+  heavyBounces: 1,
+  /** Trick Shot: the bounce from which an arrow always crits, and by how much. */
+  trickFrom: 3,
+  trickMul: 2,
+  /** Bell Tower: how often an arrow goes from one stone to the other before it is let go. */
+  towerMost: 4,
+  /** A Ringstone sends a shot on with at least this much range and time still in it. */
+  stoneRange: 12,
+  stoneLife: 0.6,
+};
+
 /** What the Sword's Tunings do, beyond the numbers on their cards. */
 export const EDGE = {
   /** Second Voice: the fan a return splits into, and what each shot of it carries of the whole (less for each one more). */

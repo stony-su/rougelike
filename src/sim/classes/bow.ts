@@ -4,7 +4,7 @@
 import { rest, walk } from '../move';
 import { arrowSpec, spawnProjectile } from '../projectiles';
 import { throwStone } from '../stones';
-import { BOW, RINGSTONE } from '../tuning';
+import { BOW, RINGSTONE, STRING } from '../tuning';
 import { BTN } from '../types';
 import type { Player, World } from '../types';
 import { wantsSpecial } from './kit';
@@ -13,9 +13,17 @@ import type { Kit } from './kit';
 function loose(w: World, p: Player): void {
   // a run of three: the count goes on while the arrows keep coming, and starts again after a pause
   p.combo = p.comboTimer > 0 ? (p.combo + 1) % 3 : 0;
+  // and the volley is counted the same way, for as long as the string does not rest
+  p.volley = p.comboTimer > 0 ? p.volley + 1 : 1;
   p.comboTimer = BOW.comboWindow;
   const arrow = arrowSpec(p, p.aim);
   if (p.combo === 2) arrow.damage *= BOW.third;
+  if (p.mods.heavyMul > 0 && p.volley % STRING.heavyEvery === 0) {
+    // Heavy Fourth: every fourth arrow of the volley is a heavy one
+    arrow.damage *= p.mods.heavyMul;
+    arrow.pierce = (arrow.pierce ?? 0) + p.mods.heavyPierce;
+    arrow.bounces = (arrow.bounces ?? 0) + STRING.heavyBounces;
+  }
   spawnProjectile(w, arrow);
   p.fireT = BOW.interval;
   p.bufAttack = 0;
@@ -30,7 +38,7 @@ function loose(w: World, p: Player): void {
 function act(w: World, p: Player): boolean {
   if (wantsSpecial(w, p)) {
     throwStone(w, p);
-    p.specialCd = RINGSTONE.cooldown;
+    p.specialCd = RINGSTONE.cooldown * (1 - p.mods.stoneCd);
     p.state = 'special';
     p.stateTime = 0;
     p.actAngle = p.aim;

@@ -3,7 +3,8 @@
 // Nobody trips on one: it hangs just above the floor.
 import { dcos, dsin } from '../core/dmath';
 import { SKIN, castCircle, newHit } from './cast';
-import { RINGSTONE } from './tuning';
+import { isClear } from './room';
+import { RINGSTONE, STRING } from './tuning';
 import type { Player, Ringstone, World } from './types';
 
 function retire(w: World, s: Ringstone): void {
@@ -14,7 +15,9 @@ function retire(w: World, s: Ringstone): void {
 
 /** Throw a Ringstone at the aimed point. It stops short of any wall or post; an older stone of the same player is gone. */
 export function throwStone(w: World, p: Player): Ringstone {
-  for (const s of w.stones) if (s.owner === p.slot) retire(w, s);
+  // Twin Stones: more than one may stand; the oldest goes when there would be too many
+  const mine = w.stones.filter((s) => s.owner === p.slot && !s.dead);
+  for (let i = 0; i <= mine.length - Math.max(1, p.mods.stones); i++) retire(w, mine[i]);
   const reach = Math.max(1.5, Math.min(p.aimDist, RINGSTONE.range));
   const dx = dcos(p.aim) * reach;
   const dy = dsin(p.aim) * reach;
@@ -32,13 +35,36 @@ export function throwStone(w: World, p: Player): Ringstone {
     toY: p.y + dy * t,
     flying: true,
     radius: RINGSTONE.radius,
-    life: RINGSTONE.life,
+    life: RINGSTONE.life * p.mods.stoneLife,
     rungT: 9,
     dead: false,
   };
   w.stones.push(s);
   w.events.push({ type: 'stoneThrow', id: s.id, player: p.slot, x: s.x, y: s.y });
   return s;
+}
+
+/** Lodestone: a planted stone draws the Echoes near it in, a step at a time, as far as the floor allows. */
+function pull(w: World, s: Ringstone, dt: number): void {
+  let speed = 0;
+  for (const p of w.players) if (p.slot === s.owner) speed = p.mods.lodestone;
+  if (speed <= 0) return;
+  const reach = speed + STRING.lodeReach;
+  for (const e of w.enemies) {
+    // what stands on the floor and can be moved: not a boss, not something in flight or still arriving
+    if (e.dead || e.def.anchored || e.def.boss || e.state === 'spawn' || e.state === 'launched' || e.state === 'pit' || e.airborne) continue;
+    const dx = s.x - e.x;
+    const dy = s.y - e.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const stop = s.radius + e.radius + 0.15;
+    if (d > reach || d <= stop) continue;
+    const step = Math.min(speed * dt, d - stop);
+    const nx = e.x + (dx / d) * step;
+    const ny = e.y + (dy / d) * step;
+    if (!isClear(w.room, nx, ny, e.radius)) continue;
+    e.x = nx;
+    e.y = ny;
+  }
 }
 
 export function stepStones(w: World, dt: number): void {
@@ -65,6 +91,7 @@ export function stepStones(w: World, dt: number): void {
     } else {
       s.life -= dt;
       if (s.life <= 0) retire(w, s);
+      else pull(w, s, dt);
     }
   }
   if (w.stones.some((s) => s.dead)) w.stones = w.stones.filter((s) => !s.dead);

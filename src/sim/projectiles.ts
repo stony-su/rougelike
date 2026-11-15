@@ -10,12 +10,12 @@ import { nearestEcho, pushBody } from './bodies';
 import { BOMB_TOUCH, detonateBomb } from './bombs';
 import { HIT_BUMPER, HIT_POST, SKIN, castCircle, circleTime, newHit } from './cast';
 import type { Hit } from './cast';
-import { HURT_GUARDED, HURT_TAKEN, damageEnemy, damagePlayer, hittable, standing, stunEnemy } from './combat';
-import { applyMark } from './conditions';
+import { HURT_GUARDED, HURT_TAKEN, burstAt, damageEnemy, damagePlayer, hittable, standing, stunEnemy } from './combat';
+import { applyMark, applyRoot } from './conditions';
 import { reflectFixed, reflectFree } from './geo';
 import type { Geo } from './geo';
-import { addRally, rallyMul } from './rally';
-import { BODY, BOW, BREAK, DT, DUET, EDGE, HITSTOP, RALLY, REFLECT, RINGSTONE } from './tuning';
+import { addRally, playerBySlot, rallyMul } from './rally';
+import { BODY, BOW, BREAK, DT, DUET, EDGE, HITSTOP, RALLY, REFLECT, RINGSTONE, STRING } from './tuning';
 import type { Bomb, BounceKind, Enemy, Player, Projectile, Ringstone, World } from './types';
 
 /** No shot ever flies faster than this, however many bumpers it meets. */
@@ -39,6 +39,10 @@ export interface ShotSpec {
   bounces?: number;
   skips?: number;
   pierce?: number;
+  /** Its speed is multiplied by this at each bounce off the chamber. */
+  quick?: number;
+  /** Radians a second it comes round toward the nearest Echo once it has bounced. */
+  seek?: number;
 }
 
 function make(id: number, o: ShotSpec): Projectile {
@@ -71,6 +75,10 @@ function make(id: number, o: ShotSpec): Projectile {
     turn: 0,
     struck: 0,
     struckAt: -999,
+    quick: o.quick ?? 1,
+    seek: o.seek ?? 0,
+    shard: false,
+    tolls: 0,
     hits: [],
     dead: false,
   };
@@ -97,8 +105,11 @@ export function arrowSpec(p: Player, angle: number): ShotSpec {
     damage: BOW.damage,
     range: BOW.range,
     life: BOW.life,
-    bounces: BOW.bounces,
-    skips: BOW.skips,
+    // Skipping Stone: more ricochets, quicker at each; Glance: more skips; Seeking Echo: it comes round
+    bounces: BOW.bounces + p.mods.bounces,
+    skips: BOW.skips + p.mods.skips,
+    quick: p.mods.bounceSpeed,
+    seek: p.mods.seek,
   };
 }
 
@@ -235,8 +246,13 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
   const launcher = e.launchBy;
   // It is a Return if the shot was sent back, has bounced or skipped on its way here, or two players had a hand in it.
   const sent = pr.returned || pr.bounced > 0 || pr.skipped > 0 || pr.boost > 0 || pr.assist >= 0 || oop;
+  // whoever loosed it: what an arrow does when it lands depends on what they hold
+  const m = pr.kind === 'arrow' ? (playerBySlot(w, pr.owner)?.mods ?? null) : null;
   let amount = pr.damage * (1 + BOW.bounceBonus * Math.min(pr.bounced, MAX_BOUNCE_BONUS)) * (1 + pr.boost);
   for (let i = 0; i < pr.skipped; i++) amount *= BOW.skipMul;
+  // Trick Shot: from its third bounce an arrow always crits
+  const trick = m !== null && m.trickShot > 0 && pr.bounced >= STRING.trickFrom;
+  if (trick) amount *= STRING.trickMul;
   if (oop) amount *= DUET.oopDamage;
   if (sent) amount *= rallyMul(w, pr.owner);
   pr.boost = 0;
@@ -245,11 +261,19 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
     by: pr.owner,
     dx: ux,
     dy: uy,
-    crit: pr.perfect,
+    crit: pr.perfect || trick,
     heavy: pr.returned,
     freeze: pr.perfect ? HITSTOP.perfect : HITSTOP.light,
     shot: true,
   });
+  if (m) {
+    // Crescendo: an arrow that has bounced twice bursts where it lands
+    if (m.crescendo > 0 && pr.bounced >= STRING.crescendoFrom) burstAt(w, pr.x, pr.y, STRING.crescendoRadius, m.crescendo, pr.owner, 'crescendo');
+    // Pinning Note: an arrow that skipped here holds what it strikes where it stands
+    if (m.pin > 0 && pr.skipped > 0 && !e.dead) applyRoot(e, m.pin, STRING.pinRest);
+    // Splinter: an arrow that kills breaks into pieces that fly at whatever else is near
+    if (m.splinter > 0 && e.dead && !pr.shard) splinter(w, pr, e, m.splinter, m.chainReaction > 0);
+  }
   if (sent) addRally(w, pr.owner, pr.perfect ? RALLY.weight.perfect : pr.returned ? RALLY.weight.sent : RALLY.weight.arrow, e.x, e.y);
   let stunned = false;
   if (pr.perfect && !e.dead) {
@@ -296,7 +320,9 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
   if (pr.skips > 0) {
     // skip on to the nearest Echo it has not struck yet
     let next: Enemy | null = null;
-    let bd = BOW.skipRange * BOW.skipRange;
+    // Glance: it reaches further for the next
+    const reach = BOW.skipRange + (m ? m.skipRange : 0);
+    let bd = reach * reach;
     for (const o of w.enemies) {
       if (!hittable(o) || pr.hits.includes(o.id)) continue;
       const d = (o.x - e.x) * (o.x - e.x) + (o.y - e.y) * (o.y - e.y);
@@ -315,12 +341,46 @@ function strike(w: World, pr: Projectile, e: Enemy): void {
         pr.vx = (tx / tl) * sp;
         pr.vy = (ty / tl) * sp;
         pr.homing = next.id;
+        pr.turn = 0;
         w.events.push({ type: 'skip', by: pr.owner, fromX: pr.x, fromY: pr.y, toX: next.x, toY: next.y });
         return;
       }
     }
   }
   end(w, pr, true, null);
+}
+
+/** Splinter: pieces of an arrow that has just killed, one for each of the nearest other Echoes. */
+function splinter(w: World, pr: Projectile, from: Enemy, pieces: number, keeps: boolean): void {
+  const near = w.enemies
+    .filter((o) => o.id !== from.id && hittable(o) && (o.x - from.x) * (o.x - from.x) + (o.y - from.y) * (o.y - from.y) <= STRING.splinterRange * STRING.splinterRange)
+    .sort((a, b) => (a.x - from.x) * (a.x - from.x) + (a.y - from.y) * (a.y - from.y) - ((b.x - from.x) * (b.x - from.x) + (b.y - from.y) * (b.y - from.y)) || a.id - b.id);
+  const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy) || BOW.speed;
+  for (const o of near.slice(0, pieces)) {
+    const tx = o.x - from.x;
+    const ty = o.y - from.y;
+    const tl = Math.sqrt(tx * tx + ty * ty) || 1;
+    // Chain Reaction: a piece keeps the skips and ricochets the arrow still had
+    const piece = spawnProjectile(w, {
+      kind: 'arrow',
+      faction: 'player',
+      owner: pr.owner,
+      x: from.x,
+      y: from.y,
+      vx: (tx / tl) * sp,
+      vy: (ty / tl) * sp,
+      radius: pr.radius,
+      damage: pr.damage * STRING.splinterShare,
+      range: STRING.splinterRange * 2,
+      bounces: keeps ? pr.bounces : 0,
+      skips: keeps ? pr.skips : 0,
+      quick: pr.quick,
+      seek: pr.seek,
+    });
+    piece.shard = true;
+    piece.homing = o.id;
+    piece.hits.push(from.id);
+  }
 }
 
 const NOTHING = 0;
@@ -337,6 +397,23 @@ const ORB = 6;
  */
 function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit, v: Vec2, trace: number[] | null): void {
   pr.life -= dt;
+  // Seeking Echo: once it has bounced, an arrow comes round toward the nearest Echo it has not struck
+  if (w && pr.seek > 0 && pr.bounced > 0 && pr.homing === 0 && pr.faction === 'player') {
+    let best: Enemy | null = null;
+    let bd = STRING.seekRange * STRING.seekRange;
+    for (const e of w.enemies) {
+      if (!hittable(e) || pr.hits.includes(e.id)) continue;
+      const d = (e.x - pr.x) * (e.x - pr.x) + (e.y - pr.y) * (e.y - pr.y);
+      if (d < bd || (d === bd && best !== null && e.id < best.id)) {
+        bd = d;
+        best = e;
+      }
+    }
+    if (best) {
+      pr.homing = best.id;
+      pr.turn = pr.seek;
+    }
+  }
   if (w && pr.homing !== 0) {
     // steer for the Echo it is flying home to
     let target: Enemy | null = null;
@@ -477,6 +554,13 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
         pr.boost = Math.max(pr.boost, BODY.bumperBoost);
       } else {
         pr.bounces--;
+        if (pr.quick !== 1) {
+          // Skipping Stone: quicker off every wall
+          const sp = Math.sqrt(v.x * v.x + v.y * v.y);
+          const k = Math.min(pr.quick, MAX_SHOT_SPEED / (sp || 1));
+          v.x *= k;
+          v.y *= k;
+        }
       }
       pr.vx = v.x;
       pr.vy = v.y;
@@ -495,7 +579,18 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
       nx /= nl;
       ny /= nl;
       const sp = Math.sqrt(pr.vx * pr.vx + pr.vy * pr.vy);
-      const target = nearestEcho(w, stone.x, stone.y, RINGSTONE.seek, 0);
+      // whoever planted it: what a stone does to a shot depends on what they hold
+      const sm = playerBySlot(w, stone.owner)?.mods ?? null;
+      // Bell Tower: with the other stone in sight, the shot goes to it, a few times, before it is let go
+      let tower: Ringstone | null = null;
+      if (sm && sm.bellTower > 0 && pr.tolls < STRING.towerMost) {
+        for (const other of w.stones) {
+          if (other === stone || other.dead || other.flying || other.owner !== stone.owner) continue;
+          if (!castCircle(geo, false, stone.x, stone.y, other.x - stone.x, other.y - stone.y, pr.radius, hit)) tower = other;
+        }
+      }
+      const target = tower ?? nearestEcho(w, stone.x, stone.y, RINGSTONE.seek, 0);
+      if (tower) pr.tolls++;
       let aimed = false;
       if (target) {
         const tx = target.x - pr.x;
@@ -512,12 +607,17 @@ function advance(w: World | null, geo: Geo, pr: Projectile, dt: number, hit: Hit
         pr.vx = v.x;
         pr.vy = v.y;
       }
-      pr.boost = Math.max(pr.boost, BODY.stoneBoost);
+      // Resonant Stone: it sends things on harder still, and pulses when it is struck
+      pr.boost = Math.max(pr.boost, BODY.stoneBoost, sm ? sm.stoneBoost : 0);
       pr.bounced++;
+      pr.range = Math.max(pr.range, STRING.stoneRange);
+      pr.life = Math.max(pr.life, STRING.stoneLife);
+      pr.homing = 0;
       // it will not meet this stone again until it has bounced off something else
       pr.hits.length = 0;
       pr.hits.push(stone.id);
       stone.rungT = 0;
+      if (sm && sm.stonePulse > 0) burstAt(w, stone.x, stone.y, STRING.pulseRadius, sm.stonePulse, stone.owner, 'stone');
       w.events.push({ type: 'ricochet', id: pr.id, by: pr.owner, x: pr.x, y: pr.y, n: pr.bounced, off: 'stone', nx, ny });
     } else if (what === ENEMY && enemy && w) {
       strike(w, pr, enemy);

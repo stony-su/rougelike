@@ -69,6 +69,7 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
     rallyT: 0,
     charge: 0,
     fireT: 0,
+    volley: 0,
     guardT: 0,
     guardHit: false,
     reviveT: 0,

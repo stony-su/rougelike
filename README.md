@@ -32,7 +32,9 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **The Sword's own Tunings.** Ten of them in three builds, drafted alongside the common ones: *Mirror Guard* sends more back (faster returns that go through Echoes, a wider swing whose returns hunt their sender, returns that split into a fan); the *Duelist* lives on the Riposte (a longer guard and doubled swings after it lands, a stun and a mark, a Riposte that is ready again at once); *Edge Wave* makes shots of the Sword's own (a crescent off the third swing, shots you can strike on again, and a Ring Cut all the way round once enough Rally is gained). Three Harmonies join them. The first draft of a run shows one card from each build.
 
-What is not here yet: the Tunings of the Bow and the Fist, and the solo side-chambers (a side-chamber is a short shared fight for now). [PROGRESS.md](PROGRESS.md) lists all of it.
+- **The Bow's own Tunings.** Ten in three builds: *Pinball* plays the walls (more ricochets and quicker off each, arrows that burst where they land after two bounces, arrows that bend toward an Echo once they have bounced); *Chain* plays the crowd (more skips from further off, a killing arrow that breaks into pieces, skipped arrows that root what they strike); *Stonework* plays the Ringstone (two stones at once, stones that send things on harder and pulse, stones that draw Echoes in). Heavy Fourth makes every fourth arrow of a held volley a heavy one. Three Harmonies join them.
+
+What is not here yet: the Tunings of the Fist, and the solo side-chambers (a side-chamber is a short shared fight for now). [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 

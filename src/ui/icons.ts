@@ -305,6 +305,70 @@ const DRAW: Record<string, Drawer> = {
       .lineTo(-0.04 * s, 0.78 * s)
       .stroke({ width: Math.max(1.5, s * 0.13), color: pale, cap: 'round', join: 'round' });
   },
+  /** A flight that comes round to its mark. */
+  homing(g, s, color, pale) {
+    g.moveTo(-0.85 * s, 0.75 * s)
+      .quadraticCurveTo(-0.7 * s, -0.75 * s, 0.25 * s, -0.3 * s)
+      .stroke({ width: Math.max(2, s * 0.16), color, cap: 'round' });
+    g.poly(pts([0.52, 0.02, 0.02, -0.12, 0.42, -0.54], s)).fill(color);
+    g.circle(0.6 * s, 0.5 * s, 0.24 * s).stroke({ width: Math.max(1.5, s * 0.12), color: pale });
+    g.circle(0.6 * s, 0.5 * s, 0.08 * s).fill(pale);
+  },
+  /** An arrowhead broken into pieces that fly apart. */
+  shards(g, s, color, pale) {
+    g.moveTo(-0.9 * s, 0)
+      .lineTo(-0.3 * s, 0)
+      .stroke({ width: Math.max(2, s * 0.16), color, cap: 'round' });
+    for (const [a, c] of [
+      [-0.75, color],
+      [0, pale],
+      [0.75, color],
+    ] as const) {
+      const cx = Math.cos(a);
+      const cy = Math.sin(a);
+      g.poly([(0.1 + cx * 0.75) * s, cy * 0.75 * s, (0.1 + cx * 0.2 - cy * 0.2) * s, (cy * 0.2 + cx * 0.2) * s, (0.1 + cx * 0.2 + cy * 0.2) * s, (cy * 0.2 - cx * 0.2) * s]).fill(c);
+    }
+  },
+  /** A stone that rings: a middle, and arcs going out to either side. */
+  pulse(g, s, color, pale) {
+    g.circle(0, 0, 0.3 * s).fill(color);
+    for (const r of [0.55, 0.85]) {
+      g.poly(round(0, 0, r, 8, s, -0.7, 0.7)).stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round', join: 'round', alpha: r > 0.7 ? 0.7 : 1 });
+      g.poly(round(0, 0, r, 8, s, Math.PI - 0.7, Math.PI + 0.7)).stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round', join: 'round', alpha: r > 0.7 ? 0.7 : 1 });
+    }
+  },
+  /** One ball driven into another. */
+  carom(g, s, color, pale) {
+    g.circle(-0.2 * s, 0.15 * s, 0.4 * s).fill(color);
+    g.circle(0.52 * s, -0.22 * s, 0.34 * s).fill(pale);
+    for (const y of [-0.05, 0.3]) g.moveTo(-0.95 * s, (y + 0.1) * s).lineTo(-0.7 * s, y * s);
+    g.stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round' });
+  },
+  /** Out to a wall and straight back. */
+  rebound(g, s, color, pale) {
+    g.rect(0.62 * s, -0.8 * s, 0.22 * s, 1.6 * s).fill(color);
+    g.moveTo(-0.85 * s, -0.4 * s)
+      .lineTo(0.5 * s, -0.4 * s)
+      .lineTo(0.5 * s, 0.4 * s)
+      .lineTo(-0.35 * s, 0.4 * s)
+      .stroke({ width: Math.max(2, s * 0.15), color: pale, cap: 'round', join: 'round' });
+    g.poly(pts([-0.85, 0.4, -0.35, 0.08, -0.35, 0.72], s)).fill(pale);
+  },
+  /** Two things brought together, and the crack between them. */
+  clap(g, s, color, pale) {
+    g.poly(pts([-0.9, -0.5, -0.15, -0.15, -0.15, 0.15, -0.9, 0.5], s)).fill(color);
+    g.poly(pts([0.9, -0.5, 0.15, -0.15, 0.15, 0.15, 0.9, 0.5], s)).fill(color);
+    g.poly(pts([0.08, -0.95, -0.2, -0.3, 0.06, -0.3, -0.1, 0.25, 0.22, -0.5, 0, -0.5], s)).fill(pale);
+    g.poly(pts([-0.04, 0.4, 0.12, 0.62, -0.1, 0.9], s)).fill(pale);
+  },
+  /** Feet planted wide: someone who will not be moved. */
+  stance(g, s, color, pale) {
+    g.circle(0, -0.62 * s, 0.22 * s).fill(pale);
+    g.poly(pts([-0.22, -0.34, 0.22, -0.34, 0.8, 0.78, 0.42, 0.78, 0, 0.1, -0.42, 0.78, -0.8, 0.78], s)).fill(color);
+    g.moveTo(-0.95 * s, 0.86 * s)
+      .lineTo(0.95 * s, 0.86 * s)
+      .stroke({ width: Math.max(1.5, s * 0.12), color: pale, cap: 'round' });
+  },
   /** The ground shaking: a jagged line with rings rising off it. */
   quake(g, s, color, pale) {
     g.moveTo(-0.9 * s, 0.4 * s)

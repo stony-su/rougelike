@@ -5,12 +5,12 @@
 import type { Vec2 } from '../core/exact';
 import { HIT_BUMPER, HIT_POST, SKIN, castCircle, circleTime, newHit, pushOut, slideCircle } from './cast';
 import type { Hit } from './cast';
-import { damageEnemy, hittable, interruptEnemy, outOfReach, stunEnemy } from './combat';
+import { burstAt, damageEnemy, hittable, interruptEnemy, outOfReach, stunEnemy } from './combat';
 import { reflectFixed, reflectFree } from './geo';
-import { addRally, rallyMul } from './rally';
+import { addRally, playerBySlot, rallyMul } from './rally';
 import { groundAt, nearestFloor } from './room';
 import { addTelegraph } from './telegraphs';
-import { BODY, BOSS, ELITE, HITSTOP, RALLY, RINGSTONE, isLight, massFactor } from './tuning';
+import { BODY, BOSS, ELITE, HITSTOP, RALLY, RINGSTONE, STRING, isLight, massFactor } from './tuning';
 import type { BounceKind, Enemy, Ringstone, World } from './types';
 
 /** Scratch space for one pass over the bodies, so the step allocates nothing per body. */
@@ -226,7 +226,10 @@ function bounceOffStone(w: World, e: Enemy, st: Ringstone, s: BodyScratch): void
     e.lvx = s.v.x;
     e.lvy = s.v.y;
   }
-  e.boost = Math.max(e.boost, BODY.stoneBoost);
+  // Resonant Stone: whoever planted it may have it send things on harder, and pulse when struck
+  const sm = playerBySlot(w, st.owner)?.mods ?? null;
+  e.boost = Math.max(e.boost, BODY.stoneBoost, sm ? sm.stoneBoost : 0);
+  if (sm && sm.stonePulse > 0) burstAt(w, st.x, st.y, STRING.pulseRadius, sm.stonePulse, st.owner, 'stone');
   // sent on its way, it passes the stone rather than meeting it again
   e.caromWith = st.id;
   e.caromLock = BODY.pairLock;

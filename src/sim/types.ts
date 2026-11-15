@@ -173,6 +173,8 @@ export interface Player {
   charge: number;
   /** Bow: seconds until the next arrow may leave the string. */
   fireT: number;
+  /** Arrows loosed in the volley in hand; it starts again when the string has rested. */
+  volley: number;
   /** Sword: seconds of Riposte guard left, and whether something landed in it. */
   guardT: number;
   guardHit: boolean;
@@ -393,6 +395,14 @@ export interface Projectile {
   /** Tuning Fork: how often its owner has struck it on again, and the tick of the last time (or of its making). */
   struck: number;
   struckAt: number;
+  /** What its speed is multiplied by at each bounce off the chamber (Skipping Stone); 1 for nearly everything. */
+  quick: number;
+  /** How fast it comes round toward the nearest Echo once it has bounced (Seeking Echo), in radians a second; 0 = it does not. */
+  seek: number;
+  /** It is a piece of an arrow that killed (Splinter): it does not split again. */
+  shard: boolean;
+  /** Bell Tower: times it has gone from one Ringstone to the other. */
+  tolls: number;
   /** Ids of what it has struck since it last bounced off the chamber, so a skip or a pierce never strikes twice. */
   hits: number[];
   dead: boolean;

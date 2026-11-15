@@ -69,7 +69,7 @@ export interface Mods {
   bounceSpeed: number;
   /** Burst damage when an arrow that has bounced twice lands. */
   crescendo: number;
-  /** Distance at which an arrow that has bounced bends toward an Echo. 0 = never. */
+  /** How fast an arrow that has bounced comes round toward the nearest Echo, in radians a second. 0 = it does not. */
   seek: number;
   skips: number;
   skipRange: number;
@@ -78,13 +78,17 @@ export interface Mods {
   /** Seconds a skipped arrow roots its target. */
   pin: number;
   stones: number;
+  /** Share by which the Ringstone's wait is shortened, and what its standing time is multiplied by. */
   stoneCd: number;
+  stoneLife: number;
   stoneBoost: number;
   stonePulse: number;
   /** Speed at which a planted Ringstone pulls Echoes toward it. */
   lodestone: number;
   /** Damage multiplier of every fourth arrow of a held volley. 0 = off. */
   heavyMul: number;
+  /** Echoes that heavy arrow goes through. */
+  heavyPierce: number;
 
   // ---- Fist
   /** Damage a body you launch does to the first Echo it ploughs through. 0 = it caroms off the first. */
@@ -173,10 +177,12 @@ export function baseMods(): Mods {
     pin: 0,
     stones: 1,
     stoneCd: 0,
+    stoneLife: 1,
     stoneBoost: 0,
     stonePulse: 0,
     lodestone: 0,
     heavyMul: 0,
+    heavyPierce: 0,
     follow: 0,
     caromPass: 0.6,
     caromLinks: 0,
