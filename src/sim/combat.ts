@@ -150,6 +150,8 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
     }
   }
   if (e.status.markT > 0) amount *= 1 + e.status.markBonus;
+  // Glass Jaw: a body in flight takes more from everyone, by what whoever threw it holds
+  if (e.state === 'launched' && e.launchBy >= 0) for (const pl of w.players) if (pl.slot === e.launchBy) amount *= 1 + pl.mods.glassJaw;
   if (e.armor < 1) {
     // Armour holds until the body is bounced off something; the breaking blow lands in full.
     if (src.kind === 'slam' || src.kind === 'carom' || src.kind === 'ringout') {
@@ -299,11 +301,16 @@ export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy
     dx = 1;
     dy = 0;
   }
+  // Iron Stance: with the hand drawn back, less of it gets through and none of it moves them
+  const braced = p.state === 'charge' && p.mods.ironStance > 0;
+  if (braced) amount *= 1 - p.mods.ironStance;
   p.hp = Math.max(0, p.hp - amount);
   p.iframes = PLAYER.hurtIframes;
   p.hurtT = 0;
-  p.kx += dx * knock * KNOCK_DECAY;
-  p.ky += dy * knock * KNOCK_DECAY;
+  if (!braced) {
+    p.kx += dx * knock * KNOCK_DECAY;
+    p.ky += dy * knock * KNOCK_DECAY;
+  }
   w.stats.damageTaken += amount;
   freezeBody(p, FREEZE.hurt);
   w.events.push({ type: 'playerHurt', player: p.slot, amount: Math.round(amount), x: p.x, y: p.y, dx, dy });

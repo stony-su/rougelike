@@ -91,8 +91,10 @@ export interface Mods {
   heavyPierce: number;
 
   // ---- Fist
-  /** Damage a body you launch does to the first Echo it ploughs through. 0 = it caroms off the first. */
+  /** How many Echoes a body you launch ploughs through before it caroms. 0 = it caroms off the first. */
   follow: number;
+  /** What the speed of everything you send flying is multiplied by. */
+  launchMul: number;
   /** Share of the closing speed a carom passes on (0.6 with no Tuning), and extra links in a chain. */
   caromPass: number;
   caromLinks: number;
@@ -101,13 +103,14 @@ export interface Mods {
   slamMul: number;
   /** Extra seconds a body lies stunned after a wall slam. */
   slamStun: number;
-  /** Speed multiplier when a jab strikes a body already in flight. 0 = an ordinary jab. */
+  /** How much harder a jab hits a body already in flight, which it sends on again. 0 = an ordinary jab. */
   reJab: number;
   /** Extra damage bodies you launch take from everyone while in flight. */
   glassJaw: number;
   thunderclap: number;
-  /** Share of damage shrugged off while the hand is drawn back. */
+  /** Share of damage shrugged off while the hand is drawn back, and how much faster it draws back. */
   ironStance: number;
+  chargeHaste: number;
   /** Burst damage at every bounce of a body you launch. */
   tremor: number;
   heavyHands: number;
@@ -184,6 +187,7 @@ export function baseMods(): Mods {
     heavyMul: 0,
     heavyPierce: 0,
     follow: 0,
+    launchMul: 1,
     caromPass: 0.6,
     caromLinks: 0,
     breakImpulse: 1,
@@ -194,6 +198,7 @@ export function baseMods(): Mods {
     glassJaw: 0,
     thunderclap: 0,
     ironStance: 0,
+    chargeHaste: 1,
     tremor: 0,
     heavyHands: 1,
     hallOfMirrors: 0,

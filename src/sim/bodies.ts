@@ -10,8 +10,48 @@ import { reflectFixed, reflectFree } from './geo';
 import { addRally, playerBySlot, rallyMul } from './rally';
 import { groundAt, nearestFloor } from './room';
 import { addTelegraph } from './telegraphs';
-import { BODY, BOSS, ELITE, HITSTOP, RALLY, RINGSTONE, STRING, isLight, massFactor } from './tuning';
+import { BODY, BOSS, ELITE, HAND, HITSTOP, RALLY, RINGSTONE, STRING, isLight, massClass, massFactor } from './tuning';
 import type { BounceKind, Enemy, Ringstone, World } from './types';
+import type { Mods } from './mods';
+
+/** What the player who sent a body flying holds, or null if nobody did. */
+const modsOf = (w: World, slot: number): Mods | null => (slot >= 0 ? (playerBySlot(w, slot)?.mods ?? null) : null);
+
+/** Earthquake: a burst that pops what it hits. Everything near the point but `not` is thrown away from it. */
+function pop(w: World, x: number, y: number, radius: number, impulse: number, by: number, not: number): void {
+  for (const o of w.enemies.slice()) {
+    if (o.id === not || !hittable(o)) continue;
+    const dx = o.x - x;
+    const dy = o.y - y;
+    const reach = radius + o.radius;
+    if (dx * dx + dy * dy > reach * reach) continue;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    pushBody(w, o, dx / d, dy / d, impulse, by);
+  }
+}
+
+/** A burst a body in flight sets off (Tremor at a bounce, Pool Shark at the third of a chain). With Earthquake it pops what it hits. */
+function quake(w: World, x: number, y: number, radius: number, damage: number, by: number, what: string, not: number): void {
+  burstAt(w, x, y, radius, damage, by, what);
+  const m = modsOf(w, by);
+  if (m && m.earthquake > 0) pop(w, x, y, radius, HAND.quakeImpulse, by, not);
+}
+
+/** Thunderclap: the burst of a full Haymaker, where it landed. It pops what is light; with Earthquake, everything. */
+export function thunderclap(w: World, x: number, y: number, damage: number, by: number, not: number): void {
+  burstAt(w, x, y, HAND.clapRadius, damage, by, 'thunderclap');
+  const m = modsOf(w, by);
+  const all = !!m && m.earthquake > 0;
+  for (const o of w.enemies.slice()) {
+    if (o.id === not || !hittable(o) || (!all && !isLight(o.def.mass))) continue;
+    const dx = o.x - x;
+    const dy = o.y - y;
+    const reach = HAND.clapRadius + o.radius;
+    if (dx * dx + dy * dy > reach * reach) continue;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    pushBody(w, o, dx / d, dy / d, HAND.clapImpulse, by);
+  }
+}
 
 /** Scratch space for one pass over the bodies, so the step allocates nothing per body. */
 export interface BodyScratch {
@@ -40,6 +80,14 @@ function beginLaunch(w: World, e: Enemy, by: number, links: number): void {
   e.launchBy = by;
   e.assistBy = -1;
   e.links = links;
+  // a new flight: what the Fist's Tunings keep count of starts again
+  const m = modsOf(w, by);
+  e.ploughs = m ? m.follow : 0;
+  e.passed = 0;
+  e.rejabs = 0;
+  e.slamStun = 0;
+  e.sinceBlow = 0;
+  e.pocketed = false;
   w.events.push({ type: 'launch', id: e.id, by, x: e.x, y: e.y, speed: speedOf(e) });
   // A Tethered pair: the one that was not struck is dragged along behind.
   if (e.mate > 0) {
@@ -102,6 +150,8 @@ export function relaunch(w: World, e: Enemy, dx: number, dy: number, speedMul: n
   e.lvy = dy * sp;
   e.launchBy = by;
   e.links = 0;
+  e.sinceBlow = 0;
+  e.pocketed = false;
   const duet = first >= 0 && first !== by;
   if (duet) e.assistBy = first;
   w.events.push({ type: 'launch', id: e.id, by, x: e.x, y: e.y, speed: sp });
@@ -114,7 +164,9 @@ export function relaunch(w: World, e: Enemy, dx: number, dy: number, speedMul: n
  */
 export function pushBody(w: World, e: Enemy, dx: number, dy: number, impulse: number, by: number): boolean {
   if (!hittable(e) || impulse <= 0 || e.def.anchored) return false;
-  let dv = impulse / e.def.mass;
+  // Follow Through: whatever this player sends flying flies faster
+  const m = modsOf(w, by);
+  let dv = (impulse / e.def.mass) * (m ? m.launchMul : 1);
   if (e.staggered > 0) dv *= BODY.staggerLaunchMul;
   e.lvx += dx * dv;
   e.lvy += dy * dv;
@@ -174,15 +226,37 @@ function bounceOffChamber(w: World, e: Enemy, s: BodyScratch): void {
   e.lvy = s.v.y * k;
   capSpeed(e);
   w.events.push({ type: 'wallSlam', id: e.id, by: e.launchBy, x: e.x, y: e.y, speed: into, off, nx: h.nx, ny: h.ny });
+  const m = modsOf(w, e.launchBy);
   if (into > BODY.slamSpeed) {
     const by = e.launchBy;
-    const amount = BODY.slamDamage * into * (1 + e.boost) * rallyMul(w, by);
+    // Wall Hammer: a harder slam, and a hard enough one leaves the body stunned where it lands
+    const amount = BODY.slamDamage * into * (1 + e.boost) * rallyMul(w, by) * (m ? m.slamMul : 1);
     e.boost = 0;
     bounceDamage(w, e, amount, 'slam', by, -h.nx, -h.ny, into > 12);
+    if (m && m.slamStun > 0 && into > HAND.slamStunAt) e.slamStun = Math.max(e.slamStun, m.slamStun);
     resonate(w, e);
     creditBounce(w, e, e.x, e.y);
   }
   if (bumper) e.boost = Math.max(e.boost, BODY.bumperBoost);
+  if (e.dead || !m) return;
+  // Tremor: it bursts at every bounce
+  if (m.tremor > 0) quake(w, e.x, e.y, HAND.tremorRadius, m.tremor, e.launchBy, 'tremor', e.id);
+  // Corner Pocket: a slam straight after the punch sends the body back to whoever threw it, once
+  if (m.cornerPocket > 0 && !e.pocketed && e.sinceBlow <= HAND.pocketTime && !e.dead) {
+    const p = playerBySlot(w, e.launchBy);
+    if (p) {
+      const dx = p.x - e.x;
+      const dy = p.y - e.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > 1e-6) {
+        const sp = Math.max(speedOf(e), into * HAND.pocketKeep);
+        e.lvx = (dx / d) * sp;
+        e.lvy = (dy / d) * sp;
+        capSpeed(e);
+        e.pocketed = true;
+      }
+    }
+  }
 }
 
 /** The Echo nearest a point within `range`, other than `not`. Lowest id on a tie. */
@@ -248,9 +322,44 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   const en = e.lvx * nx + e.lvy * ny;
   const vn = en - on;
   const by = e.launchBy;
-  const amount = BODY.caromDamage * vn * massFactor(e.def.mass) * (1 + e.boost) * rallyMul(w, by);
+  const m = modsOf(w, by);
+  let amount = BODY.caromDamage * vn * massFactor(e.def.mass) * (1 + e.boost) * rallyMul(w, by);
+  if (m && m.heavyHands > 1) {
+    // Heavy Hands: the heavier the body, the harder it hits, and the heaviest hit for double on top
+    const cls = massClass(e.def.mass);
+    for (let i = 0; i < cls; i++) amount *= m.heavyHands;
+    if (cls >= 2) amount *= 2;
+  }
   e.boost = 0;
   const big = vn > HITSTOP.caromBig;
+  // where the struck body stands in the chain: 1 for the first thing the thrown body meets
+  const place = e.links + e.passed + 1;
+  // Pool Shark: the third body of a chain (the thrown one, the next, and this) bursts where it is struck
+  const shark = !!m && m.poolShark > 0 && place === HAND.sharkLink;
+
+  if (e.ploughs > 0 && !o.def.anchored) {
+    // Follow Through: it goes through this one, hurting it and shouldering it aside, and flies on
+    e.ploughs--;
+    e.passed++;
+    e.lvx *= HAND.ploughKeep;
+    e.lvy *= HAND.ploughKeep;
+    e.caromWith = o.id;
+    o.caromWith = e.id;
+    e.caromLock = BODY.pairLock;
+    o.caromLock = BODY.pairLock;
+    const px = e.x + nx * e.radius;
+    const py = e.y + ny * e.radius;
+    w.events.push({ type: 'carom', a: e.id, b: o.id, by, x: px, y: py, speed: vn, links: place });
+    bounceDamage(w, o, amount, 'carom', by, nx, ny, big);
+    creditBounce(w, e, px, py);
+    if (!o.dead) {
+      o.lvx += nx * BODY.caromPass * vn * (e.def.mass / o.def.mass) * HAND.ploughShove;
+      o.lvy += ny * BODY.caromPass * vn * (e.def.mass / o.def.mass) * HAND.ploughShove;
+      settle(w, o, by, place);
+    }
+    if (shark) quake(w, o.x, o.y, HAND.sharkRadius, HAND.sharkDamage, by, 'shark', o.id);
+    return;
+  }
 
   // The striker keeps a share of the closing speed: onward if it is the heavier, back if the lighter.
   // Something anchored is a wall that can be hurt: the striker always comes back off it, and it does not move.
@@ -261,9 +370,11 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   // a light body met head-on by a faster one is thrown back hard, but no harder than anything else flies
   capSpeed(e);
   // The struck body takes its share, weighted by the masses.
-  let gain = fixed ? 0 : BODY.caromPass * vn * (e.def.mass / o.def.mass);
+  // Carom Master: more of the motion passes on
+  const pass = m ? m.caromPass : BODY.caromPass;
+  let gain = fixed ? 0 : pass * vn * (e.def.mass / o.def.mass);
   if (o.staggered > 0) gain *= BODY.staggerLaunchMul;
-  gain = Math.min(gain, BODY.caromMaxGain * vn);
+  gain = Math.min(gain, BODY.caromMaxGain * vn * (pass / BODY.caromPass));
   o.lvx += nx * gain;
   o.lvy += ny * gain;
 
@@ -273,7 +384,7 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   o.caromLock = BODY.pairLock;
   const cx = e.x + nx * e.radius;
   const cy = e.y + ny * e.radius;
-  w.events.push({ type: 'carom', a: e.id, b: o.id, by, x: cx, y: cy, speed: vn, links: e.links + 1 });
+  w.events.push({ type: 'carom', a: e.id, b: o.id, by, x: cx, y: cy, speed: vn, links: place });
 
   // a body thrown into a boss is the hardest thing a boss can be hit with
   bounceDamage(w, o, fixed ? amount * BOSS.caromBonus : amount, 'carom', by, nx, ny, big);
@@ -281,10 +392,11 @@ function carom(w: World, e: Enemy, o: Enemy): void {
   resonate(w, o);
   resonate(w, e);
   creditBounce(w, e, cx, cy);
-  if (!o.dead && !fixed && !settle(w, o, by, e.links + 1)) {
+  if (!o.dead && !fixed && !settle(w, o, by, place)) {
     // too heavy to fly from that: it staggers instead
     addStagger(w, o, 1);
   }
+  if (shark) quake(w, o.x, o.y, HAND.sharkRadius, HAND.sharkDamage, by, 'shark', o.id);
 }
 
 /** A launched body, moved for one tick: it bounces off the chamber, Ringstones and other bodies. */
@@ -314,7 +426,9 @@ function fly(w: World, e: Enemy, dt: number, s: BodyScratch): void {
       what = 2;
       stone = st;
     }
-    if (e.links < BODY.maxLinks) {
+    // Carom Master: the chain runs further
+    const lm = modsOf(w, e.launchBy);
+    if (e.links < BODY.maxLinks + (lm ? lm.caromLinks : 0)) {
       for (const o of w.enemies) {
         if (o === e || !hittable(o) || outOfReach(o)) continue;
         if ((e.caromLock > 0 && e.caromWith === o.id) || (o.caromLock > 0 && o.caromWith === e.id)) continue;
@@ -387,6 +501,11 @@ function land(w: World, e: Enemy, s: BodyScratch): void {
   e.launchBy = -1;
   e.assistBy = -1;
   e.boost = 0;
+  e.ploughs = 0;
+  e.passed = 0;
+  e.rejabs = 0;
+  const stun = e.slamStun;
+  e.slamStun = 0;
   // In flight only walls stop a body; on its feet again it must also stand clear of pit edges.
   s.pos.x = e.x;
   s.pos.y = e.y;
@@ -395,6 +514,8 @@ function land(w: World, e: Enemy, s: BodyScratch): void {
     e.y = s.pos.y;
   }
   w.events.push({ type: 'land', id: e.id, x: e.x, y: e.y });
+  // Wall Hammer: slammed hard enough, it lies stunned where it landed
+  if (stun > 0) stunEnemy(w, e, stun, true);
 }
 
 /** Move one body for one tick: on its own feet plus whatever shove it still carries, or in flight. */
@@ -406,6 +527,7 @@ export function stepBody(w: World, e: Enemy, dt: number, s: BodyScratch): void {
     if (e.staggerT <= 0) e.stagger = 0;
   }
   if (e.staggered > 0) e.staggered -= dt;
+  e.sinceBlow += dt;
 
   if (e.state === 'launched') {
     fly(w, e, dt, s);

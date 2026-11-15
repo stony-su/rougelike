@@ -255,6 +255,35 @@ export const REVIVE = {
   decay: 0.5,
 };
 
+/** What the Fist's Tunings do, beyond the numbers on their cards. */
+export const HAND = {
+  /** Follow Through: what a body keeps of its speed when it ploughs through another, and the share of a carom's shove the other gets. */
+  ploughKeep: 0.9,
+  ploughShove: 0.35,
+  /** Rebound Jab: how often the same body can be sent on again, and the speed it gains each time. */
+  rejabMost: 3,
+  rejabSpeed: 2,
+  /** Wall Hammer: how hard a slam must be to stun. */
+  slamStunAt: 10,
+  /** Thunderclap: how wide the burst of a full Haymaker is, and how hard it pops what is light. */
+  clapRadius: 2,
+  clapImpulse: 6,
+  /** Tremor: how wide the burst at each bounce is. */
+  tremorRadius: 1.4,
+  /** Earthquake: how hard a Thunderclap or a Tremor pops what it hits. */
+  quakeImpulse: 6,
+  /** Pool Shark: which body of a chain bursts, how wide, and how hard. */
+  sharkLink: 2,
+  sharkRadius: 2,
+  sharkDamage: 20,
+  /** Corner Pocket: how soon after the punch the slam must come, and what the body keeps of its speed on the way back. */
+  pocketTime: 0.5,
+  pocketKeep: 0.8,
+};
+
+/** How many weight classes above light a body is: 0 light, 1 middling, 2 heavy. */
+export const massClass = (mass: number): number => (mass >= 4 ? 2 : mass >= 2 ? 1 : 0);
+
 /** What the Bow's Tunings do, beyond the numbers on their cards. */
 export const STRING = {
   /** Crescendo: the bounce from which an arrow bursts where it lands, and how wide. */

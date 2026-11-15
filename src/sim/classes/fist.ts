@@ -5,13 +5,13 @@ import { dcos, dhypot, dsin } from '../../core/dmath';
 import { clamp01, ddamp } from '../../core/exact';
 import type { Vec2 } from '../../core/exact';
 import { pointInSector } from '../../core/geom';
-import { addStagger, pushBody } from '../bodies';
+import { addStagger, pushBody, relaunch, thunderclap } from '../bodies';
 import { BOMB_TOUCH, batBomb } from '../bombs';
 import { damageEnemy, freezeBody, hittable, outOfReach } from '../combat';
 import { rest, shift, walk } from '../move';
 import { returnOrb, slapShot } from '../projectiles';
 import { addRally, rallyMul } from '../rally';
-import { BOMB, BREAK, FIST, HAYMAKER, HITSTOP, PLAYER, RALLY } from '../tuning';
+import { BOMB, BREAK, FIST, HAND, HAYMAKER, HITSTOP, PLAYER, RALLY } from '../tuning';
 import { BTN } from '../types';
 import type { Enemy, Player, World } from '../types';
 import { wantsSpecial } from './kit';
@@ -75,6 +75,19 @@ function resolveJab(w: World, p: Player): void {
       ky = ay;
     }
     const kl = dhypot(kx, ky) || 1;
+    if (e.state === 'launched' && p.mods.reJab > 0 && e.rejabs < HAND.rejabMost) {
+      // Rebound Jab: a body in flight is sent on again along the aim, harder and faster. It is a Return.
+      const again = e.rejabs + 1;
+      damageEnemy(w, e, FIST.damage[c] * (1 + p.mods.reJab) * rallyMul(w, p.slot), { kind: 'return', by: p.slot, dx: ax, dy: ay, heavy: true, freeze: HITSTOP.heavy });
+      addRally(w, p.slot, RALLY.weight.sent, e.x, e.y);
+      if (!e.dead) {
+        const sp = dhypot(e.lvx, e.lvy) || 1;
+        relaunch(w, e, ax, ay, (sp + HAND.rejabSpeed) / sp, p.slot);
+        e.rejabs = again;
+      }
+      hits++;
+      continue;
+    }
     damageEnemy(w, e, FIST.damage[c], { kind: 'direct', by: p.slot, dx: kx / kl, dy: ky / kl, heavy: c === 2, freeze: FIST.freeze[c] });
     if (!e.dead) {
       // Stagger first: if this jab tips the body over, the same jab already launches it harder.
@@ -132,7 +145,8 @@ function stepJab(w: World, p: Player, move: Vec2, dt: number): void {
 
 function stepCharge(w: World, p: Player, move: Vec2, dt: number): void {
   const before = p.charge;
-  p.charge = Math.min(HAYMAKER.full, p.charge + dt);
+  // Iron Stance at its last rank: the hand draws back faster
+  p.charge = Math.min(HAYMAKER.full, p.charge + dt * p.mods.chargeHaste);
   if (before < HAYMAKER.full && p.charge >= HAYMAKER.full) w.events.push({ type: 'chargeFull', player: p.slot, x: p.x, y: p.y });
   p.actAngle = p.aim;
   walk(w, p, move, HAYMAKER.moveMul, dt);
@@ -196,6 +210,8 @@ function tryPunch(w: World, p: Player): boolean {
   damageEnemy(w, e, amount, { kind: full ? 'return' : 'direct', by: p.slot, dx: ax, dy: ay, heavy: true, crit: full, freeze: full ? HITSTOP.perfect : HITSTOP.heavy, breaks: full });
   if (full) addRally(w, p.slot, RALLY.weight.perfect, e.x, e.y);
   if (!e.dead) pushBody(w, e, ax, ay, HAYMAKER.impulse + HAYMAKER.impulsePerCharge * f, p.slot);
+  // Thunderclap: a full one bursts where it lands
+  if (full && p.mods.thunderclap > 0) thunderclap(w, e.x, e.y, p.mods.thunderclap, p.slot, e.id);
   freezeBody(p, HITSTOP.heavy);
   return true;
 }
@@ -251,10 +267,12 @@ function resolveBreak(w: World, p: Player): void {
     if (!e.dead) {
       // heavy bodies stand their ground and lose their footing instead
       if (e.def.mass >= 4) addStagger(w, e, BREAK.stagger);
-      else pushBody(w, e, dx, dy, BREAK.impulse, p.slot);
+      else pushBody(w, e, dx, dy, BREAK.impulse * p.mods.breakImpulse, p.slot);
     }
     hits++;
   }
+  // Break Shot: a good break is ready again sooner
+  if (hits >= 3 && p.mods.breakRefund > 0) p.specialCd = Math.max(0, p.specialCd - p.mods.breakRefund);
   for (const pr of w.projectiles) {
     if (pr.dead || pr.faction !== 'enemy') continue;
     let dx = pr.x - p.x;

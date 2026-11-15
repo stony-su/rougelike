@@ -34,7 +34,11 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **The Bow's own Tunings.** Ten in three builds: *Pinball* plays the walls (more ricochets and quicker off each, arrows that burst where they land after two bounces, arrows that bend toward an Echo once they have bounced); *Chain* plays the crowd (more skips from further off, a killing arrow that breaks into pieces, skipped arrows that root what they strike); *Stonework* plays the Ringstone (two stones at once, stones that send things on harder and pulse, stones that draw Echoes in). Heavy Fourth makes every fourth arrow of a held volley a heavy one. Three Harmonies join them.
 
-What is not here yet: the Tunings of the Fist, and the solo side-chambers (a side-chamber is a short shared fight for now). [PROGRESS.md](PROGRESS.md) lists all of it.
+- **The Fist's own Tunings.** Ten in three builds: *Billiards* makes one body hit many (bodies that plough through the first Echo they meet, caroms that pass on all their motion, a Break that throws harder); *Wall Combo* keeps one body in the air (harder wall slams that stun, a jab that sends a flying body on again, bodies that take more while they fly); *Shockwave* makes every impact a burst (a Haymaker that bursts, a braced stance while the hand is drawn back, bodies that burst at every bounce). Heavy Hands makes heavy bodies hit far harder. Three Harmonies join them.
+
+That makes 42 Tunings and 12 Harmonies; a fresh save drafts from 21 as any class, and the Attunement opens one more for each class and can issue each class one to begin with.
+
+What is not here yet: the solo side-chambers (a side-chamber is a short shared fight for now). [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 

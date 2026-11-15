@@ -247,6 +247,16 @@ export interface Enemy {
   /** The body it last caromed with, and seconds before that pair may carom again. */
   caromWith: number;
   caromLock: number;
+  /** Follow Through: Echoes it will still plough through in this flight, and how many it has gone through. */
+  ploughs: number;
+  passed: number;
+  /** Rebound Jab: times it has been sent on again in this flight. */
+  rejabs: number;
+  /** Wall Hammer: seconds it will lie stunned when it lands. */
+  slamStun: number;
+  /** Seconds since the blow that last sent it on its way, and whether Corner Pocket has brought it back since. */
+  sinceBlow: number;
+  pocketed: boolean;
   /** Stagger built by jabs, seconds until it fades, and seconds left of being staggered. */
   stagger: number;
   staggerT: number;
