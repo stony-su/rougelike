@@ -6,18 +6,22 @@ import { TAU, dcos, dhypot, dsin } from '../core/dmath';
 import type { Vec2 } from '../core/exact';
 import { BUY_RATION, CAMP, REST_HEAL, atCamp, priceOf, raisable } from './camp';
 import type { CampSeat } from './camp';
+import { castCircle, newHit } from './cast';
+import type { Hit } from './cast';
 import { hittable, onGuard, standing } from './combat';
 import type { ContentRegistry } from './defs';
 import { DRAFT_TICKS, completes } from './draft';
-import { hold, press, setAim, setMove } from './input';
+import { hold, moveInto, press, setAim, setMove } from './input';
+import { buildNav, navStep } from './nav';
+import type { NavField } from './nav';
 import { isClear } from './room';
 import type { Command, Session } from './session';
 import { VOTE_NONE, VOTE_TAKE, VOTE_WALK, WAGER, onTable } from './wager';
 import { previewArrow } from './projectiles';
 import { telegraphCovers } from './telegraphs';
-import { BOW, BREAK, FIST, HAYMAKER, SWORD } from './tuning';
+import { BOW, BREAK, DASH, FIST, HAYMAKER, PLAYER, SIM_HZ, SWORD } from './tuning';
 import { BTN, PRESS, emptyInput } from './types';
-import type { ClassId, Enemy, InputFrame, Player, Projectile, Telegraph, World } from './types';
+import type { ClassId, Enemy, InputFrame, Player, Projectile, Room, Telegraph, World } from './types';
 
 export interface Bot {
   name: string;
@@ -28,14 +32,28 @@ export interface Bot {
 export interface BotOptions {
   /** Seconds a threat must be visible before the bot reacts to it. */
   reaction: number;
-  /** Dash out of telegraphs. A novice only walks. */
+  /** Dash out of telegraphs, and across a long gap. */
   dashes: boolean;
   /** Use the class special. */
   special: boolean;
+  /**
+   * Under a warning, a practised player goes on fighting until they must move to be out in time,
+   * with this many seconds to spare. Infinity moves the moment the warning is seen.
+   */
+  nerve: number;
+  /**
+   * The share of warnings and shots it never notices at all. Nobody sees everything: a bot that
+   * did won nearly every run, and said nothing about how the game is for a person.
+   */
+  lapse: number;
 }
 
-export const EXPERT: BotOptions = { reaction: 0.2, dashes: true, special: true };
-export const NOVICE: BotOptions = { reaction: 0.35, dashes: false, special: false };
+/** Someone who knows the game well: quick, bold, and seldom caught out. */
+export const EXPERT: BotOptions = { reaction: 0.2, dashes: true, special: true, nerve: 0.25, lapse: 0.1 };
+/** Someone who knows what everything does, and is neither quick nor bold. */
+export const STEADY: BotOptions = { reaction: 0.3, dashes: true, special: true, nerve: 0.6, lapse: 0.2 };
+/** Someone new: slow to see things, missing a good many of them, and backing away from a warning the moment they do see it. */
+export const NOVICE: BotOptions = { reaction: 0.35, dashes: true, special: true, nerve: Infinity, lapse: 0.3 };
 
 const playerOf = (w: World, slot: number): Player | null => {
   for (const p of w.players) if (p.slot === slot) return p;
@@ -72,16 +90,33 @@ function countNear(w: World, p: Player, range: number): number {
   return n;
 }
 
-/** Remembers when each threat was first seen, so a bot can react late like a person. */
+/**
+ * Remembers when each threat was first seen, so a bot can react late like a person. Warnings
+ * are remembered under their ids and shots under the negatives of theirs. Ids and the clock both
+ * start again in every chamber, so what was seen in one chamber is forgotten in the next: a bot
+ * that kept it took a new warning for one it had first seen in the future, and never reacted.
+ */
 interface Notice {
+  world: World | null;
   ids: number[];
   since: number[];
 }
 
-const newNotice = (): Notice => ({ ids: [], since: [] });
+const newNotice = (): Notice => ({ world: null, ids: [], since: [] });
 
-/** Seconds since this id was first noticed (0 the first time). */
-function noticed(seen: Notice, id: number, now: number): number {
+/** Begin looking at a world: whatever was noticed in another one is dropped. */
+function lookAt(seen: Notice, w: World): void {
+  if (seen.world === w) return;
+  seen.world = w;
+  seen.ids.length = 0;
+  seen.since.length = 0;
+}
+
+/**
+ * Seconds since this id was first noticed (0 the first time). One that is overlooked is never
+ * noticed, however long it is there.
+ */
+function noticed(seen: Notice, id: number, now: number, overlooked: boolean): number {
   const i = seen.ids.indexOf(id);
   if (i >= 0) return now - seen.since[i];
   if (seen.ids.length > 48) {
@@ -89,8 +124,21 @@ function noticed(seen: Notice, id: number, now: number): number {
     seen.since.length = 0;
   }
   seen.ids.push(id);
-  seen.since.push(now);
-  return 0;
+  seen.since.push(overlooked ? Infinity : now);
+  return overlooked ? -Infinity : 0;
+}
+
+/**
+ * Does this player overlook this warning or shot? A coin tossed once for each: the same thing in
+ * the same chamber is always seen by the same player, or never, so a run plays the same every time.
+ */
+function overlooks(w: World, p: Player, id: number, lapse: number): boolean {
+  if (lapse <= 0) return false;
+  let h = Math.imul(id ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(w.chamber + 1, 0xc2b2ae35) ^ Math.imul(p.slot + 1, 0x27d4eb2f);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return (h >>> 0) / 4294967296 < lapse;
 }
 
 function forget(seen: Notice, id: number): void {
@@ -100,16 +148,26 @@ function forget(seen: Notice, id: number): void {
   seen.since.splice(i, 1);
 }
 
+/**
+ * How wide a berth a bot gives a warning. Being under one, the ground that is free of it and the
+ * edge it will not step over are all measured with this same margin: measured with different
+ * ones, a bot stepped out to where it no longer counted as under the warning, turned round at
+ * once to walk back to its target, and was struck at the rim.
+ */
+const BERTH = 0.2;
+
 /** The most urgent telegraph that covers the player and has been visible for `reaction` seconds. */
-function threatTo(w: World, p: Player, seen: Notice, reaction: number): Telegraph | null {
+function threatTo(w: World, p: Player, seen: Notice, o: BotOptions): Telegraph | null {
+  const reaction = o.reaction;
+  lookAt(seen, w);
   let threat: Telegraph | null = null;
   for (const t of w.telegraphs) {
     if (t.t >= t.dur) continue;
-    if (!telegraphCovers(t, p.x, p.y, p.radius + 0.15)) {
+    if (!telegraphCovers(t, p.x, p.y, p.radius + BERTH)) {
       forget(seen, t.id);
       continue;
     }
-    if (noticed(seen, t.id, w.time) >= reaction && (!threat || t.dur - t.t < threat.dur - threat.t)) threat = t;
+    if (noticed(seen, t.id, w.time, overlooks(w, p, t.id, o.lapse)) >= reaction && (!threat || t.dur - t.t < threat.dur - threat.t)) threat = t;
   }
   return threat;
 }
@@ -120,7 +178,9 @@ interface Incoming {
   eta: number;
 }
 
-function incoming(w: World, p: Player, seen: Notice, reaction: number, out: Incoming): void {
+function incoming(w: World, p: Player, seen: Notice, o: BotOptions, out: Incoming): void {
+  const reaction = o.reaction;
+  lookAt(seen, w);
   out.shot = null;
   out.eta = Infinity;
   for (const pr of w.projectiles) {
@@ -134,7 +194,7 @@ function incoming(w: World, p: Player, seen: Notice, reaction: number, out: Inco
     if (along < 0 || across > p.radius + pr.radius + 0.2) continue;
     const eta = along / sp;
     if (eta > 0.9) continue;
-    if (noticed(seen, pr.id, w.time) < reaction) continue;
+    if (noticed(seen, -pr.id - 1, w.time, overlooks(w, p, -pr.id - 1, o.lapse)) < reaction) continue;
     if (eta < out.eta) {
       out.eta = eta;
       out.shot = pr;
@@ -168,16 +228,39 @@ function wayOut(p: Player, t: Telegraph, out: Vec2): void {
 
 /** How a bot looks for somewhere safe: this many directions, at each of these distances, nearest first. */
 const FLEE_DIRS = 16;
-const FLEE_STEPS: readonly number[] = [0.9, 1.8, 3];
+const FLEE_STEPS: readonly number[] = [0.9, 1.8, 3, 4.2];
+
+/** Seconds until the first warning that covers a place lands; Infinity where none does. */
+function landsAt(w: World, x: number, y: number, r: number): number {
+  let soonest = Infinity;
+  for (const t of w.telegraphs) {
+    if (t.t >= t.dur || !telegraphCovers(t, x, y, r)) continue;
+    if (t.dur - t.t < soonest) soonest = t.dur - t.t;
+  }
+  return soonest;
+}
 
 /**
- * Get out from under a warning. Where warnings lie thick (a boss's patterns), the plain way out
- * of one can lead into the next, so the bot looks at the places it could reach and goes to the
- * nearest one that no warning covers, preferring the plain way out when that is one of them.
+ * The way out from under a warning, as a direction into `out`; returns how far off the free
+ * ground is. Where warnings lie thick (a boss's patterns), the plain way out of one can lead into
+ * the next, so the bot looks at the places it could reach and goes to the nearest one that no
+ * warning covers, preferring the plain way out when that is one of them.
+ *
+ * Where every place in reach is under one warning or another it returns -1: then `out` leads to
+ * the ground that is struck last (or nowhere, if that is where it stands), so that it can move on
+ * once the earlier blows have landed; and under one warning too wide to look across, `out` is
+ * simply the plain way out of it.
  */
-function flee(w: World, p: Player, f: InputFrame, threat: Telegraph): void {
+function wayClear(w: World, p: Player, threat: Telegraph, out: Vec2): number {
   const plain: Vec2 = { x: 0, y: 0 };
   wayOut(p, threat, plain);
+  const r = p.radius + BERTH;
+  const here = landsAt(w, p.x, p.y, r);
+  let late = here;
+  let lx = 0;
+  let ly = 0;
+  /** Somewhere in reach is struck sooner than here: this is a pocket between blows, worth standing in. */
+  let pocket = false;
   for (const dist of FLEE_STEPS) {
     let best = -Infinity;
     let bx = 0;
@@ -189,14 +272,17 @@ function flee(w: World, p: Player, f: InputFrame, threat: Telegraph): void {
       const x = p.x + ux * dist;
       const y = p.y + uy * dist;
       if (!isClear(w.room, x, y, p.radius)) continue;
-      let covered = false;
-      for (const t of w.telegraphs) {
-        if (t.t < t.dur && telegraphCovers(t, x, y, p.radius + 0.2)) {
-          covered = true;
-          break;
+      const lands = landsAt(w, x, y, r);
+      if (lands < Infinity) {
+        if (lands < here - 0.1) pocket = true;
+        // not free, but struck later than where it stands, and it can be there in time
+        if (lands > late + 0.1 && dist / PLAYER.speed < lands - 0.1) {
+          late = lands;
+          lx = ux;
+          ly = uy;
         }
+        continue;
       }
-      if (covered) continue;
       const along = ux * plain.x + uy * plain.y;
       if (along > best) {
         best = along;
@@ -205,11 +291,44 @@ function flee(w: World, p: Player, f: InputFrame, threat: Telegraph): void {
       }
     }
     if (best > -Infinity) {
-      setMove(f, bx, by);
-      return;
+      out.x = bx;
+      out.y = by;
+      return dist;
     }
   }
-  setMove(f, plain.x, plain.y);
+  const stay = lx === 0 && ly === 0 && !pocket;
+  out.x = stay ? plain.x : lx;
+  out.y = stay ? plain.y : ly;
+  return -1;
+}
+
+/** Get out from under a warning, now. */
+function flee(w: World, p: Player, f: InputFrame, threat: Telegraph): void {
+  const out: Vec2 = { x: 0, y: 0 };
+  wayClear(w, p, threat, out);
+  setMove(f, out.x, out.y);
+}
+
+/**
+ * Is it time to go? A practised player stays under a warning and goes on fighting until they
+ * must move to be out in time: the walk to free ground `far` away, what is left of the blow they
+ * are in the middle of, one more blow of `swing` seconds, and their nerve to spare. Where there
+ * is no free ground to walk to (`far` below 0) there is nothing to wait for.
+ */
+function mustGo(p: Player, threat: Telegraph, far: number, o: BotOptions, swing: number): boolean {
+  if (far < 0) return true;
+  const busy = p.state === 'attack' || p.state === 'release' || p.state === 'special' ? Math.max(0, p.actDur - p.stateTime) : 0;
+  // with the hand drawn back the feet are slower
+  const speed = p.state === 'charge' ? PLAYER.speed * HAYMAKER.moveMul : PLAYER.speed;
+  return threat.dur - threat.t <= far / speed + busy + swing + o.nerve;
+}
+
+/** The Echo a warning belongs to, if it is one that a blow can throw off its feet (and its own blow with it). */
+function thrown(w: World, t: Telegraph): Enemy | null {
+  // a strike lands whatever becomes of whoever called it
+  if (t.damage > 0) return null;
+  for (const e of w.enemies) if (e.id === t.owner) return !e.dead && !e.def.anchored && e.def.mass < 4 ? e : null;
+  return null;
 }
 
 /** The nearest orb still on its way to someone, within `range` of the player, or null. */
@@ -227,17 +346,67 @@ function nearestOrb(w: World, p: Player, range: number): Projectile | null {
   return best;
 }
 
+/** How many orbs still on their way to someone are within `range` of the player. */
+function orbsNear(w: World, p: Player, range: number): number {
+  let n = 0;
+  for (const pr of w.projectiles) {
+    if (pr.dead || pr.faction !== 'enemy' || pr.kind !== 'orb') continue;
+    if ((pr.x - p.x) * (pr.x - p.x) + (pr.y - p.y) * (pr.y - p.y) <= range * range) n++;
+  }
+  return n;
+}
+
 /** Step sideways out of the line of a shot. */
 function sidestep(f: InputFrame, p: Player, pr: Projectile): void {
   const side = -(p.x - pr.x) * pr.vy + (p.y - pr.y) * pr.vx >= 0 ? 1 : -1;
   setMove(f, -pr.vy * side, pr.vx * side);
 }
 
+/** How a bot finds its way: the walking field to the last place it had to go round something to reach. */
+interface Way {
+  room: Room | null;
+  field: NavField | null;
+  hit: Hit;
+  dir: Vec2;
+}
+
+const newWay = (): Way => ({ room: null, field: null, hit: newHit(), dir: { x: 0, y: 0 } });
+
+/**
+ * Walk to (x, y): straight at it when nothing is in the way, and otherwise round the pit or the
+ * wall, along a walking field to its tile, as an Echo does (nav.ts). A person sees the way round;
+ * a bot that only walked at things stood for ever against the rim of a pit.
+ */
+function walkTo(w: World, p: Player, f: InputFrame, x: number, y: number, way: Way, rush = -1): void {
+  const amount = 1;
+  const dx = x - p.x;
+  const dy = y - p.y;
+  if (castCircle(w.room.geo, true, p.x, p.y, dx, dy, p.radius * 0.9, way.hit)) {
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+    if (way.room !== w.room || !way.field || way.field.tx !== tx || way.field.ty !== ty) {
+      way.room = w.room;
+      way.field = buildNav(w.room, tx, ty);
+    }
+    if (navStep(w.room, way.field, p.x, p.y, way.dir)) {
+      setMove(f, way.dir.x, way.dir.y, amount);
+      return;
+    }
+  }
+  setMove(f, dx, dy, amount);
+  // A long way off with nothing between: one dash of the two closes it. The other is kept for
+  // getting out of trouble. (`rush` is how near the dash should end; below 0, it walks.)
+  if (rush < 0 || p.dashCharges < p.dashMaxCharges || p.state === 'dash' || p.bufDash > 0) return;
+  const d = dhypot(dx, dy);
+  if (d < rush + DASH.distance + 0.3) return;
+  if (landsAt(w, p.x + (dx / d) * DASH.distance, p.y + (dy / d) * DASH.distance, p.radius + BERTH) === Infinity) press(f, PRESS.dash);
+}
+
 /**
  * A teammate is down: go and stand by them. Returns true if the bot is on its way (it writes the
  * movement); false if nobody needs help or it is already close enough to be helping.
  */
-function rescue(w: World, p: Player, f: InputFrame): boolean {
+function rescue(w: World, p: Player, f: InputFrame, way: Way): boolean {
   let best: Player | null = null;
   let bd = Infinity;
   for (const q of w.players) {
@@ -249,7 +418,7 @@ function rescue(w: World, p: Player, f: InputFrame): boolean {
     }
   }
   if (!best || bd < 0.9 * 0.9) return false;
-  setMove(f, best.x - p.x, best.y - p.y);
+  walkTo(w, p, f, best.x, best.y, way);
   return true;
 }
 
@@ -261,9 +430,50 @@ function tap(f: InputFrame, latch: number): number {
   return next;
 }
 
+/**
+ * A fist's finger: down and up again at once. A jab that ends with the button still down turns
+ * into a hand drawn back, which a bot that only meant to jab would then stand and wait on.
+ */
+function flick(f: InputFrame, latch: number): number {
+  const next = (latch + 1) % 4;
+  if (next === 0) press(f, PRESS.attack);
+  return next;
+}
+
+/** How far ahead a bot looks along its own step for a warning it would walk under. */
+const LOOK_AHEAD: readonly number[] = [0.45, 0.9];
+
+/**
+ * Whatever a bot has decided, it does not walk under a warning it is clear of: it waits at the
+ * edge for the blow to land. (A bot that had just stepped out from under a slam used to turn round
+ * and walk back in to reach its target, and take the slam.)
+ */
+function careful(bot: Bot): Bot {
+  const v: Vec2 = { x: 0, y: 0 };
+  return {
+    name: bot.name,
+    think(w: World, slot: number): InputFrame {
+      const f = bot.think(w, slot);
+      const p = f.moveMag > 0 ? playerOf(w, slot) : null;
+      if (!p || !standing(p)) return f;
+      const r = p.radius + BERTH;
+      // already under one: getting out is the business of whoever decided the step
+      if (landsAt(w, p.x, p.y, r) < Infinity) return f;
+      moveInto(f, v);
+      const l = dhypot(v.x, v.y) || 1;
+      for (const ahead of LOOK_AHEAD) {
+        if (landsAt(w, p.x + (v.x / l) * ahead, p.y + (v.y / l) * ahead, r) === Infinity) continue;
+        setMove(f, 0, 0);
+        break;
+      }
+      return f;
+    },
+  };
+}
+
 /** Common to every bot: get out of warned ground. Returns true if the bot is busy escaping. */
 function evade(w: World, p: Player, f: InputFrame, seen: Notice, o: BotOptions): boolean {
-  const threat = threatTo(w, p, seen, o.reaction);
+  const threat = threatTo(w, p, seen, o);
   if (!threat) return false;
   flee(w, p, f, threat);
   const left = threat.dur - threat.t;
@@ -276,8 +486,10 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
   const f = emptyInput();
   const seen = newNotice();
   const inc: Incoming = { shot: null, eta: 0 };
+  const way = newWay();
+  const esc: Vec2 = { x: 0, y: 0 };
   let latch = 0;
-  return {
+  return careful({
     name: o.dashes ? 'sword' : 'sword-novice',
     think(w: World, slot: number): InputFrame {
       const p = playerOf(w, slot);
@@ -285,42 +497,69 @@ export function swordBot(o: BotOptions = EXPERT): Bot {
       hold(f, BTN.attack, false);
       if (!p || !standing(p)) return f;
 
-      const target = nearestEnemy(w, p);
+      // The nearest Echo, but not one behind a raised shield while anything else is about: a blade does nothing to a gong.
+      let target = nearestEnemy(w, p);
+      if (target && onGuard(target)) {
+        let open: Enemy | null = null;
+        let bd = Infinity;
+        for (const e of w.enemies) {
+          if (!hittable(e) || onGuard(e)) continue;
+          const d = (e.x - p.x) * (e.x - p.x) + (e.y - p.y) * (e.y - p.y);
+          if (d < bd) {
+            bd = d;
+            open = e;
+          }
+        }
+        if (open) target = open;
+      }
       if (target) setAim(f, p.x, p.y, target.x, target.y);
 
       // A shot on its way: face it and swing, so it goes back where it came from.
-      incoming(w, p, seen, o.reaction, inc);
+      incoming(w, p, seen, o, inc);
       if (inc.shot && inc.eta < 0.3) {
         setAim(f, p.x, p.y, inc.shot.x, inc.shot.y);
         if (p.state !== 'attack') latch = tap(f, 3);
         return f;
       }
 
-      const threat = threatTo(w, p, seen, o.reaction);
+      const threat = threatTo(w, p, seen, o);
       if (threat) {
-        // A lunge about to land can be answered with a Riposte instead of a dodge.
+        if (p.state === 'guard') return f;
+        // A lunge or a bash can be answered with a Riposte instead of a dodge. With one to hand it
+        // stands its ground and goes on fighting, and guards as the blow comes.
         const left = threat.dur - threat.t;
-        if (o.special && threat.shape === 'lane' && threat.count === 1 && left < 0.2 && p.specialCd <= 0 && p.state !== 'guard') {
-          press(f, PRESS.special);
+        const answerable = (threat.shape === 'lane' && threat.count === 1) || threat.shape === 'cone';
+        if (o.special && answerable && p.specialCd <= Math.max(0, left - 0.25)) {
+          if (left < 0.2) {
+            press(f, PRESS.special);
+            return f;
+          }
+        } else if (mustGo(p, threat, wayClear(w, p, threat, esc), o, SWORD.windup[0] + SWORD.active[0] + SWORD.recovery[0])) {
+          setMove(f, esc.x, esc.y);
+          if (o.dashes && left < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
           return f;
         }
-        if (p.state === 'guard') return f;
-        flee(w, p, f, threat);
-        if (o.dashes && left < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
-        return f;
       }
 
-      if (rescue(w, p, f)) return f;
+      if (rescue(w, p, f, way)) return f;
       if (!target) return f;
       const dx = target.x - p.x;
       const dy = target.y - p.y;
       const d = dhypot(dx, dy) || 1;
       const reach = SWORD.reach[0] + target.radius - 0.25;
-      if (d > reach) setMove(f, dx, dy);
+      if (onGuard(target)) {
+        // Only shields are left. With the Riposte to hand, step in close enough to draw the bash and
+        // answer it; the gong is thrown down, and the blade goes in. While the Riposte is coming
+        // back, keep out of reach. Someone who never uses it has no answer but to draw the bash,
+        // step out of it, and strike while the gong hangs at its side.
+        if (!o.special || p.specialCd <= 0.3) {
+          if (d > 1.5 + target.radius) walkTo(w, p, f, target.x, target.y, way);
+        } else if (d < 3.2) setMove(f, -dx, -dy);
+      } else if (d > reach) walkTo(w, p, f, target.x, target.y, way, o.dashes ? reach : -1);
       else if (target.state !== 'spawn') latch = tap(f, latch);
       return f;
     },
-  };
+  });
 }
 
 /** Keeps its distance and keeps the string busy; throws a Ringstone into a crowd. */
@@ -329,16 +568,18 @@ const BANK_TRIES = 48;
 const BANK_EVERY = 15;
 
 /**
- * For a target behind a shield: an aim that sends an arrow off the chamber and into it from where
- * the shield is not, or -1 if none of the directions tried does. It reads the same path the
- * arrow will fly (the aim preview's), as a person reading the room's angles would.
+ * An aim that sends an arrow off the chamber and then into a target, or -1 if none of the
+ * directions tried does: round a shield, into it from where the shield is not; and at whatever
+ * shrugs off a plain blow (the Toll in its Silence), so that the arrow arrives as a Return. It
+ * reads the same path the arrow will fly (the aim preview's), as a person reading the room's
+ * angles would.
  */
 function bankShot(w: World, p: Player, e: Enemy, pts: number[]): number {
   const sh = e.def.shield;
-  if (!sh) return -1;
   const fx = dcos(e.facing);
   const fy = dsin(e.facing);
-  const stops = dcos(sh.arc);
+  // with no shield nothing stops it: a cosine is never above 1
+  const stops = sh ? dcos(sh.arc) : 2;
   let best = -1;
   let bestD = e.radius + 0.1;
   for (let i = 0; i < BANK_TRIES; i++) {
@@ -372,7 +613,8 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
   const inc: Incoming = { shot: null, eta: 0 };
   const bank = { angle: -1, at: -BANK_EVERY, target: 0 };
   const path: number[] = [];
-  return {
+  const way = newWay();
+  return careful({
     name: o.dashes ? 'bow' : 'bow-novice',
     think(w: World, slot: number): InputFrame {
       const p = playerOf(w, slot);
@@ -387,8 +629,8 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
       if (orb) {
         const lead = dhypot(orb.x - p.x, orb.y - p.y) / BOW.speed;
         setAim(f, p.x, p.y, orb.x + orb.vx * lead, orb.y + orb.vy * lead);
-      } else if (target && o.special && onGuard(target)) {
-        // behind a shield: look for a way round it off the walls, and look again every so often
+      } else if (target && o.special && (onGuard(target) || target.takeDirect < 1)) {
+        // behind a shield, or deaf to a plain blow: look for a way in off the walls, and look again every so often
         if (w.tick - bank.at >= BANK_EVERY || bank.target !== target.id) {
           bank.at = w.tick;
           bank.target = target.id;
@@ -400,19 +642,28 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
       if (orb || (target && target.state !== 'spawn')) hold(f, BTN.attack, true);
 
       if (evade(w, p, f, seen, o)) return f;
-      incoming(w, p, seen, o.reaction, inc);
+      incoming(w, p, seen, o, inc);
       if (inc.shot && inc.shot.kind !== 'orb') {
         sidestep(f, p, inc.shot);
         if (o.dashes && inc.eta < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
         return f;
       }
-      if (rescue(w, p, f)) return f;
+      if (rescue(w, p, f, way)) return f;
       if (!target) return f;
 
       const dx = target.x - p.x;
       const dy = target.y - p.y;
       const d = dhypot(dx, dy) || 1;
       if (o.special && p.specialCd <= 0 && target.state !== 'spawn' && countNear(w, p, 9) >= 2) press(f, PRESS.special);
+      // No shot at it from here (a wall between, and no way in off another): go and find one.
+      if (castCircle(w.room.geo, false, p.x, p.y, dx, dy, BOW.radius, way.hit) && bank.angle < 0) {
+        walkTo(w, p, f, target.x, target.y, way);
+        return f;
+      }
+      // Only shields are left, and there is no way round this one off the walls: kept at a distance
+      // it would never strike, and never open. So it is let come. Its bash is stepped out of, and
+      // it is shot while the gong hangs at its side.
+      if (onGuard(target) && (!o.special || bank.angle < 0) && !w.enemies.some((e) => hittable(e) && !onGuard(e))) return f;
       if (d < 4.2) {
         // too close: back off, drifting toward the middle of the room so as not to be cornered
         const cx = w.room.cx - p.x;
@@ -426,14 +677,14 @@ export function bowBot(o: BotOptions = EXPERT): Bot {
           if (o.dashes && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
         }
       } else if (d > 8) {
-        setMove(f, dx, dy);
+        walkTo(w, p, f, target.x, target.y, way);
       } else {
         // in the band: circle
         setMove(f, -dy, dx, 0.6);
       }
       return f;
     },
-  };
+  });
 }
 
 /** Closes in and jabs; draws the hand back for a Haymaker when there is room; Breaks a crowd. */
@@ -441,11 +692,13 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
   const f = emptyInput();
   const seen = newNotice();
   const inc: Incoming = { shot: null, eta: 0 };
+  const way = newWay();
+  const esc: Vec2 = { x: 0, y: 0 };
   let latch = 0;
   /** Jabs thrown since the last big punch. */
   let jabs = 0;
   let wasAttacking = false;
-  return {
+  return careful({
     name: o.dashes ? 'fist' : 'fist-novice',
     think(w: World, slot: number): InputFrame {
       const p = playerOf(w, slot);
@@ -456,40 +709,90 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
       if (p.state === 'attack' && !wasAttacking) jabs++;
       wasAttacking = p.state === 'attack';
 
-      const target = nearestEnemy(w, p);
+      // Against a boss the big punch is for the boss, which cannot be thrown and so takes all of it;
+      // what the boss calls is dealt with when it comes close.
+      const near = nearestEnemy(w, p);
+      let boss: Enemy | null = null;
+      for (const e of w.enemies) if (!e.dead && e.def.boss && e.state !== 'spawn') boss = e;
+      const crowded = !!near && near !== boss && dhypot(near.x - p.x, near.y - p.y) <= 2.2;
+      const target = boss && !crowded ? boss : near;
       if (target) setAim(f, p.x, p.y, target.x, target.y);
       const charging = p.state === 'charge';
 
-      const threat = threatTo(w, p, seen, o.reaction);
-      if (threat) {
-        flee(w, p, f, threat);
-        // keep the hand drawn back while stepping aside
-        if (charging) hold(f, BTN.attack, true);
-        const left = threat.dur - threat.t;
-        if (o.dashes && left < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
-        return f;
-      }
-      // an orb on its way is punched home rather than stepped round: face it early, and strike as it arrives
-      const orb = nearestOrb(w, p, 4);
+      // An orb on its way is punched home rather than stepped round, whatever else is going on: the
+      // hand sees to it while the feet do what they must. Face it early, and strike as it arrives.
+      let orb = nearestOrb(w, p, 5);
       if (orb) {
         const od = dhypot(orb.x - p.x, orb.y - p.y);
-        setAim(f, p.x, p.y, orb.x, orb.y);
-        if (charging) {
-          // a hand already drawn back is let go at it
-          if (od > HAYMAKER.reach + HAYMAKER.lunge + orb.radius) hold(f, BTN.attack, true);
+        const osp = dhypot(orb.vx, orb.vy);
+        // A fan of them is more than a fist can meet one at a time: the Break sends home every one in
+        // reach. It is begun while the first is still far enough off not to arrive before the slam.
+        const slamIn = osp * (BREAK.windup + 2 / SIM_HZ);
+        if (o.special && p.specialCd <= 0 && p.state !== 'special' && !charging && od > slamIn + 0.9 && od <= BREAK.radius + slamIn - 0.3 && orbsNear(w, p, BREAK.radius + slamIn - 0.3) >= 2) {
+          setAim(f, p.x, p.y, orb.x, orb.y);
+          press(f, PRESS.special);
           return f;
         }
-        if (od <= FIST.reach + orb.radius + 0.5 && p.state !== 'attack') latch = tap(f, 3);
-        if (p.state !== 'release') return f;
+        // one that is still a while off, or is flying past, is no reason to stop what the hand is doing
+        const closing = -((orb.x - p.x) * orb.vx + (orb.y - p.y) * orb.vy) / (od || 1);
+        if (closing <= 0 || od - FIST.reach - orb.radius > closing * 0.3) orb = null;
       }
-      incoming(w, p, seen, o.reaction, inc);
-      if (inc.shot && !charging && inc.shot.kind !== 'orb') {
-        sidestep(f, p, inc.shot);
-        // too late to step round it: through it
-        if (o.dashes && inc.eta < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
+      if (orb) {
+        const od = dhypot(orb.x - p.x, orb.y - p.y);
+        const osp = dhypot(orb.vx, orb.vy);
+        setAim(f, p.x, p.y, orb.x, orb.y);
+        if (charging) {
+          // a hand already drawn back is let go at it as it comes into reach
+          if (od > HAYMAKER.reach + HAYMAKER.lunge + orb.radius) hold(f, BTN.attack, true);
+        } else {
+          // The punch is thrown so that it lands with the orb well inside its reach: thrown early it
+          // meets nothing, and the orb arrives while the hand is still coming back.
+          const lands = od - osp * (FIST.windup[0] + 1 / SIM_HZ);
+          if (lands <= FIST.reach + orb.radius - 0.35 && p.state !== 'attack') latch = flick(f, 3);
+        }
+      }
+
+      const threat = threatTo(w, p, seen, o);
+      if (threat) {
+        const left = threat.dur - threat.t;
+        // A blow about to land from an Echo close by is thrown off, Echo and all, with a Break. With
+        // one to hand it stands its ground and goes on fighting, and slams as the blow comes.
+        const from = !orb && o.special && p.specialCd <= Math.max(0, left - 0.4) ? thrown(w, threat) : null;
+        if (from && dhypot(from.x - p.x, from.y - p.y) <= BREAK.radius + from.radius - 0.4) {
+          if (left < 0.3 && p.state !== 'special') {
+            press(f, PRESS.special);
+            return f;
+          }
+        } else if (mustGo(p, threat, wayClear(w, p, threat, esc), o, FIST.windup[0] + FIST.active + FIST.recovery[0])) {
+          setMove(f, esc.x, esc.y);
+          // keep the hand drawn back while stepping aside
+          if (charging && !orb) hold(f, BTN.attack, true);
+          if (o.dashes && left < 0.16 && p.dashCharges > 0 && p.state !== 'dash' && p.bufDash <= 0) press(f, PRESS.dash);
+          return f;
+        }
+      }
+      // nothing to get out from under: it stands and waits for the orb
+      if (orb && p.state !== 'release') return f;
+      incoming(w, p, seen, o, inc);
+      if (inc.shot && inc.shot.kind !== 'orb') {
+        if (charging) {
+          // the hand stays drawn back while the feet step aside
+          sidestep(f, p, inc.shot);
+          hold(f, BTN.attack, true);
+          return f;
+        }
+        // a shot about to arrive is knocked aside with a jab: faced early, struck as it comes into reach
+        setAim(f, p.x, p.y, inc.shot.x, inc.shot.y);
+        const sd = dhypot(inc.shot.x - p.x, inc.shot.y - p.y);
+        const ssp = dhypot(inc.shot.vx, inc.shot.vy);
+        if (sd - ssp * (FIST.windup[0] + 1 / SIM_HZ) <= FIST.reach + inc.shot.radius - 0.35) {
+          if (p.state !== 'attack') latch = flick(f, 3);
+          // the hand is still coming back from the last one: through it instead
+          else if (o.dashes && inc.eta < 0.12 && p.dashCharges > 0 && p.bufDash <= 0) press(f, PRESS.dash);
+        }
         return f;
       }
-      if (!charging && rescue(w, p, f)) return f;
+      if (!charging && rescue(w, p, f, way)) return f;
       if (!target) return f;
 
       const dx = target.x - p.x;
@@ -505,7 +808,7 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
         // Close to punching distance with the hand held back, then let go.
         const full = p.charge >= HAYMAKER.full;
         const inRange = d <= HAYMAKER.reach + HAYMAKER.lunge + target.radius - 0.35;
-        if (!inRange) setMove(f, dx, dy);
+        if (!inRange) walkTo(w, p, f, target.x, target.y, way);
         if (!(full && inRange && ready)) hold(f, BTN.attack, true);
         else jabs = 0;
         return f;
@@ -513,8 +816,13 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
       if (p.state === 'release') return f;
 
       const reach = FIST.reach + target.radius - 0.2;
+      // A boss gives no time to stand and draw the hand back: within reach of it, it is jabbed. The
+      // big punch is drawn back on the way in, so that every return to it begins with one; and it
+      // is used on a boss that reels and cannot answer, and on one that has gone deaf to plain
+      // blows (a full one is a Return, and gets through).
+      if (target.def.boss) jabs = d > reach || target.state === 'stun' || target.takeDirect < 1 ? 3 : 0;
       if (d > reach) {
-        setMove(f, dx, dy);
+        walkTo(w, p, f, target.x, target.y, way, o.dashes ? reach : -1);
         // on the way in, with a few jabs behind it, wind up a big one
         if (jabs >= 3 && d < 6 && ready) {
           if (!wasHolding) press(f, PRESS.attack);
@@ -526,12 +834,12 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
           if (!wasHolding) press(f, PRESS.attack);
           hold(f, BTN.attack, true);
         } else {
-          latch = tap(f, latch);
+          latch = flick(f, latch);
         }
       }
       return f;
     },
-  };
+  });
 }
 
 /** The standard bot for a class. */
@@ -602,9 +910,9 @@ export function botCommands(s: Session, content: ContentRegistry, seats?: readon
       return;
     }
     if (onTable(s.wager)) {
-      // a bot takes a Wager when it is in good health, after a moment's thought
-      if (s.wager.votes[slot] === VOTE_NONE && s.wager.timer <= WAGER.count - BOT_THINKS)
-        out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'wager', a: me.hp >= me.maxHp * 0.6 ? VOTE_TAKE : VOTE_WALK });
+      // a bot takes a Wager when it is in good health and has company, after a moment's thought; alone it walks on
+      const bold = s.config.players.length > 1 && me.hp >= me.maxHp * 0.6;
+      if (s.wager.votes[slot] === VOTE_NONE && s.wager.timer <= WAGER.count - BOT_THINKS) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'wager', a: bold ? VOTE_TAKE : VOTE_WALK });
       return;
     }
     // a bot looks round a camp for a moment before it does anything there

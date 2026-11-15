@@ -43,6 +43,8 @@ export interface ShotSpec {
   quick?: number;
   /** Radians a second it comes round toward the nearest Echo once it has bounced. */
   seek?: number;
+  /** The share of its damage it keeps when it is sent back (1 unless said). */
+  back?: number;
 }
 
 function make(id: number, o: ShotSpec): Projectile {
@@ -79,6 +81,7 @@ function make(id: number, o: ShotSpec): Projectile {
     seek: o.seek ?? 0,
     shard: false,
     tolls: 0,
+    back: o.back ?? 1,
     hits: [],
     dead: false,
   };
@@ -138,7 +141,7 @@ export function returnShot(w: World, pr: Projectile, p: Player, angle: number, p
   pr.owner = p.slot;
   pr.returned = true;
   pr.perfect = perfect;
-  pr.damage = Math.max(REFLECT.minDamage, pr.damage * REFLECT.damageMul) * (perfect ? REFLECT.perfectMul : 1);
+  pr.damage = Math.max(REFLECT.minDamage, pr.damage * REFLECT.damageMul) * (perfect ? REFLECT.perfectMul : 1) * pr.back;
   pr.bounces = REFLECT.bounces;
   pr.bounced = 0;
   pr.skips = 0;

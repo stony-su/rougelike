@@ -9,7 +9,7 @@ import { planRoute } from '../src/sim/run';
 import { createSession, stepSession, stopOf } from '../src/sim/session';
 import type { Command, Session } from '../src/sim/session';
 import { hashSession } from '../src/sim/snapshot';
-import { SIM_HZ } from '../src/sim/tuning';
+import { CLASS_HP, SIM_HZ } from '../src/sim/tuning';
 import type { ClassId } from '../src/sim/types';
 import { VOTE_NONE, VOTE_TAKE, VOTE_WALK, WAGER, carried, noWager, offer, onTable, stepTable, vote } from '../src/sim/wager';
 import { openWorld } from './helpers';
@@ -207,7 +207,7 @@ describe('the Wager on the road', () => {
     toTheTable(two);
     answer(two, [VOTE_TAKE, VOTE_WALK, VOTE_TAKE]);
     expect([stopOf(two)?.n, two.worlds[0].flow.discord]).toEqual([AT + 1, 'brittle']);
-    expect(two.worlds[0].players.every((p) => p.maxHp === 70)).toBe(true);
+    expect(two.worlds[0].players.map((p) => p.maxHp)).toEqual(two.worlds[0].players.map((p) => CLASS_HP[p.classId] - Math.round(CLASS_HP[p.classId] * WAGER.brittle)));
 
     const silent = begin(2, 'silent');
     toTheTable(silent);

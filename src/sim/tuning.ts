@@ -19,6 +19,14 @@ export const PLAYER = {
   buffer: 0.15,
 };
 
+/**
+ * Health by class. The Fist fights at arm's length, where everything lands, and has no blade to
+ * turn a shot with: it is the sturdiest. The Bow stands a bowshot off and sees everything coming
+ * across the floor: it is the frailest. (Bots playing whole runs set these: with a hundred each,
+ * the Bow hardly ever fell and the Fist hardly ever arrived.)
+ */
+export const CLASS_HP: Readonly<Record<'sword' | 'bow' | 'fist', number>> = { sword: PLAYER.maxHp, bow: 85, fist: 125 };
+
 export const DASH = {
   distance: 4,
   time: 0.18,
@@ -33,6 +41,12 @@ export const DASH = {
 
 /** Launched bodies: Echoes sent flying by a blow. */
 export const BODY = {
+  /**
+   * On its own feet no Echo but a boss is wider than this against the chamber, whatever its size
+   * to a blow. The walking field leads through gaps one tile wide, and a body wider than the gap
+   * stood at it for good, out of everyone's reach.
+   */
+  foot: 0.46,
   /** Faster than this, a body is launched: helpless, and able to slam and carom. */
   launchSpeed: 3,
   /** Tiles per second lost every second. */
@@ -182,7 +196,7 @@ export const RINGSTONE = {
 
 /** The Fist: jabs on the press, and a held punch. */
 export const FIST = {
-  damage: [6, 6, 10] as const,
+  damage: [7, 7, 11] as const,
   windup: [0.04, 0.04, 0.07] as const,
   active: 0.07,
   recovery: [0.1, 0.1, 0.18] as const,
@@ -194,6 +208,8 @@ export const FIST = {
   step: [0.3, 0.3, 0.45] as const,
   moveMul: 0.45,
   freeze: [2, 2, 4] as const,
+  /** A jab that cannot shove what it strikes (a body that is anchored) lands this much harder instead. */
+  anchored: 2.5,
 };
 
 /** The held punch. `charge` runs from 0 at the least hold to 1 at the full one. */
@@ -211,6 +227,8 @@ export const HAYMAKER = {
   impulse: 14,
   impulsePerCharge: 12,
   recovery: 0.22,
+  /** What cannot be thrown takes the whole of the blow: a full one is multiplied by this against a body that is anchored. */
+  anchored: 3,
 };
 
 /** The Fist special: a ground slam that pops everything nearby outward. */
@@ -397,13 +415,13 @@ export const TUNE = {
 };
 
 export const SCALING = {
-  hpPerChamber: 0.08,
+  hpPerChamber: 0.06,
   damagePerChamber: 0.04,
   /** Per extra player: ordinary enemy health, and the threat budget of a wave. */
-  coopHp: 0.35,
-  coopBudget: 0.55,
+  coopHp: 0.5,
+  coopBudget: 1,
   /** Per extra player: a boss's health. A boss's health does not grow with the depth of its chamber. */
-  coopBossHp: 0.6,
+  coopBossHp: 1.4,
 };
 
 /** Elites: an ordinary Echo with more health, a harder hit and one trait (elites.ts). */
@@ -494,7 +512,9 @@ export const BOSS = {
   staggerTime: 1.5,
   staggerBonus: 1.5,
   staggerRest: 9,
-  caromBonus: 1.5,
+  caromBonus: 3,
+  /** At each mark of its health where its phase changes, a boss stops there and nothing hurts it for this long. */
+  turn: 2.5,
 };
 
 /** Numbers of the traits an Echo's definition may carry. */

@@ -12,11 +12,11 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 **A whole run can be played from the first chamber to the Bell**, alone or with up to three laptops on one network, with keyboard and mouse or a controller:
 
-- **Three classes.** The Sword turns enemy shots back with every swing, bats a lunging enemy away, and has a guard (Riposte) that returns whatever lands in it. The Bow's arrows ricochet off walls and skip between enemies, with an aim preview that shows the exact path, and it throws a Ringstone that redirects shots and bodies. The Fist jabs on the press, and if you keep the button held it draws back for a Haymaker that launches its target; its Break pops everything nearby outward.
+- **Three classes.** The Sword turns enemy shots back with every swing, bats a lunging enemy away, and has a guard (Riposte) that returns whatever lands in it. The Bow's arrows ricochet off walls and skip between enemies, with an aim preview that shows the exact path, and it throws a Ringstone that redirects shots and bodies. The Fist jabs on the press, and if you keep the button held it draws back for a Haymaker that launches its target; its Break pops everything nearby outward and sends any orb in reach home, and a jab knocks an enemy shot aside. A Riposte that lands throws a shield down. They are not equally sturdy: the Bow has 85 health, the Sword 100, the Fist 125.
 - **Everything bounces.** Launched enemies slam into walls, carom into each other, ring off bumpers and fall into pits. Bombs can be batted back or shot where they sit. Hits from anything sent back are *Returns*: they build Rally, and Rally makes Returns hit harder.
 - **Five Echoes** to bounce: the Thrum lunges, the Piper plays three bolts down three drawn lines, the Burr lobs bombs, the Gong hides behind a shield that only a Return or a blow from behind gets past, and the Cairn slams the floor and throws its own top stone. They do not simply walk at you: they surround, cut off, keep their distance and change ground. The hardest chambers carry **elites** (Resonant, Tethered, Hasty, Plated, Splitting).
 - **Traps in the floor** from the second chamber on: plates of spikes, knells that toll in a ring, and pipes that spit thorns down a drawn line. They hurt Echoes too, so a body can be knocked onto them.
-- **Two bosses.** The Carillon, a walking frame of bells, holds the sixth chamber; the Toll, the Bell itself, holds the twelfth, in the Crater, and has three phases. Each stands about twice the height of anything else and is seldom doing nothing: the floor fills with warned patterns to read and move through, and every class can send its orbs home.
+- **Two bosses.** The Carillon, a walking frame of bells, holds the sixth chamber; the Toll, the Bell itself, holds the twelfth, in the Crater, and has three phases. Each stands about twice the height of anything else and is seldom doing nothing: the floor fills with warned patterns to read and move through, and every class can send its orbs home. A boss is met in every phase: at each mark where its voice changes it stops there, and for a moment nothing hurts it.
 
 - **Together.** One laptop hosts; the others open its address. Everyone sees exactly the same game. A downed player crawls and is helped up by a teammate who stands close; an arrow that crosses a teammate's sword swing is banked off the blade, and a body one player launches can be struck again in flight by another (Duets).
 
@@ -39,6 +39,8 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 That makes 42 Tunings and 12 Harmonies; a fresh save drafts from 21 as any class, and the Attunement opens one more for each class and can issue each class one to begin with.
 
 - **Each their own way.** Three times a run the road forks: at a side-chamber every player walks into a short chamber of their own, at the same moment, fights it alone and is paid for it alone, and the party meets again in the next chamber it shares. Whoever finishes first sees who the road is waiting for; once only one is left they have twenty seconds, and going down alone costs the prize, not the run. Alone, a side-chamber is simply a short fight.
+
+- **Balance, by bots.** Whole runs are played with nobody watching, alone with each class and as a party, and the numbers were set by what they found (`node scripts/balance.mjs` prints the table; DESIGN.md section 16 tells it). Bots that play well, and overlook one warning in ten, reach the Bell alone in 83% of runs with the Sword, 93% with the Bow and 58% with the Fist; slower, less watchful ones in 30% to 55%; a party that stands still falls in the first chamber. Three together nearly always arrive, because the fallen are picked up. This says the road can be walked; it does not say how it feels in a person's hands.
 
 What is not here yet: the three kinds of side-chamber (Proving, Cache, Echo Duel): for now every side-chamber is a short fight. [PROGRESS.md](PROGRESS.md) lists all of it.
 
@@ -139,12 +141,13 @@ Two more that are worth knowing when reading the code:
 - `?debug` in the URL shows frame timing and exposes `window.__resound` for scripted checks.
 - `?seed=123` fixes the random seed.
 - `?class=bow` chooses your class; `?team=sword,bow,fist` fills up to three seats (yours first, bots in the rest).
-- `?autopilot=expert` (or `novice`) lets a bot play your seat.
+- `?autopilot=expert` (or `steady`, or `novice`) lets a bot play your seat.
 - `?stress=40` keeps forty enemies alive and nobody can be hurt (for frame-time checks).
 - `?practice` plays the endless practice ladder in the two hand-built rooms instead of a run.
 - `?stop=6` begins the run at that chamber (6 is the Carillon's), to get to a part of the road without walking it.
 - `?gallery=edge` (or any rig id, or `all`) shows every animation state of a rig as a filmstrip; add `&away`, `&silhouette` or `&live`.
 - `?selftest` plays a pinned three-player game headless in the page and prints its hashes.
+- `node scripts/balance.mjs 40` plays forty whole runs for each class at three levels of skill, and twenty for each party, and prints who won, where the others fell and how long the bosses stood (about two minutes).
 - `npm run coop-check -- --port 5180` (with `npm run host` running and nobody in the lobby): three browser pages join through the network address, fight, one is frozen and one reloaded, and the host must not have had to repair anyone.
 - `npm run look -- --query "debug&class=bow" --out name` builds the game, serves that build on a free port for as long as the check takes, and runs the next tool against it. Nothing else has to be running.
 - `npm run shot -- --url "http://localhost:5173/?debug=1" --out name` takes a screenshot through your installed Chrome or Edge (no browser download) and reports console errors. A `--steps file.json` script can hold keys, move the mouse, run script in the page and take several shots; with `--pad` it also drives a scripted fake controller. See the header of `scripts/shot.mjs`.

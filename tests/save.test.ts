@@ -16,7 +16,7 @@ import { candidates } from '../src/sim/draft';
 import type { TuningDef } from '../src/sim/mods';
 import { createSession, stepSession } from '../src/sim/session';
 import type { RunStats, Session } from '../src/sim/session';
-import { DASH } from '../src/sim/tuning';
+import { CLASS_HP, DASH } from '../src/sim/tuning';
 import type { ClassId } from '../src/sim/types';
 
 function memory(initial: Record<string, string> = {}): Store & { data: Record<string, string> } {
@@ -218,7 +218,7 @@ describe('what a player brings to a run', () => {
     if (!s) throw new Error('the host began no game');
     expect(s.config.players[0].boons).toEqual(boons);
     const p = s.worlds[0].players[0];
-    expect([p.classId, p.maxHp, p.chimes, s.drafts[0].rerolls]).toEqual(['fist', 120, 30, 1]);
+    expect([p.classId, p.maxHp, p.chimes, s.drafts[0].rerolls]).toEqual(['fist', CLASS_HP.fist + 20, 30, 1]);
     // and the laptop is sent the same description, so it builds the same game
     const start = heard.map((t) => JSON.parse(t) as { t: string; config?: { players: Array<{ boons: Boons }> } }).find((m) => m.t === 'start');
     expect(start?.config?.players[0].boons).toEqual(boons);

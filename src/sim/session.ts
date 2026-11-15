@@ -20,11 +20,11 @@ import type { Draft } from './draft';
 import { grantTuning } from './player';
 import { buildRoom, randomFloorPoint } from './room';
 import { generateRoom } from './roomgen';
-import { flowFor, planRoute, roomSpec } from './run';
+import { CLEAR_HEAL, flowFor, planRoute, roomSpec } from './run';
 import type { Stop } from './run';
 import { WAGER, discord, lift, noWager, offer, onTable, stepTable, vote } from './wager';
 import type { Wager } from './wager';
-import { PLAYER, REVIVE, SIM_HZ } from './tuning';
+import { CLASS_HP, REVIVE, SIM_HZ } from './tuning';
 import { emptyInput } from './types';
 import type { ClassId, InputFrame, World } from './types';
 import { createWorld, stepWorld } from './world';
@@ -178,7 +178,7 @@ const fresh = (s: Session): Entrant[] =>
     const b = boonsOf(s, slot);
     const tunings: Record<string, number> = b.issued ? { [b.issued]: 1 } : {};
     for (const id of Object.keys(s.config.tunings ?? {}).sort()) tunings[id] = Math.max(tunings[id] ?? 0, Math.round(s.config.tunings?.[id] ?? 0));
-    return { slot, classId: p.classId, maxHp: PLAYER.maxHp + b.health, chimes: b.chimes, tunings, boons: b };
+    return { slot, classId: p.classId, maxHp: CLASS_HP[p.classId] + b.health, chimes: b.chimes, tunings, boons: b };
   });
 
 /** The chamber of the stop the party is at, built by the generator from the seed. */
@@ -371,6 +371,18 @@ function openDrafts(s: Session, content: ContentRegistry, w: World): void {
   }
 }
 
+/** The Carillon's fall, and a side-chamber walked alone, give back a share of health to whoever is standing in them. */
+function mend(w: World): void {
+  const share = CLEAR_HEAL[w.flow.kind] ?? 0;
+  if (share <= 0) return;
+  for (const p of w.players) {
+    if (!standing(p) || p.hp >= p.maxHp) continue;
+    const before = p.hp;
+    p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * share));
+    w.events.push({ type: 'heal', player: p.slot, amount: p.hp - before, x: p.x, y: p.y });
+  }
+}
+
 /** Take a card. Ignored unless that card is on that player's table, so a pick sent twice does nothing the second time. */
 function pick(s: Session, slot: number, index: number, content: ContentRegistry): void {
   const d = s.drafts[slot];
@@ -467,7 +479,10 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
     s.worlds.forEach((world, i) => {
       if (world.flow.phase !== 'cleared' || s.paid[i]) return;
       s.paid[i] = true;
-      if (!s.config.practice) openDrafts(s, content, world);
+      if (!s.config.practice) {
+        openDrafts(s, content, world);
+        mend(world);
+      }
       // a wagered chamber is beaten: the Discord lifts
       if (s.wager.on && world.flow.discord) lift(world, s.wager);
     });

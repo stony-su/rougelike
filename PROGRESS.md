@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 92% complete.** 32 of 40 tasks are done, 0 in progress, 7 ready to take, 1 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 94% complete.** 33 of 40 tasks are done, 0 in progress, 6 ready to take, 1 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -15,7 +15,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 100% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 87% |
 | 6 | Menus, saving, sound | 4.5% | 60% |
-| 7 | Polish and balance | 3.6% | 0% |
+| 7 | Polish and balance | 3.6% | 50% |
 
 ## In progress
 
@@ -28,12 +28,11 @@ Nothing at the moment.
 - [T62](tasks/T62-title-shader.md) **Shader title screen and class cards** (0.9% of the game)
 - [T63](tasks/T63-edge-markers.md) **Edge markers for teammates and threats off screen** (0.5% of the game)
 - [T66](tasks/T66-music.md) **Music beds and sound levels** (0.9% of the game)
-- [T70](tasks/T70-balance.md) **Balance, by bots playing whole runs** (1.8% of the game)
 - [T71](tasks/T71-performance.md) **Performance pass** (0.9% of the game)
 
 ## To do: waiting on other tasks
 
-- [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.9%): needs T70, T71
+- [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.9%): needs T71
 
 ## Done
 
@@ -69,6 +68,7 @@ Nothing at the moment.
 - [T61](tasks/T61-settings-rumble.md) Settings and controller rumble
 - [T64](tasks/T64-floor-ripples.md) Floor ripples where things bounce
 - [T65](tasks/T65-crater.md) The Crater: the third biome, for the last chamber
+- [T70](tasks/T70-balance.md) Balance, by bots playing whole runs
 
 ## Future plans: designed, kept for later
 

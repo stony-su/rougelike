@@ -20,9 +20,9 @@ export const THRUM: EnemyDef = {
       maxRange: 3.1,
       cooldown: 1.6,
       // Squashes flat while the lane tracks its target, then locks for the last moment and goes.
-      windup: 0.5,
-      telegraph: { shape: 'lane', length: 3.4, width: 0.8, track: 0.34 },
-      action: { kind: 'lunge', distance: 3.2, speed: 14, damage: 10, knock: 3 },
+      windup: 0.6,
+      telegraph: { shape: 'lane', length: 3.4, width: 0.8, track: 0.3 },
+      action: { kind: 'lunge', distance: 3.2, speed: 14, damage: 8, knock: 3 },
       // Skids, open to punishment.
       recovery: 0.6,
     },

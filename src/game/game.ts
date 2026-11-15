@@ -27,7 +27,7 @@ import { Stage } from '../render/stage';
 import { TelegraphViews } from '../render/telegraphView';
 import { Textures } from '../render/textures';
 import { Trails } from '../render/trails';
-import { EXPERT, NOVICE, botCamp, botPick, classBot } from '../sim/bots';
+import { EXPERT, NOVICE, STEADY, botCamp, botPick, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
 import { DRAFT_TICKS } from '../sim/draft';
 import { FORK, forkDone } from '../sim/fork';
@@ -88,6 +88,7 @@ const CARD_KEYS = ['Digit1', 'Digit2', 'Digit3'];
 
 function makeBot(name: string, classId: ClassId): Bot | null {
   if (name === 'expert') return classBot(classId, EXPERT);
+  if (name === 'steady') return classBot(classId, STEADY);
   if (name === 'novice') return classBot(classId, NOVICE);
   return null;
 }

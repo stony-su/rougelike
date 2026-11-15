@@ -5,7 +5,7 @@ import type { EnemyDef } from '../../sim/defs';
 export const TOLL: EnemyDef = {
   id: 'toll',
   name: 'The Toll',
-  hp: 2200,
+  hp: 2800,
   radius: 2,
   // it never moves
   speed: 0,

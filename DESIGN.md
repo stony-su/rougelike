@@ -55,14 +55,14 @@ Damage comes from sending things back. Everything is a body in one collision wor
 
 ## 3. Classes
 
-All classes: 100 health, radius 0.32, speed 5.4, hurt invulnerability 0.6 s, input buffer 0.15 s. **Dash**: 4 tiles in 0.18 s, invulnerable 0.22 s, 2 charges, 1.2 s recharge each; a dash stops at walls and pit edges.
+Health by class: **Sword 100, Bow 85, Fist 125**. The Fist fights at arm's length, where everything lands, and has no blade to turn a shot with; the Bow stands a bowshot off and sees everything coming. (With a hundred each, bots playing whole runs hardly ever lost with the Bow and hardly ever arrived with the Fist: section 16.) All classes: radius 0.32, speed 5.4, hurt invulnerability 0.6 s, input buffer 0.15 s. **Dash**: 4 tiles in 0.18 s, invulnerable 0.22 s, 2 charges, 1.2 s recharge each; a dash stops at walls and pit edges.
 
 ### 3.1 Sword — the Edge
 
 | | |
 |---|---|
 | Attack | Three-swing combo. Damage 9 / 9 / 14. Wind-up 0.07 / 0.07 / 0.12, active 0.09 / 0.09 / 0.11, recovery 0.14 / 0.14 / 0.24. Reach 2.0 / 2.0 / 2.3, half-arc 60° / 60° / 75°, forward step 0.35 / 0.35 / 0.55. Launch impulse 3 / 3 / 9 (the third sends a light Echo about 2 tiles). Every swing reflects and can bat away (section 2.1). |
-| Special: **Riposte** | Cooldown 5 s. A guard for 0.4 s (plus the session's input delay), moving at 40% speed. Anything that would hurt the player in the window does no damage: a projectile comes back at its sender as a perfect return; a melee attacker is launched away with impulse 16 and stunned 0.6 s. A landed Riposte refunds half its cooldown and grants 0.3 s of invulnerability. A whiff has 0.2 s of recovery. |
+| Special: **Riposte** | Cooldown 5 s. A guard for 0.4 s (plus the session's input delay), moving at 40% speed. Anything that would hurt the player in the window does no damage: a projectile comes back at its sender as a perfect return; a melee attacker is launched away with impulse 16 and stunned 0.6 s, and if it carries a shield the shield is down for as long as one broken open (a Gong: 2.5 s). A landed Riposte refunds half its cooldown and grants 0.3 s of invulnerability. A whiff has 0.2 s of recovery. |
 
 ### 3.2 Bow — the String
 
@@ -75,9 +75,9 @@ All classes: 100 health, radius 0.32, speed 5.4, hurt invulnerability 0.6 s, inp
 
 | | |
 |---|---|
-| Attack | Jabs fire on press. Damage 6 / 6 / 10. Wind-up 0.04 / 0.04 / 0.07, active 0.07, recovery 0.10 / 0.10 / 0.18. Reach 1.5, half-arc 50°. Impulse 2 / 2 / 8.5 (the third slaps a light Echo about 2 tiles). Each jab adds 1 stagger. |
-| **Haymaker** | Keep holding attack through a jab's recovery (or hold from rest) to charge: minimum 0.25 s, full 0.8 s, moving at 60% speed. Release: a 1.2-tile lunge, then the first Echo in a 60° cone of reach 1.8 takes `14 + 12 × charge` and is launched with impulse `14 + 12 × charge`. Recovery 0.22 s. A full-charge Haymaker counts as a Return of weight 3 and breaks a Gong's guard. |
-| Special: **Break** | Cooldown 7 s. Wind-up 0.15 s. Radius 2.6, damage 10. Echoes are popped outward with impulse 11; heavies take 2 stagger instead. Enemy projectiles in the radius are slapped outward as the player's own at 60% damage. |
+| Attack | Jabs fire on press. Damage 7 / 7 / 11. Wind-up 0.04 / 0.04 / 0.07, active 0.07, recovery 0.10 / 0.10 / 0.18. Reach 1.5, half-arc 50°. Impulse 2 / 2 / 8.5 (the third slaps a light Echo about 2 tiles). Each jab adds 1 stagger. A jab knocks aside any enemy shot in its arc: it flies off along the punch as the player's own at 60% damage (less than a blade makes of it), and an orb is sent home. A body that cannot be shoved (a boss) takes the whole of the jab instead: ×2.5. |
+| **Haymaker** | Keep holding attack through a jab's recovery (or hold from rest) to charge: minimum 0.25 s, full 0.8 s, moving at 60% speed. Release: a 1.2-tile lunge, then the first Echo in a 60° cone of reach 1.8 takes `14 + 12 × charge` and is launched with impulse `14 + 12 × charge`. Recovery 0.22 s. A full-charge Haymaker counts as a Return of weight 3 and breaks a Gong's guard; on a body that cannot be thrown (a boss) it does ×3. |
+| Special: **Break** | Cooldown 7 s. Wind-up 0.15 s. Radius 2.6, damage 10. Echoes are popped outward with impulse 11; heavies take 2 stagger instead. Enemy projectiles in the radius are slapped outward as the player's own at 60% damage; an orb is sent home, as by any other blow. |
 
 ### 3.4 What every class bounces off every Echo
 
@@ -188,14 +188,16 @@ Totals: 42 Tunings (30 class, 12 common) and 18 Harmonies.
 
 Every attack has a wind-up shown twice: a floor telegraph in danger pink-red, and the rig moving. Echoes fade in over 0.75 s inside a spawn mark and can neither act nor be hurt during it.
 
-Health grows 8% per chamber and damage 4% per chamber. In co-op, ordinary Echo health is ×(1 + 0.35 × extra players) and the wave budget ×(1 + 0.55 × extra players).
+Health grows 6% per chamber and damage 4% per chamber (a boss's health and blows are its own, and do not grow). In co-op, ordinary Echo health is ×(1 + 0.5 × extra players) and the wave budget ×(1 + 1 × extra players).
+
+Two rules keep every Echo in the game. A blow struck where the Echo stands (a slam, a bash) needs no clear walk to its target: asked for one, an Echo with a wall at its shoulder or a post between it and its target never struck, and whoever was waiting for that blow waited for ever. And on its own feet no Echo but a boss is wider than 0.46 against the chamber, whatever its size to a blow: the walking field leads through gaps one tile wide, and a Cairn wider than the gap stood at it for good.
 
 | Echo | Stats | Behaviour and tell |
 |---|---|---|
-| **Thrum** | 30 hp, speed 3.4, radius 0.38, light, threat 1, from chamber 1 | Chases. Squashes flat for 0.5 s behind a lane telegraph (3.4 × 0.8, tracks 0.34 s then locks), lunges 3.2 at speed 14 for 10. Skids 0.6 s. |
+| **Thrum** | 30 hp, speed 3.4, radius 0.38, light, threat 1, from chamber 1 | Chases. Squashes flat for 0.6 s behind a lane telegraph (3.4 × 0.8, tracks 0.3 s then locks), lunges 3.2 at speed 14 for 8. Skids 0.6 s. |
 | **Piper** | 26 hp, speed 2.6, radius 0.36, light, threat 2, from chamber 1 | Keeps 5–7 tiles away. Three aim lines for 0.7 s (track 0.45 s, then lock), then three bolts in a 14° spread: speed 9, 8 each, range 12, radius 0.16. Recovers 0.9 s; cooldown 2.4 s. |
 | **Burr** | 28 hp, speed 2.8, radius 0.36, light, threat 2, from chamber 2 | Keeps 4–7 tiles away. Wind-up 0.6 s; lobs a bomb at a marked circle (radius 1.6) that lands after 0.7 s and bursts after a 1.3 s fuse for 14. A bomb struck by a player becomes that player's: a sword or a punch sends it flying (speed 14 / 16, bursting on contact or after 0.8 s), an arrow sets it off where it sits; its blast then hurts Echoes only (18, radius 1.6, weight 2) and pops them outward with impulse 7. A bomb still in its arc cannot be struck. Cooldown 3.2 s. |
-| **Gong** | 60 hp, speed 2.4, radius 0.45, medium, threat 3, from chamber 3 | Carries a gong: hits from within ±70° of its facing clang off (arrows ricochet off it; swings and jabs do nothing). It turns at 150° per second. Hits from the side or behind, Returns arriving from behind, caroms, a full Haymaker and a Riposte all get through; a full Haymaker or 3 stagger drops the guard for 2.5 s. Bash: cone telegraph (radius 2.2, half-arc 50°) for 0.55 s, then a 2-tile lunge at speed 10 for 14; guard down for the 0.8 s recovery. |
+| **Gong** | 60 hp, speed 2.4, radius 0.45, medium, threat 3, from chamber 3 | Carries a gong: hits from within ±70° of its facing clang off (arrows ricochet off it; swings and jabs do nothing). It turns at 150° per second. Hits from the side or behind, Returns arriving from behind, caroms, a full Haymaker and a Riposte all get through; a full Haymaker, a landed Riposte or 3 stagger drops the guard for 2.5 s. Bash: cone telegraph (radius 2.2, half-arc 50°) for 0.6 s, then a 2-tile lunge at speed 10 for 14; guard down for the 0.8 s recovery. |
 | **Cairn** | 95 hp, speed 1.7, radius 0.62, heavy, threat 3, from chamber 3 | Three stacked stones. Slam: an expanding ring telegraph (radius 2.5) for 1.0 s, then 16 and a shove; recovers 0.9 s. Lob (at 4–9 tiles): wind-up 0.9 s, circle telegraph (radius 1.3); the top stone flies at speed 8 for 12 and can be returned for 30 and a stagger; recovers 1.1 s; cooldown 4 s. |
 | **Skirl** | 28 hp, speed 5.0 flying, radius 0.4, light, threat 2, from chamber 4 | Flies above reach of swings and jabs. Perches at the rim, shows a dotted lane across the chamber for 0.8 s, then crosses at speed 16 for 12, low enough to be batted. An arrow or a returned shot grounds it for 2 s (a light body that can be launched). Perches 1.2 s after a pass. |
 
@@ -211,7 +213,7 @@ Marked by a pennant and a danger-coloured aura. +60% health, +15% damage, one tr
 
 ### 5.2 Waves
 
-A fight is 2 waves (3 from chamber 5). Each wave spends a threat budget of `3 + 0.9 × chamber`. At most one Cairn per wave before chamber 8; Burr and Skirl do not appear together before chamber 6. **Waves fit the party**: with a Sword in the chamber every wave includes at least one Echo that shoots or throws; with a Fist, at least two light bodies. Each zone's elite fight carries its elites in the last wave.
+A fight is 2 waves (3 from chamber 5). Each wave spends a threat budget of `3.3 + 0.5 × chamber` (an elite's chamber a quarter more, a side-chamber a fifth less). At most one Cairn per wave before chamber 8; Burr and Skirl do not appear together before chamber 6. **Waves fit the party**: with a Sword in the chamber every wave includes at least one Echo that shoots or throws; with a Fist, at least two light bodies. Each zone's elite fight carries its elites in the last wave.
 
 ### 5.3 How Echoes move
 
@@ -225,13 +227,15 @@ An Echo that only walks at its target can be led in a circle for ever, so none o
 
 ## 6. Bosses
 
-Bosses cannot be launched, stunned or dragged, but take carom damage (×1.5) from bodies launched into them. Health is ×(1 + 0.6 × extra players). Three Returns on a boss within 6 s stagger it for 1.5 s: it stops attacking and takes +50%.
+Bosses cannot be launched, stunned or dragged, but take carom damage (×3) from bodies launched into them. Health is ×(1 + 1.4 × extra players). Three Returns on a boss within 6 s stagger it for 1.5 s: it stops attacking and takes +50%.
+
+**A boss is met in every phase.** At each mark of its health where its phase changes it stops: what a blow has over is lost, and for 2.5 s its voice is changing and whatever meets it rings off. However hard a party hits, no phase is skipped. And a bolt of a boss's ring keeps only 35% of its damage when it is sent back: a ring is a dozen bolts and more at once, a blade turns every one in its arc, and at full weight that outdid everything else a party could do.
 
 **A boss fills its floor.** Its chamber is small and open (no pits, no posts, a bumper toward each corner), it stands about twice the height of anything else, and it is seldom doing nothing: it runs through a rotation of patterns, each drawn on the floor before it lands, with less than a second between them. The patterns are built from *strikes* (`src/sim/strikes.ts`): warnings that land by themselves as a disc, a ring with a safe middle, a lane or a cone. After a stagger a boss cannot be staggered again for 9 s.
 
 **The Carillon as built.** 1150 health; phase 2 below half. Rotation: *Serve* (a fan of 3 orbs, 5 in phase 2; any basic attack sends one home, and the first to arrive cracks a bell for 60, the rest knock for 22 while the frame rings for 3 s) · *Marks* (a circle of radius 1.7 under every player, 3 times, 5 in phase 2) · *Peal* (3 rings of bolts, 4 in phase 2, with gaps that walk round) · *Toll* (a slam of radius 4.2 round the frame and then a ring out to 8, or the other way about) · *Cross* (four strips through the frame, then the four between them) · *Leap* (it comes down on whoever is furthest, and peals as it lands). A cracked bell calls Thrums. The table below is the first design, kept for reference.
 
-**The Toll as built.** 2200 health; it never moves, and the breath between its patterns shortens from 0.9 s to 0.5 s as the phases go by. Its patterns: *Rings* (3 rings of 20 bolts with two gaps that walk round; 4 rings in the Echo; 24 bolts with one gap in the Silence) · *Hammers* (a circle of radius 2 under every player, 4 times, for 15; in the Echo 5 times, and each leaves a ring that spreads from where it fell half a second later) · *Spokes* (six strips through the bell, then the six between them; in the Echo the first six a third time) · *Orbs* (a fan of 3, then 5; in the Silence one slow orb straight at each player; any basic attack sends one home for 55) · *Sweep* (a strip that goes round the bell in 14 steps like the hand of a clock; the Echo has a second hand opposite). Thrums are called every 12, 10 and 6 s. In **the Echo** (below 66%) Returns do ×1.25. In **the Silence** (below 33%) plain blows do ×0.4 and Returns ×1.5, and a wall of sound closes from 11 tiles out to 6 over 40 s; whoever stands outside it is struck for 6 every 0.8 s. The mirrored attacks of the first design (one for each class present) and bumpers that rise are not built: the Echo doubles the Bell's own patterns instead, and the four bumpers stand from the start. The tables in 6.2 are the first design, kept for reference.
+**The Toll as built.** 2800 health; it never moves, and the breath between its patterns shortens from 0.9 s to 0.5 s as the phases go by. Its patterns: *Rings* (3 rings of 20 bolts with two gaps that walk round; 4 rings in the Echo; 24 bolts with one gap in the Silence) · *Hammers* (a circle of radius 2 under every player, 4 times, for 15; in the Echo 5 times, and each leaves a ring that spreads from where it fell half a second later) · *Spokes* (six strips through the bell, then the six between them; in the Echo the first six a third time) · *Orbs* (a fan of 3, then 5; in the Silence one slow orb straight at each player; any basic attack sends one home for 55) · *Sweep* (a strip that goes round the bell in 14 steps like the hand of a clock; the Echo has a second hand opposite). Thrums are called every 12, 10 and 6 s. In **the Echo** (below 66%) Returns do ×1.25. In **the Silence** (below 33%) plain blows do ×0.4 and Returns ×1.5, and a wall of sound closes from 11 tiles out to 6 over 40 s; whoever stands outside it is struck for 6 every 0.8 s. The mirrored attacks of the first design (one for each class present) and bumpers that rise are not built: the Echo doubles the Bell's own patterns instead, and the four bumpers stand from the start. The tables in 6.2 are the first design, kept for reference.
 
 ### 6.1 Mini-boss: the Carillon (chamber 6)
 
@@ -304,6 +308,7 @@ A player who finishes early watches a teammate's chamber or waits at the thresho
 | Fight | Draft 1 of 3; Chimes `10 + 2 × chamber` |
 | Elite fight | Draft with a guaranteed rare; 30 extra Chimes |
 | The Carillon | Rare draft, heal 25%, 5 Resonance |
+| A side-chamber | Its draft, and heal 20% |
 | Camp: **the Tuner** | Three Tunings from your own pools (common 40, uncommon 60, rare 90 Chimes), a ration (+30 health, 40 Chimes), a restock (20 Chimes, +10 each time) |
 | Camp: **the Still Pool** | Once per camp: heal 35%, or rank up one Tuning, or +10 maximum health if nothing can rank up |
 | **The Wager** | Accept a Discord for an elite fight: **Mute** (no Rally), **Heavy Air** (shots and bodies lose speed twice as fast) or **Brittle** (−30% maximum health for the chamber). Two of the three are offered. Winning pays a rare draft and double Chimes. Or walk on. |
@@ -523,7 +528,7 @@ Deterministic lockstep, sequenced by the host program (`npm run host`): it serve
 - Unit tests: `dmath` pinned bit for bit; geometry, casts and body physics properties (speed preserved on exact bounces, no tunnelling, momentum bookkeeping); every Rebound rule; every Tuning and Harmony; every Echo; the route; the generator.
 - Determinism: recorded sessions reproduce committed hashes in Node and in the installed browsers; snapshot round-trips continue identically.
 - A virtual LAN: the relay core and three clients in separate module instances with different cadences, latency, jitter, stalls and a drop-out; equal hashes at every tick and no unplanned resync.
-- Bots: one per class and a team of three; an idle bot must lose; each class can win alone; trigger rates of the three classes within about 30% of each other; under 5% of ticks in a whole-chamber freeze.
+- Bots: whole runs played with nobody watching, alone with each class and as a party (`src/sim/autoplay.ts`, `tests/balance.test.ts`; section 16 has what they found and what was changed for it).
 - Browser: the production build through the installed Chrome; three pages against the host program through the LAN address; screenshots of every biome, shape, class, Echo, boss and screen; frame times against thresholds.
 
 ## 14. Milestones
@@ -559,3 +564,42 @@ The sections above describe the whole game. To get to a finished, winnable run s
 **Chamber looks.** Two floor-and-pillar looks are mixed between chambers, whatever the biome's colours: the **court** (a quiet checker with round posts) and the **survey** (contour rings like a map of ripples, with hexagonal basalt pillars). The survey look is the one from the earliest version of this project, brought back because it worked.
 
 **How the work is run.** Forward only: each piece is built, put through the type-check, the tests and a production build, run once in the browser, and committed. No review rounds and no polish passes until the run can be won; what was not checked is written down in PROGRESS.md. The work is divided into the tasks in `tasks/`, each with the files it may change, so that several people can build at once (CONTRIBUTING.md).
+
+## 16. Balance, as bots found it
+
+The numbers above were set by playing whole runs with nobody watching: a bot in every seat, taking its own cards, voting at the Wager and shopping at the camps (`src/sim/autoplay.ts`). `tests/balance.test.ts` holds the bands, and `node scripts/balance.mjs` prints the table behind them.
+
+**Who the bots are.** Three kinds of player (`src/sim/bots.ts`). An **expert** reacts in 0.2 s, stays under a warning to go on fighting until it must move, and overlooks one warning or shot in ten. A **steady** player reacts in 0.3 s, moves earlier, and overlooks one in five. A **novice** reacts in 0.35 s, backs away the moment a warning is seen, and overlooks three in ten. All of them dash and use their special. A bot that overlooked nothing won nearly every run and said nothing; the shares are a guess at how people play, and the table is only as good as the guess. The bots also play each class plainly: the Bow banks a shot only round a shield or at a boss gone deaf to plain blows, and the Fist does not line up caroms on purpose. A person who does will do better than they do.
+
+**The table** (40 roads alone, 20 as a party; the same seeds every time):
+
+| Party | Wins | Where the others fell | The Carillon stood | The Toll stood |
+|---|---|---|---|---|
+| Expert Sword | 83% | chamber 9 | 19–45 s | 18–74 s |
+| Expert Bow | 93% | the Toll | 20–46 s | 31–79 s |
+| Expert Fist | 58% | the Toll, chamber 9 | 22–54 s | 32–79 s |
+| Steady Sword / Bow / Fist | 68% / 65% / 43% | chamber 9, the Toll | | |
+| Novice Sword / Bow / Fist | 35% / 55% / 30% | chamber 9, the Toll | | |
+| Three experts | 20 of 20 | | 23–62 s | 27–52 s |
+| Sword and Fist | 20 of 20 | | 22–50 s | 25–53 s |
+| Three novices | 19 of 20 | chamber 9 | 19–39 s | 22–40 s |
+| Three who stand still | 0 of 4 | chamber 1, in half a minute | | |
+
+Rally is earned at 45 to 62 points a minute by the three classes alone (each within three tenths of their mean), and no run spends as much as a fiftieth of itself with the whole chamber frozen.
+
+**What that says, honestly.** Every class reaches the end alone in expert hands more often than not; the Fist is the hardest of the three and the Bow the easiest, at every level of skill. Chamber 9, the elite of the Inner Ring, is where a lone run most often ends, and the Toll after it. A party is far safer than anyone alone, whoever is in it, because the fallen are picked up: three novices nearly always arrive. That is what the revive rule does, and it was left as it is; co-op was made harder only in what it faces (waves and boss health grow faster with the party than they did).
+
+**What the runs changed** (each has a test in `tests/balance-rules.test.ts`):
+
+- **Health by class** (Bow 85, Fist 125), and the Fist's jabs to 7 / 7 / 11, with ×2.5 on a body that cannot be shoved and ×3 for a full Haymaker.
+- **A landed Riposte opens a shield.** Before, a Gong whose bash was sent back was on guard again before the blade could reach it, and a lone Sword had no way through one.
+- **A jab knocks a shot aside, and the Break sends an orb home.** The Fist had no answer to a ring of bolts but to be somewhere else, and met a fan of orbs one at a time.
+- **Boss phases cannot be skipped**, and **ring bolts are light when sent back**. A built Sword felled the Toll in ten seconds, most of it bolts returned a dozen at a stroke.
+- **A boss's blows do not grow with depth**; the Toll's health went from 2200 to 2800, and boss health in co-op from ×(1 + 0.6 × extra) to ×(1 + 1.4 × extra). Three experts used to fell it in twenty seconds.
+- **The Inner Ring was thinned**: the wave budget went from `3 + 0.9 × chamber` to `3.3 + 0.5 × chamber`, and health per chamber from 8% to 6%. Chamber 9 took a lone melee class over a minute and half its health.
+- **Healing on the road**: a quarter after the Carillon, a fifth after a side-chamber.
+- **Softer tells on the two commonest blows**: the Thrum's lunge (0.6 s, locked for the last 0.3, for 8) and the Gong's bash (0.6 s).
+- **Two Echoes that could never be reached or never struck** (the rules under section 5): found as runs that never ended.
+
+And the bots themselves were wrong in ways that had hidden all of this: they kept what they had noticed from one chamber to the next, where ids and the clock start again, and so were blind to many warnings after the first chamber; they walked straight at their target into the rim of a pit; they stepped out from under a slam and turned round at once to walk back in; the Fist's bot swung at orbs before they were in reach, and stood with its hand drawn back by accident. Until those were mended the numbers said only that the bots were bad.
+

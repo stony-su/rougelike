@@ -64,6 +64,9 @@ export const newBodyScratch = (): BodyScratch => ({ hit: newHit(), pos: { x: 0, 
 
 const speedOf = (e: Enemy): number => Math.sqrt(e.lvx * e.lvx + e.lvy * e.lvy);
 
+/** How wide an Echo is against the chamber while it walks: its own size, but never too wide for a gap of one tile. */
+export const footOf = (e: Enemy): number => (e.def.boss ? e.radius : Math.min(e.radius, BODY.foot));
+
 /** Nothing flies faster than the fastest launch, whatever sent it. */
 function capSpeed(e: Enemy): void {
   const sp = speedOf(e);
@@ -548,7 +551,7 @@ export function stepBody(w: World, e: Enemy, dt: number, s: BodyScratch): void {
   if (mx !== 0 || my !== 0) {
     s.pos.x = e.x;
     s.pos.y = e.y;
-    slideCircle(w.room.geo, !e.airborne, s.pos, e.radius, mx * dt, my * dt, s.hit);
+    slideCircle(w.room.geo, !e.airborne, s.pos, footOf(e), mx * dt, my * dt, s.hit);
     e.x = s.pos.x;
     e.y = s.pos.y;
   }

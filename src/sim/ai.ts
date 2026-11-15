@@ -9,7 +9,7 @@
 import { datan2, dcos, dhypot, dsin } from '../core/dmath';
 import { ddamp, ddampAngle } from '../core/exact';
 import type { Vec2 } from '../core/exact';
-import { climbOut, newBodyScratch, pushBody, stepBody } from './bodies';
+import { climbOut, footOf, newBodyScratch, pushBody, stepBody } from './bodies';
 import type { BodyScratch } from './bodies';
 import { throwBomb } from './bombs';
 import { castCircle, pushOut } from './cast';
@@ -67,6 +67,12 @@ function answerRiposte(w: World, e: Enemy, p: Player): void {
   // Counterweight: a longer stun, and a mark that makes everyone's blows land harder
   stunEnemy(w, e, Math.max(RIPOSTE.stun, p.mods.counterStun), true);
   if (p.mods.counterMark > 0) applyMark(e, p.mods.counterMark, EDGE.markTime);
+  // A shield whose own blow has come back at it is down for as long as one that was broken open:
+  // this is the blade's way through a gong.
+  if (e.def.shield) {
+    e.guardOpen = e.def.shield.open;
+    w.events.push({ type: 'armorBreak', id: e.id, x: e.x, y: e.y });
+  }
   pushBody(w, e, dx, dy, RIPOSTE.impulse, p.slot);
 }
 
@@ -146,7 +152,9 @@ export function spawnEnemy(w: World, def: EnemyDef, x: number, y: number, o: { e
     telegraph: 0,
     hurtT: 9,
     stunImmune: 0,
-    damageMul: 1 + SCALING.damagePerChamber * depth,
+    turning: 0,
+    // a boss's numbers are its own: neither its health nor its blows grow with the depth of its chamber
+    damageMul: def.boss ? 1 : 1 + SCALING.damagePerChamber * depth,
     speedMul: 1,
     windupMul: 1,
     elite: o.elite ?? null,
@@ -194,13 +202,18 @@ const WAY_WALK = 2;
 
 /**
  * A move may start if it is off cooldown, the target is in its range, and the way suits it: a
- * charge needs a clear walk, a shot a clear flight, and something lobbed goes over anything.
+ * lunge needs a clear walk, a shot or a blow no wall between, and something lobbed goes over anything.
  */
 function usable(e: Enemy, i: number, dist: number, way: number): boolean {
   const m = e.def.moves[i];
   if (e.cooldowns[i] > 0 || dist < m.minRange || dist > m.maxRange) return false;
   if (m.action.kind === 'lob') return true;
-  return m.action.kind === 'volley' ? way >= WAY_FLIGHT : way >= WAY_WALK;
+  // Only what travels needs the way clear: a lunge the floor, a shot the air. A blow struck where
+  // the Echo stands lands on whoever is in its warned shape, whatever is between. Asked for a
+  // clear walk, an Echo beside its target with a wall at its shoulder or a post between them
+  // never struck at all, and whoever was waiting for that blow waited for ever.
+  if (m.action.kind === 'strike') return true;
+  return m.action.kind === 'lunge' ? way >= WAY_WALK : way >= WAY_FLIGHT;
 }
 
 function chooseMove(w: World, e: Enemy, dist: number, clear: number): number {
@@ -385,7 +398,7 @@ function locomote(w: World, e: Enemy, dt: number, s: BodyScratch): void {
     // the target's very middle. (Measured to the middle, someone tucked into a corner could never be
     // reached, and nothing that strikes up close would ever strike them.)
     const upTo = Math.max(0, dist - e.radius - p.radius) / dist;
-    if (!e.airborne && castCircle(w.room.geo, true, e.x, e.y, dx * upTo, dy * upTo, e.radius * 0.9, s.hit)) {
+    if (!e.airborne && castCircle(w.room.geo, true, e.x, e.y, dx * upTo, dy * upTo, footOf(e) * 0.9, s.hit)) {
       way = castCircle(w.room.geo, false, e.x, e.y, dx, dy, 0.16, s.hit) ? WAY_BLOCKED : WAY_FLIGHT;
     }
     dx /= dist;
@@ -482,7 +495,7 @@ function separate(w: World, tmp: Vec2): void {
     if (!grounded(e)) continue;
     tmp.x = e.x;
     tmp.y = e.y;
-    if (pushOut(w.room.geo, !e.airborne, tmp, e.radius)) {
+    if (pushOut(w.room.geo, !e.airborne, tmp, footOf(e))) {
       e.x = tmp.x;
       e.y = tmp.y;
     }
@@ -504,6 +517,7 @@ export function stepEnemies(w: World, dt: number): void {
     e.stateTime += dt;
     e.hurtT += dt;
     if (e.stunImmune > 0) e.stunImmune -= dt;
+    if (e.turning > 0) e.turning = Math.max(0, e.turning - dt);
     for (let i = 0; i < e.cooldowns.length; i++) if (e.cooldowns[i] > 0) e.cooldowns[i] -= dt;
     if (e.guardOpen > 0) e.guardOpen = Math.max(0, e.guardOpen - dt);
     if (e.state !== 'spawn') {

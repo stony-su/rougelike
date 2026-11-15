@@ -109,6 +109,11 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
     felled = true;
     w.events.push({ type: 'grounded', id: e.id, x: e.x, y: e.y });
   }
+  // between two phases a boss's voice is changing, and whatever meets it rings off
+  if (e.turning > 0) {
+    w.events.push({ type: 'clang', id: e.id, by: src.by, x: e.x, y: e.y });
+    return false;
+  }
   let crit = !!src.crit;
   const p = src.by >= 0 ? bySlot(w, src.by) : null;
   const returned = isReturn(src.kind);
@@ -159,6 +164,17 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
       w.events.push({ type: 'armorBreak', id: e.id, x: e.x, y: e.y });
     } else {
       amount *= e.armor;
+    }
+  }
+  // A boss stops at each mark where its voice changes: what a blow has over is lost, and for a
+  // moment nothing more reaches it. However hard the party hits, it meets every phase.
+  const marks = e.def.boss ? e.def.phases : undefined;
+  if (marks && e.phase < marks.length) {
+    // a hair under the mark, so that the share of its health left is surely at or below it
+    const floor = marks[e.phase] * e.maxHp - 1e-6;
+    if (e.hp - amount <= floor) {
+      amount = Math.max(0, e.hp - floor);
+      e.turning = BOSS.turn;
     }
   }
   const dealt = Math.max(0, Math.min(e.hp, amount));

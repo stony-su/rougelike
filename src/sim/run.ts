@@ -31,6 +31,8 @@ export interface Stop {
 }
 
 export const RUN_LENGTH = 12;
+/** The share of their health clearing a chamber gives back to everyone standing in it, for the kinds that give any. */
+export const CLEAR_HEAL: Partial<Record<StopKind, number>> = { miniboss: 0.25, solo: 0.2 };
 /** The Echoes that hold the last chamber of each zone, by id. Until one exists, its chamber is the hardest fight of the zone instead. */
 export const MINIBOSS = 'carillon';
 export const BOSS = 'toll';
@@ -131,7 +133,7 @@ export function flowFor(stop: Stop, players: number, content: ContentRegistry): 
   }
   switch (stop.kind) {
     case 'elite':
-      f.budget *= 1.4;
+      f.budget *= 1.25;
       f.clearBonus *= 2;
       break;
     case 'solo':

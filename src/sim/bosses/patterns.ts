@@ -21,6 +21,13 @@ export interface RingSpec {
   range: number;
 }
 
+/**
+ * What a bolt of a ring keeps of its damage when it is sent back. A ring is a dozen bolts and
+ * more at once, and a blade turns every one in its arc: at full weight that outdid everything
+ * else a party could do to a boss.
+ */
+export const RING_BACK = 0.35;
+
 /** A ring of bolts spreading from a boss, with its first gap at place `gapAt`. */
 export function ringOfBolts(w: World, e: Enemy, spec: RingSpec, gapAt: number): void {
   const apart = Math.max(1, Math.floor(spec.places / Math.max(1, spec.gaps)));
@@ -39,6 +46,7 @@ export function ringOfBolts(w: World, e: Enemy, spec: RingSpec, gapAt: number): 
       radius: 0.16,
       damage: spec.damage * e.damageMul,
       range: spec.range,
+      back: RING_BACK,
     });
   }
   w.events.push({ type: 'shockwave', x: e.x, y: e.y, radius: e.radius + 1.2 });

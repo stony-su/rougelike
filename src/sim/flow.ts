@@ -61,7 +61,7 @@ export function createFlow(chamber: number, players: number): RoomFlow {
     wave: 0,
     waves: chamber >= 5 ? 3 : 2,
     waveTimer: 0.9,
-    budget: (3 + 0.9 * chamber) * (1 + SCALING.coopBudget * Math.max(0, players - 1)),
+    budget: (3.3 + 0.5 * chamber) * (1 + SCALING.coopBudget * Math.max(0, players - 1)),
     pickups: [],
     clearedFor: 0,
     clearBonus: 10 + 2 * chamber,

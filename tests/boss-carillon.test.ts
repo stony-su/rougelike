@@ -7,7 +7,7 @@ import { CARILLON as DEF } from '../src/content/enemies/carillon';
 import { spawnEnemy } from '../src/sim/ai';
 import { CARILLON } from '../src/sim/bosses/carillon';
 import { classBot } from '../src/sim/bots';
-import { damageEnemy, standing } from '../src/sim/combat';
+import { damageEnemy, killEnemy, standing } from '../src/sim/combat';
 import { validateEnemyDef } from '../src/sim/defs';
 import { spawnProjectile } from '../src/sim/projectiles';
 import { buildRoom } from '../src/sim/room';
@@ -207,7 +207,8 @@ describe('the Carillon', () => {
       p.hp = p.maxHp;
       const boss = w.enemies.find((e) => e.def.boss);
       if (boss && w.telegraphs.some((tg) => tg.damage > 0 && tg.t < tg.dur * 0.5)) {
-        damageEnemy(w, boss, 99999, { kind: 'other', by: 0, dx: 1, dy: 0 });
+        // (a blow, however hard, would stop at the mark where its phase changes)
+        killEnemy(w, boss);
         break;
       }
     }

@@ -28,7 +28,7 @@ export const GONG: EnemyDef = {
       minRange: 0,
       maxRange: 2.1,
       cooldown: 2.8,
-      windup: 0.55,
+      windup: 0.6,
       // the cone follows its target for a moment, then locks; everyone inside it is struck
       telegraph: { shape: 'cone', radius: 2.2, halfArc: deg(50), track: 0.3 },
       action: { kind: 'strike', damage: 14, knock: 7 },

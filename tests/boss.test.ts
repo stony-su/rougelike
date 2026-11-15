@@ -8,7 +8,7 @@ import { chooseTarget, spawnEnemy, startMove } from '../src/sim/ai';
 import { pushBody } from '../src/sim/bodies';
 import { phaseFor, setPhase } from '../src/sim/boss';
 import type { BossBrain } from '../src/sim/boss';
-import { damageEnemy, onGuard, outOfReach, stunEnemy } from '../src/sim/combat';
+import { damageEnemy, killEnemy, onGuard, outOfReach, stunEnemy } from '../src/sim/combat';
 import { validateEnemyDef } from '../src/sim/defs';
 import type { ContentRegistry, EnemyDef } from '../src/sim/defs';
 import { createFlow } from '../src/sim/flow';
@@ -16,7 +16,7 @@ import { buildRoom } from '../src/sim/room';
 import { flowFor } from '../src/sim/run';
 import { createSession, stepSession } from '../src/sim/session';
 import { hashSession, loadSession, saveSession } from '../src/sim/snapshot';
-import { SIM_HZ } from '../src/sim/tuning';
+import { SCALING, SIM_HZ } from '../src/sim/tuning';
 import { emptyInput } from '../src/sim/types';
 import type { ClassId, Enemy, World } from '../src/sim/types';
 import { createWorld } from '../src/sim/world';
@@ -130,7 +130,7 @@ describe('a boss', () => {
     run(w, 5 * SIM_HZ, new Pad());
     expect(w.enemies.length).toBe(1);
     expect(w.flow.phase).toBe('fight');
-    damageEnemy(w, w.enemies[0], 9999, { kind: 'other', by: 0, dx: 1, dy: 0 });
+    killEnemy(w, w.enemies[0]);
     const events = run(w, 5, new Pad());
     expect(w.flow.phase).toBe('cleared');
     expect(eventsOf(events, 'roomClear').length).toBe(1);
@@ -143,7 +143,7 @@ describe('a boss', () => {
     };
     expect(hpWith(1, 1)).toBe(400);
     expect(hpWith(1, 12)).toBe(400);
-    expect(hpWith(3, 6)).toBe(Math.round(400 * 2.2));
+    expect(hpWith(3, 6)).toBe(Math.round(400 * (1 + 2 * SCALING.coopBossHp)));
   });
 
   it('takes the last chamber of a zone only once it exists in the game', () => {

@@ -56,10 +56,13 @@ function resolveJab(w: World, p: Player): void {
   const ax = dcos(p.actAngle);
   const ay = dsin(p.actAngle);
   let hits = 0;
-  // an orb within reach is punched home
+  // An orb within reach is punched home. Anything lighter is knocked aside: it flies off along the
+  // punch as the player's, at a share of its damage, which is less than a blade makes of it.
   for (const pr of w.projectiles) {
-    if (pr.dead || pr.faction !== 'enemy' || pr.kind !== 'orb') continue;
-    if (pointInSector(pr.x, pr.y, p.x, p.y, p.actAngle, FIST.halfArc, FIST.reach, pr.radius)) returnOrb(w, pr, p, ax, ay, false);
+    if (pr.dead || pr.faction !== 'enemy') continue;
+    if (!pointInSector(pr.x, pr.y, p.x, p.y, p.actAngle, FIST.halfArc, FIST.reach, pr.radius)) continue;
+    if (pr.kind === 'orb') returnOrb(w, pr, p, ax, ay, false);
+    else slapShot(w, pr, p, ax, ay);
   }
   for (const e of w.enemies.slice()) {
     if (!hittable(e) || outOfReach(e)) continue;
@@ -88,7 +91,8 @@ function resolveJab(w: World, p: Player): void {
       hits++;
       continue;
     }
-    damageEnemy(w, e, FIST.damage[c], { kind: 'direct', by: p.slot, dx: kx / kl, dy: ky / kl, heavy: c === 2, freeze: FIST.freeze[c] });
+    // what cannot be shoved takes the whole of the jab
+    damageEnemy(w, e, FIST.damage[c] * (e.def.anchored ? FIST.anchored : 1), { kind: 'direct', by: p.slot, dx: kx / kl, dy: ky / kl, heavy: c === 2, freeze: FIST.freeze[c] });
     if (!e.dead) {
       // Stagger first: if this jab tips the body over, the same jab already launches it harder.
       addStagger(w, e, 1);
@@ -206,6 +210,8 @@ function tryPunch(w: World, p: Player): boolean {
   const full = f >= 1;
   let amount = HAYMAKER.damage + HAYMAKER.damagePerCharge * f;
   if (full) amount *= rallyMul(w, p.slot);
+  // what cannot be thrown takes the whole of the blow
+  if (full && e.def.anchored) amount *= HAYMAKER.anchored;
   // a full one is heavy enough to open a shield
   damageEnemy(w, e, amount, { kind: full ? 'return' : 'direct', by: p.slot, dx: ax, dy: ay, heavy: true, crit: full, freeze: full ? HITSTOP.perfect : HITSTOP.heavy, breaks: full });
   if (full) addRally(w, p.slot, RALLY.weight.perfect, e.x, e.y);
@@ -287,7 +293,9 @@ function resolveBreak(w: World, p: Player): void {
       dx = ax;
       dy = ay;
     }
-    slapShot(w, pr, p, dx, dy);
+    // an orb is heavy: the slam sends it home like any other blow; anything lighter is slapped away
+    if (pr.kind === 'orb') returnOrb(w, pr, p, dx, dy, false);
+    else slapShot(w, pr, p, dx, dy);
   }
   for (const b of w.bombs) {
     if (b.dead || b.state !== 'fuse') continue;

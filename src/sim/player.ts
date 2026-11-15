@@ -14,7 +14,7 @@ import { aimAngleOf, aimDistOf, moveInto } from './input';
 import { baseMods, computeMods } from './mods';
 import { rest, shift, walk } from './move';
 import { stepRally } from './rally';
-import { DASH, KNOCK_DECAY, PLAYER, REVIVE, TUNE } from './tuning';
+import { CLASS_HP, DASH, KNOCK_DECAY, PLAYER, REVIVE, TUNE } from './tuning';
 import { PRESS, PRESS_COUNT } from './types';
 import type { ClassId, InputFrame, Player, World } from './types';
 
@@ -37,8 +37,8 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
     aimDist: 1,
     moveDirX: 0,
     moveDirY: -1,
-    hp: PLAYER.maxHp,
-    maxHp: PLAYER.maxHp,
+    hp: CLASS_HP[classId],
+    maxHp: CLASS_HP[classId],
     state: 'idle',
     stateTime: 0,
     dashCharges: DASH.charges,

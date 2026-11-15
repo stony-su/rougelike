@@ -295,6 +295,8 @@ export interface Enemy {
   hurtT: number;
   /** Seconds of stun immunity left after a stun. */
   stunImmune: number;
+  /** A boss whose voice is changing from one phase to the next: seconds for which nothing reaches it. */
+  turning: number;
   /** Multipliers from depth scaling and elite traits. */
   damageMul: number;
   speedMul: number;
@@ -413,6 +415,12 @@ export interface Projectile {
   shard: boolean;
   /** Bell Tower: times it has gone from one Ringstone to the other. */
   tolls: number;
+  /**
+   * The share of its damage it keeps when it is sent back; 1 for nearly everything. A boss's
+   * rings are many bolts at once, and each is light: sent back together they would outdo every
+   * other way of hurting it.
+   */
+  back: number;
   /** Ids of what it has struck since it last bounced off the chamber, so a skip or a pierce never strikes twice. */
   hits: number[];
   dead: boolean;
