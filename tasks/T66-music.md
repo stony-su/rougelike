@@ -1,7 +1,7 @@
 ---
 id: T66
 title: Music beds and sound levels
-status: claimed
+status: done
 owner: June Lee
 milestone: 6
 weight: 1

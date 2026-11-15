@@ -3,6 +3,7 @@ import { CONTENT } from './content';
 import { App } from './game/app';
 import { findHost } from './game/connection';
 import { Gallery } from './game/gallery';
+import { Soundboard } from './game/soundboard';
 import { selftestHashes, selftestMath } from './sim/selftest';
 
 const params = new URLSearchParams(window.location.search);
@@ -24,6 +25,10 @@ if (params.has('selftest')) {
   const pre = document.createElement('pre');
   pre.textContent = JSON.stringify(result, null, 2);
   document.body.appendChild(pre);
+} else if (params.has('sounds')) {
+  // Development tool: every sound by name, and the beds, to listen through.
+  hooks.sounds = new Soundboard(document.body);
+  expose();
 } else {
   const pixi = new Application();
   await pixi.init({
