@@ -6,15 +6,18 @@ import { Container, UPDATE_PRIORITY } from 'pixi.js';
 import type { Application, Ticker } from 'pixi.js';
 import { GameAudio } from '../audio';
 import { BUILD_ID } from '../buildId';
+import { CONTENT } from '../content';
 import { Backdrop } from '../render/backdrop';
 import { Camera } from '../render/camera';
 import { ZONES } from '../render/palette';
 import { Stage } from '../render/stage';
+import { runSoFar } from '../sim/session';
 import type { Session } from '../sim/session';
 import type { ClassId } from '../sim/types';
 import { createScreens } from '../ui/screens';
 import type { AppScreen, AppState, Pointer, ScreenHost } from '../ui/screen';
 import { uiSound } from '../ui/sfx';
+import { CodeBox } from './codeBox';
 import { CoopShell } from './coop';
 import { SoloDriver } from './driver';
 import type { Driver } from './driver';
@@ -22,6 +25,7 @@ import { Game } from './game';
 import type { GameOptions } from './game';
 import { Input, noKeys } from './input';
 import { Rumble } from './rumble';
+import { attune, bankRun, boonsFor, issue, loadSave, readCode, storeSave, writeCode } from './save';
 import { browserStore, loadSettings, saveSettings } from './settings';
 
 export interface AppOptions extends GameOptions {
@@ -86,7 +90,13 @@ export class App implements ScreenHost {
   readonly input: Input;
   readonly audio = new GameAudio();
   readonly settings = loadSettings(browserStore());
+  /** What this player keeps between runs. */
+  readonly save = loadSave(browserStore());
   private readonly rumble = new Rumble();
+  private readonly codeBox = new CodeBox();
+  /** How many games this page has begun, and the run of which game was last written into the save. */
+  private games = 0;
+  private banked = '';
   readonly state: AppState;
   game: Game | null = null;
   private driver: Driver | null = null;
@@ -108,7 +118,20 @@ export class App implements ScreenHost {
     private readonly opts: AppOptions,
   ) {
     this.input = new Input(pixi.canvas);
-    this.state = { pad: false, hosted: opts.host !== null, inGame: false, coop: false, session: null, slot: 0, classId: opts.classes[0] ?? 'sword', settings: this.settings };
+    this.state = {
+      pad: false,
+      hosted: opts.host !== null,
+      inGame: false,
+      coop: false,
+      session: null,
+      slot: 0,
+      classId: opts.classes[0] ?? 'sword',
+      settings: this.settings,
+      save: this.save,
+      gained: 0,
+      note: '',
+      content: CONTENT,
+    };
     this.applySettings();
     this.screens = createScreens(this);
     pixi.stage.addChild(this.layer);
@@ -165,6 +188,8 @@ export class App implements ScreenHost {
         this.driver?.command('ready', arg === false ? 0 : 1);
         break;
       case 'restart':
+        // the run being left is a run all the same
+        this.bank();
         this.driver?.command('restart');
         this.closeAll();
         break;
@@ -184,9 +209,61 @@ export class App implements ScreenHost {
         this.applySettings();
         saveSettings(browserStore(), this.settings);
         break;
+      case 'attune':
+        if (typeof arg === 'string' && attune(this.save, arg)) storeSave(browserStore(), this.save);
+        break;
+      case 'issue':
+        if (Array.isArray(arg) && (arg[0] === 'sword' || arg[0] === 'bow' || arg[0] === 'fist') && typeof arg[1] === 'string' && issue(this.save, arg[0], arg[1], CONTENT))
+          storeSave(browserStore(), this.save);
+        break;
+      case 'code':
+        this.code(arg === 'read');
+        break;
       default:
         break;
     }
+  }
+
+  /** Write the save out as a code to be copied, or read one that is pasted in. */
+  private code(read: boolean): void {
+    this.state.note = '';
+    if (!read) {
+      this.codeBox.show(writeCode(this.save), () => undefined);
+      return;
+    }
+    this.codeBox.ask((text) => {
+      if (text === null || text.trim() === '') return;
+      const got = readCode(text);
+      if (!got) {
+        uiSound('error');
+        this.state.note = 'That is not a whole code';
+        return;
+      }
+      // the same object, so everything that holds the save sees what was read
+      Object.assign(this.save, got);
+      storeSave(browserStore(), this.save);
+      uiSound('confirm');
+      this.state.note = 'The save was read';
+    });
+  }
+
+  /**
+   * Write the run being played into the save, once: its Resonance, and this class's records. A
+   * run that is left counts as it stands. The practice ladder and runs begun partway down the
+   * road (a development address) earn nothing.
+   */
+  private bank(): void {
+    const s = this.driver ? this.driver.session : null;
+    if (!this.game || !s || !this.driver) return;
+    const key = `${this.games}/${s.attempt}`;
+    if (this.banked === key) return;
+    this.banked = key;
+    this.state.gained = 0;
+    const mine = s.config.players[this.driver.localSlot];
+    if (!mine || s.config.practice || s.config.stress > 0 || (s.config.startAt ?? 1) > 1) return;
+    const miniboss = s.route.findIndex((r) => r.kind === 'miniboss') + 1;
+    this.state.gained = bankRun(this.save, mine.classId, runSoFar(s), s.phase === 'won', s.played, miniboss);
+    storeSave(browserStore(), this.save);
   }
 
   /** Make everything that follows a setting follow it now. */
@@ -234,6 +311,8 @@ export class App implements ScreenHost {
 
   /** Leave whatever is being played and stand on the title. */
   private showTitle(): void {
+    // a run that is walked away from is written down as far as it got
+    this.bank();
     this.endGame();
     if (this.coop) {
       this.coop.destroy();
@@ -268,6 +347,7 @@ export class App implements ScreenHost {
     this.dropBackdrop();
     this.stack.length = 0;
     this.driver = driver;
+    this.games++;
     this.pauseAskedAt = -1;
     const game = new Game(this.pixi, driver, this.opts, {
       input: this.input,
@@ -290,7 +370,8 @@ export class App implements ScreenHost {
     const team = classes.length > 0 ? classes.slice(0, 3) : (['sword'] as ClassId[]);
     this.state.classId = team[0];
     const seed = this.opts.fixedSeed ? this.opts.seed : String(Math.floor(Math.random() * 1e9));
-    const players = team.map((classId, slot) => ({ name: `Player ${slot + 1}`, classId }));
+    // this player brings what they have earned; bot companions bring nothing
+    const players = team.map((classId, slot) => ({ name: `Player ${slot + 1}`, classId, boons: slot === 0 ? boonsFor(this.save, classId, CONTENT) : undefined }));
     this.begin(new SoloDriver({ seed, players, buildId: BUILD_ID, inputDelay: 0, stress: this.opts.stress, practice: this.opts.practice, startAt: this.opts.startAt }));
   }
 
@@ -306,6 +387,7 @@ export class App implements ScreenHost {
       name: this.opts.name,
       addresses: this.opts.host.addresses,
       autoStart: this.opts.autoStart,
+      boonsFor: (classId) => boonsFor(this.save, classId, CONTENT),
       makeGame: (driver) => this.begin(driver),
       onGameOver: () => {
         // the host ended the game: the lobby again
@@ -337,8 +419,9 @@ export class App implements ScreenHost {
     if (input.touched) this.audio.unlock();
     this.refresh();
 
-    // a run that has ended brings up how it ended; the next one beginning takes it down
+    // a run that has ended is written into the save and brings up how it ended; the next one beginning takes it down
     const session = this.state.session;
+    if (session && session.phase !== 'run') this.bank();
     if (session && session.phase !== 'run' && session.endedFor > 45 && !this.stack.includes('results')) {
       this.stack.length = 0;
       this.open('results');
@@ -347,7 +430,10 @@ export class App implements ScreenHost {
     }
 
     const top = this.top();
-    if (top) {
+    if (this.codeBox.open) {
+      // the box of text has the keys: nothing under it listens
+      input.clearPresses();
+    } else if (top) {
       const keys = input.menuKeys(this.keys);
       // the key that opens the menu also closes it
       if (input.take('pause') && this.stack[this.stack.length - 1] === 'pause') keys.back = true;

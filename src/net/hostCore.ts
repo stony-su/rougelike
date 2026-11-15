@@ -4,6 +4,7 @@
 // again) the whole session to start from.
 //
 // The host program wraps this in a web server and WebSockets; tests wrap it in a pretend network.
+import type { Boons } from '../sim/boons';
 import type { ContentRegistry } from '../sim/defs';
 import { MAX_PLAYERS, createSession, stepSession } from '../sim/session';
 import type { Bundle, Session, SessionConfig } from '../sim/session';
@@ -23,6 +24,8 @@ interface Seat {
   token: string;
   name: string;
   classId: LobbySeat['classId'];
+  /** What this player brings from their Attunement, as their laptop said it. */
+  boons: Boons;
   ready: boolean;
   peer: Peer | null;
   /** Round trip to this laptop as it last reported, in ms. */
@@ -119,6 +122,7 @@ export class HostCore {
       case 'seat':
         if (this.phase !== 'lobby') return;
         seat.classId = m.classId;
+        seat.boons = m.boons;
         seat.ready = m.ready;
         this.everyone({ t: 'lobby', seats: this.lobby() });
         break;
@@ -182,7 +186,7 @@ export class HostCore {
     this.note(`seat ${slot + 1} differed at tick ${tick} in: ${fields.length ? fields.join('; ') : '(nothing found: it had already been put right)'}`);
   }
 
-  private hello(peer: Peer, m: { v: number; build: string; token: string; name: string; classId: LobbySeat['classId'] }, nowMs: number): void {
+  private hello(peer: Peer, m: { v: number; build: string; token: string; name: string; classId: LobbySeat['classId']; boons: Boons }, nowMs: number): void {
     if (m.v !== PROTOCOL_VERSION || m.build !== this.opts.buildId) {
       this.say(peer, { t: 'refused', why: 'This page is from a different build of the game than the host. Reload it.' });
       peer.close();
@@ -198,7 +202,7 @@ export class HostCore {
       }
     } else if (this.phase === 'lobby' && this.seats.length < MAX_PLAYERS) {
       slot = this.seats.length;
-      this.seats.push({ token: m.token, name: m.name === DEFAULT_NAME ? `Player ${slot + 1}` : m.name, classId: m.classId, ready: false, peer: null, rtt: 0 });
+      this.seats.push({ token: m.token, name: m.name === DEFAULT_NAME ? `Player ${slot + 1}` : m.name, classId: m.classId, boons: m.boons, ready: false, peer: null, rtt: 0 });
     } else if (this.phase === 'game' && this.seats.some((s) => s.peer === null)) {
       // A game is on, but a seat stands empty (its laptop closed the page, or never came back):
       // whoever arrives takes it over as it is, class and all.
@@ -215,6 +219,7 @@ export class HostCore {
     if (this.phase === 'lobby') {
       seat.name = m.name === DEFAULT_NAME ? `Player ${slot + 1}` : m.name;
       seat.classId = m.classId;
+      seat.boons = m.boons;
     }
     this.peers.set(peer, slot);
     this.say(peer, { t: 'welcome', v: PROTOCOL_VERSION, build: this.opts.buildId, slot, seats: this.lobby() });
@@ -253,7 +258,7 @@ export class HostCore {
     const inputDelay = Math.max(2, Math.min(10, Math.round((rtt + TICK_MS) / TICK_MS) + 2));
     this.config = {
       seed: this.opts.seed && this.opts.seed.length > 0 ? `${this.opts.seed}/${this.games}` : `${Math.floor(nowMs)}-${this.games}`,
-      players: this.seats.map((s) => ({ name: s.name, classId: s.classId })),
+      players: this.seats.map((s) => ({ name: s.name, classId: s.classId, boons: s.boons })),
       buildId: this.opts.buildId,
       inputDelay,
       stress: this.opts.stress ?? 0,

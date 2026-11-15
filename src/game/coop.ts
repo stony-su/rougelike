@@ -3,6 +3,7 @@
 // driver. If the game ends or the host goes, it is the lobby (or a plain message) again.
 import type { Application } from 'pixi.js';
 import type { LobbySeat } from '../net/protocol';
+import type { Boons } from '../sim/boons';
 import type { ClassId } from '../sim/types';
 import { LobbyView } from '../ui/lobby';
 import { CoopDriver } from './connection';
@@ -17,6 +18,8 @@ export interface CoopOptions extends GameOptions {
   addresses: string[];
   /** For automated checks: say ready at once, and start when this many seats are filled and ready. */
   autoStart: number;
+  /** What this laptop's player brings to a run as a class, from what they have earned. */
+  boonsFor: (classId: ClassId) => Boons;
   /** The host has begun a game: the app makes its shell round this connection. */
   makeGame: (driver: CoopDriver) => Game;
   /** The game is over and the lobby is up again. */
@@ -45,7 +48,7 @@ export class CoopShell {
   ) {
     this.classId = opts.classes[0] ?? 'sword';
     app.stage.addChild(this.lobby.root);
-    this.driver = new CoopDriver(opts.name || 'Returner', this.classId, {
+    this.driver = new CoopDriver(opts.name || 'Returner', this.classId, opts.boonsFor(this.classId), {
       onLobby: (seats, slot) => {
         this.seats = seats;
         this.slot = slot;
@@ -83,7 +86,7 @@ export class CoopShell {
     const mine = this.mine();
     if (!mine || mine.ready) return;
     this.classId = classId;
-    this.driver.core.seat(classId, false);
+    this.driver.core.seat(classId, false, this.opts.boonsFor(classId));
   }
 
   private cycle(by: number): void {
@@ -96,7 +99,7 @@ export class CoopShell {
     if (!mine) return;
     const everyone = this.seats.every((s) => s.ready);
     if (everyone) this.driver.core.start();
-    else this.driver.core.seat(this.classId, !mine.ready);
+    else this.driver.core.seat(this.classId, !mine.ready, this.opts.boonsFor(this.classId));
   }
 
   /** The host has begun a game (or sent one in progress): hand the connection to the game shell. */
@@ -145,7 +148,7 @@ export class CoopShell {
     const mine = this.mine();
     if (this.opts.autoStart > 0 && mine) {
       // automated checks: ready at once, and the first seat starts when the party is complete
-      if (!mine.ready) this.driver.core.seat(this.classId, true);
+      if (!mine.ready) this.driver.core.seat(this.classId, true, this.opts.boonsFor(this.classId));
       else if (!this.asked && this.slot === 0 && this.seats.length >= this.opts.autoStart && this.seats.every((s) => s.ready)) {
         this.asked = true;
         this.driver.core.start();

@@ -462,7 +462,8 @@ export class Game {
     if (this.input.take('confirm')) take = this.draft.choice;
     if (this.input.hasMouse && (moved || this.input.isDown('attack'))) over = this.draft.pointAt(this.input.mouseX, this.input.mouseY);
     if (this.input.take('attack') && over >= 0) take = over;
-    if (d.rerolls > 0 && this.input.takeCode('KeyR')) this.driver.command('reroll');
+    // other cards, if the Attunement has given the right to ask: R, or X on a controller
+    if (d.rerolls > 0 && (this.input.takeCode('KeyR') || this.input.take('interact'))) this.driver.command('reroll');
     if (take >= 0) {
       this.pickSent = key;
       this.audio.ui('confirm');

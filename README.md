@@ -28,7 +28,9 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **The Wager.** When the chamber before the Inner Ring's elite is cleared, the party is asked whether it will carry a Discord into the elite's chamber: Brittle, which cuts everyone's health by 30% for the fight. More than half must say yes (1 or 2, the arrow keys and Enter, the mouse, or a controller; ten seconds). Win it and the chamber pays double Chimes and a second card, a rare one.
 
-What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), and what you keep between runs. [PROGRESS.md](PROGRESS.md) lists all of it.
+- **The Attunement.** Every run earns Resonance, win or lose: 1 for each chamber cleared, 5 for the Carillon, 10 for the Toll. It is kept in the browser and spent on the title's Attunement screen: more health, Chimes to begin with, the right to ask for other cards, a quicker dash, more Chimes. Your records as each class are kept there too. In co-op everyone brings their own. Because a browser keeps a save for one address only (and a laptop that joins a host is on the host's address), the same screen writes the save out as a code and reads one back.
+
+What is not here yet: the Tunings of the three classes (and with them the Attunement's entries that unlock or issue one), and the solo side-chambers (a side-chamber is a short shared fight for now). [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 

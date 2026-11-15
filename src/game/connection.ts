@@ -7,6 +7,7 @@ import { CONTENT } from '../content';
 import { ClientCore } from '../net/clientCore';
 import type { ClientHooks } from '../net/clientCore';
 import { RELAY_PATH } from '../net/protocol';
+import type { Boons } from '../sim/boons';
 import type { CommandKind, Session } from '../sim/session';
 import type { ClassId, InputFrame } from '../sim/types';
 import type { Driver, NetStats, OnTick } from './driver';
@@ -43,11 +44,11 @@ export class CoopDriver implements Driver {
   private retry = 0;
   private gone = false;
 
-  constructor(name: string, classId: ClassId, hooks: ClientHooks = {}) {
+  constructor(name: string, classId: ClassId, boons: Boons, hooks: ClientHooks = {}) {
     this.core = new ClientCore(
       { send: (text) => this.ws?.readyState === WebSocket.OPEN && this.ws.send(text) },
       CONTENT,
-      { build: BUILD_ID, token: seatToken(), name, classId },
+      { build: BUILD_ID, token: seatToken(), name, classId, boons },
       { ...hooks, onTick: (s, muted) => this.onTick?.(s, muted) },
     );
     this.connect();

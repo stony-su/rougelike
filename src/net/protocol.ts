@@ -4,6 +4,8 @@
 // shapes below is dropped, and every number in an input is forced into its range before it goes
 // into a bundle, so a confused or hostile page can neither crash the host nor make two laptops
 // disagree: the host sends everyone the same cleaned bundle.
+import { shapeBoons } from '../sim/boons';
+import type { Boons } from '../sim/boons';
 import { COMMAND_KINDS } from '../sim/session';
 import type { Bundle, Command, CommandKind, SessionConfig } from '../sim/session';
 import { AIM_STEPS, MOVE_MAG_MAX, MOVE_STEPS, PRESS_COUNT, emptyInput } from '../sim/types';
@@ -29,9 +31,9 @@ export type PackedBundle = [number, Array<PackedInput | null>, Array<[number, nu
 
 export type ClientMsg =
   /** First message: who this is. `token` is a per-browser id, so a laptop that drops out can take its seat back. */
-  | { t: 'hello'; v: number; build: string; token: string; name: string; classId: ClassId }
-  /** In the lobby: change class, or say ready. */
-  | { t: 'seat'; classId: ClassId; ready: boolean }
+  | { t: 'hello'; v: number; build: string; token: string; name: string; classId: ClassId; boons: Boons }
+  /** In the lobby: change class, or say ready. `boons` is what this player brings as that class. */
+  | { t: 'seat'; classId: ClassId; ready: boolean; boons: Boons }
   /** In the lobby: begin, once everyone is ready. Any seat may ask. */
   | { t: 'start' }
   | { t: 'in'; f: PackedInput }
@@ -136,9 +138,9 @@ export function parseClientMsg(text: string): ClientMsg | null {
   switch (m.t) {
     case 'hello':
       if (!isInt(m.v) || typeof m.build !== 'string' || typeof m.token !== 'string' || m.token.length < 8 || m.token.length > 64 || !isClassId(m.classId)) return null;
-      return { t: 'hello', v: m.v, build: m.build.slice(0, 64), token: m.token, name: cleanName(m.name, 'Returner'), classId: m.classId };
+      return { t: 'hello', v: m.v, build: m.build.slice(0, 64), token: m.token, name: cleanName(m.name, 'Returner'), classId: m.classId, boons: shapeBoons(m.boons) };
     case 'seat':
-      return isClassId(m.classId) && typeof m.ready === 'boolean' ? { t: 'seat', classId: m.classId, ready: m.ready } : null;
+      return isClassId(m.classId) && typeof m.ready === 'boolean' ? { t: 'seat', classId: m.classId, ready: m.ready, boons: shapeBoons(m.boons) } : null;
     case 'start':
       return { t: 'start' };
     case 'in': {
@@ -182,7 +184,7 @@ function config(v: unknown): SessionConfig | null {
     if (typeof p !== 'object' || p === null) return null;
     const q = p as Record<string, unknown>;
     if (!isClassId(q.classId)) return null;
-    players.push({ name: cleanName(q.name, 'Returner'), classId: q.classId });
+    players.push({ name: cleanName(q.name, 'Returner'), classId: q.classId, boons: shapeBoons(q.boons) });
   }
   const out: SessionConfig = { seed: r.seed, players, buildId: r.buildId, inputDelay: clampInt(r.inputDelay, 0, 30), stress: clampInt(r.stress, 0, 200) };
   if (r.practice === true) out.practice = true;

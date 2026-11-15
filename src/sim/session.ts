@@ -8,6 +8,8 @@
 // holds one world per place the players are. When the last chamber is cleared the run is won;
 // when the whole party is down it is lost; either way it waits for someone to start again.
 import { spawnEnemy } from './ai';
+import { cleanBoons, noBoons } from './boons';
+import type { Boons } from './boons';
 import { CAMP, atCamp, buy, noCamp, openCamp, rest } from './camp';
 import type { CampSeat } from './camp';
 import { standing } from './combat';
@@ -21,7 +23,7 @@ import { flowFor, planRoute, roomSpec } from './run';
 import type { Stop } from './run';
 import { WAGER, discord, lift, noWager, offer, onTable, stepTable, vote } from './wager';
 import type { Wager } from './wager';
-import { REVIVE, SIM_HZ } from './tuning';
+import { PLAYER, REVIVE, SIM_HZ } from './tuning';
 import { emptyInput } from './types';
 import type { ClassId, InputFrame, World } from './types';
 import { createWorld, stepWorld } from './world';
@@ -32,6 +34,8 @@ export const MAX_PLAYERS = 3;
 export interface PlayerSetup {
   name: string;
   classId: ClassId;
+  /** What they bring from the Attunement (boons.ts). The session cleans it; without it they bring nothing. */
+  boons?: Boons;
 }
 
 /** Fixed when the session is created; never changes during it. */
@@ -145,8 +149,15 @@ const CLEAR_BEAT = Math.round(3 * SIM_HZ);
 
 const noStats = (): RunStats => ({ chambers: 0, kills: 0, damageDealt: 0, damageTaken: 0, returns: 0, bestRally: 0 });
 
-/** Everyone as they are at the start of a run. */
-const fresh = (s: Session): Entrant[] => s.config.players.map((p, slot) => ({ slot, classId: p.classId }));
+/** What a player brings to every run. */
+const boonsOf = (s: Session, slot: number): Boons => s.config.players[slot]?.boons ?? noBoons();
+
+/** Everyone as they are at the start of a run: with what the Attunement gives them, and nothing else. */
+const fresh = (s: Session): Entrant[] =>
+  s.config.players.map((p, slot) => {
+    const b = boonsOf(s, slot);
+    return { slot, classId: p.classId, maxHp: PLAYER.maxHp + b.health, chimes: b.chimes, tunings: b.issued ? { [b.issued]: 1 } : {}, boons: b };
+  });
 
 /** The chamber of the stop the party is at, built by the generator from the seed. */
 function openStop(s: Session, content: ContentRegistry, entrants: Entrant[]): World {
@@ -175,7 +186,7 @@ function begin(s: Session, content: ContentRegistry): void {
   s.downFor = -1;
   s.clearFor = -1;
   s.pausedBy = -1;
-  s.drafts = s.config.players.map(() => newDraft());
+  s.drafts = s.config.players.map((_, slot) => newDraft(boonsOf(s, slot).rerolls));
   s.wager = noWager(s.config.players.length);
   s.worlds = [s.config.practice ? openPractice(s, content, 1, fresh(s)) : openStop(s, content, fresh(s))];
   s.where = s.config.players.map(() => 0);
@@ -199,7 +210,8 @@ function arrive(s: Session, content: ContentRegistry): void {
 export function createSession(config: SessionConfig, content: ContentRegistry): Session {
   if (config.players.length < 1 || config.players.length > MAX_PLAYERS) throw new Error(`A session has 1 to ${MAX_PLAYERS} players`);
   const s: Session = {
-    config,
+    // what each player brings is held to what the Attunement can give, the same on every laptop
+    config: { ...config, players: config.players.map((p) => ({ ...p, boons: cleanBoons(p.boons, p.classId, content) })) },
     tick: 0,
     pausedBy: -1,
     attempt: 0,
@@ -291,7 +303,7 @@ function deal(s: Session, content: ContentRegistry, slot: number): void {
   const p = worldOf(s, slot).players.find((q) => q.slot === slot);
   if (!d || !p) return;
   const seed = `${s.config.seed}/${s.attempt}/draft/${s.stop}/${slot}/${d.made}/${d.rolled}`;
-  d.offers = rollOffers(seed, p.classId, p.tunings, content, d.made, d.rare);
+  d.offers = rollOffers(seed, p.classId, p.tunings, content, d.made, d.rare, p.boons.unlocked);
   d.timer = d.offers.length > 0 ? DRAFT_TICKS : 0;
 }
 
@@ -344,7 +356,7 @@ function carry(w: World): Entrant[] {
   const lying = w.flow.pickups.reduce((sum, c) => sum + c.value, 0);
   return w.players.map((p) => {
     const hp = standing(p) ? p.hp : Math.max(1, Math.round(p.maxHp * REVIVE.hp));
-    return { slot: p.slot, classId: p.classId, maxHp: p.maxHp, hp, chimes: p.chimes + lying, tunings: p.tunings };
+    return { slot: p.slot, classId: p.classId, maxHp: p.maxHp, hp, chimes: p.chimes + lying, tunings: p.tunings, boons: p.boons };
   });
 }
 

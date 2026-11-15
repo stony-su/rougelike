@@ -1,4 +1,5 @@
 // One chamber's simulation: creation, and the step that advances it by exactly one tick.
+import type { Boons } from './boons';
 import { Rng } from '../core/rng';
 import { stepEnemies, sweepDead } from './ai';
 import type { ContentRegistry } from './defs';
@@ -25,6 +26,8 @@ export interface Entrant {
   chimes?: number;
   /** The Tunings they hold, id to rank. */
   tunings?: Readonly<Record<string, number>>;
+  /** What they bring from the Attunement. */
+  boons?: Boons;
 }
 
 export interface WorldOptions {
@@ -53,6 +56,7 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     const p = createPlayer(en.slot, en.classId, at.x, at.y);
     // what they have built so far comes in with them; charges and wards are full again in a new chamber
     p.tunings = { ...(en.tunings ?? {}) };
+    if (en.boons) p.boons = { ...en.boons, unlocked: en.boons.unlocked.slice() };
     equip(p, content);
     p.dashCharges = p.dashMaxCharges;
     p.wardLeft = p.mods.ward;

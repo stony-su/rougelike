@@ -1,5 +1,6 @@
 // A player: reading input, moving, dashing, being knocked about. What the attack and special
 // buttons do belongs to the class kits in ./classes.
+import { noBoons } from './boons';
 import { PI, dcos, dexp, dhypot, dsin } from '../core/dmath';
 import type { Vec2 } from '../core/exact';
 import { pushBody } from './bodies';
@@ -58,6 +59,7 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
     bufSpecial: 0,
     bufDash: 0,
     bufInteract: 0,
+    boons: noBoons(),
     lastPresses: [-1, -1, -1, -1],
     held: 0,
     freeze: 0,
@@ -87,6 +89,9 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
 /** Work out what a player's Tunings add up to, and the limits that follow from them. Health is left alone. */
 export function equip(p: Player, content: ContentRegistry): void {
   p.mods = computeMods(p.tunings, content.tunings, content.harmonies);
+  // what the Attunement gives rides on top of whatever the Tunings add up to
+  p.mods.dashRecharge *= 1 - p.boons.dash;
+  p.mods.chimeMul *= 1 + p.boons.fortune;
   p.dashMaxCharges = DASH.charges + p.mods.dashCharges;
 }
 

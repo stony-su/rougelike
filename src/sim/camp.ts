@@ -67,7 +67,7 @@ export function raisable(p: Player, content: ContentRegistry): string[] {
 
 /** Set out a shelf for a player: three Tunings from their own pools, one of them better than common. */
 export function stock(seat: CampSeat, seed: string, p: Player, content: ContentRegistry): void {
-  seat.shelf = rollOffers(seed, p.classId, p.tunings, content, 1, true);
+  seat.shelf = rollOffers(seed, p.classId, p.tunings, content, 1, true, p.boons.unlocked);
   while (seat.shelf.length < OFFERS) seat.shelf.push('');
 }
 

@@ -48,7 +48,7 @@ export class DraftScreen {
     this.row.removeChildren();
     for (const c of this.cards) this.row.addChild(c);
     this.selected = Math.min(1, this.cards.length - 1);
-    this.hint.text = `${pad ? 'Left and right, then A' : '1, 2 or 3, or point and click'}${rerolls > 0 ? `      R: deal again (${rerolls} left)` : ''}`;
+    this.hint.text = `${pad ? 'Left and right, then A' : '1, 2 or 3, or point and click'}${rerolls > 0 ? `      ${pad ? 'X' : 'R'}: other cards (${rerolls} left)` : ''}`;
     this.shown = 0;
     this.root.visible = true;
     this.place();

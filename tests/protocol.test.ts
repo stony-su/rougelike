@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/core/rng';
 import { MAX_NAME, bytesToText, cleanName, packBundle, packInput, parseClientMsg, parseHostMsg, textToBytes, unpackBundle, unpackInput } from '../src/net/protocol';
 import type { ClientMsg, HostMsg } from '../src/net/protocol';
+import { noBoons } from '../src/sim/boons';
 import type { Bundle } from '../src/sim/session';
 import { emptyInput } from '../src/sim/types';
 import type { InputFrame } from '../src/sim/types';
@@ -58,8 +59,8 @@ describe('inputs and bundles', () => {
 describe('messages', () => {
   it('every message a laptop sends parses back to itself', () => {
     const msgs: ClientMsg[] = [
-      { t: 'hello', v: 1, build: 'abc', token: 'k3j4h5g6f7d8', name: 'Ada', classId: 'bow' },
-      { t: 'seat', classId: 'fist', ready: true },
+      { t: 'hello', v: 1, build: 'abc', token: 'k3j4h5g6f7d8', name: 'Ada', classId: 'bow', boons: noBoons() },
+      { t: 'seat', classId: 'fist', ready: true, boons: { ...noBoons(), health: 20, dash: 0.15, unlocked: ['chorus'], issued: 'chorus' } },
       { t: 'start' },
       { t: 'in', f: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
       { t: 'cmd', seq: 2, kind: 'pause', a: 0 },
@@ -73,8 +74,8 @@ describe('messages', () => {
     const cfg = {
       seed: 's',
       players: [
-        { name: 'Ada', classId: 'sword' as const },
-        { name: 'Bo', classId: 'bow' as const },
+        { name: 'Ada', classId: 'sword' as const, boons: noBoons() },
+        { name: 'Bo', classId: 'bow' as const, boons: { ...noBoons(), chimes: 30, rerolls: 1 } },
       ],
       buildId: 'abc',
       inputDelay: 3,

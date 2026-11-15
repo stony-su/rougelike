@@ -4,7 +4,9 @@
 // src/ui/screens, picked up by themselves.
 import { Container } from 'pixi.js';
 import type { MenuKeys } from '../game/input';
+import type { Save } from '../game/save';
 import type { Settings } from '../game/settings';
+import type { ContentRegistry } from '../sim/defs';
 import type { Session } from '../sim/session';
 import type { ClassId } from '../sim/types';
 import { scrim } from './widgets';
@@ -37,6 +39,14 @@ export interface AppState {
   classId: ClassId;
   /** What the player has set. A screen may change it, and then asks the app to 'settings'. */
   settings: Settings;
+  /** What the player keeps between runs. It is changed only by asking the app. */
+  save: Save;
+  /** The Resonance the run that has just ended earned this player. */
+  gained: number;
+  /** A line the app has for the player about the last thing they asked of it ('' for none). */
+  note: string;
+  /** The game's content: its Tunings and Echoes. */
+  content: ContentRegistry;
 }
 
 /** What a screen can ask of the app. */
@@ -50,7 +60,9 @@ export interface ScreenHost {
   close(): void;
   /**
    * Something only the app can do: 'play' (with a class), 'lobby', 'again' (with false to take it
-   * back), 'restart', 'class', 'title', 'pauseAll', and 'settings' (they were changed: feel and keep them).
+   * back), 'restart', 'class', 'title', 'pauseAll', 'settings' (they were changed: feel and keep
+   * them), 'attune' (with the id of an entry), 'issue' (with a class and a Tuning), and 'code'
+   * (with 'write' or 'read').
    */
   act(what: string, arg?: unknown): void;
 }

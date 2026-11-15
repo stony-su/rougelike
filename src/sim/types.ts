@@ -1,6 +1,7 @@
 // Simulation state. Plain data only: numbers, strings, booleans, arrays, plain objects and typed
 // arrays, plus the seeded generator. No rendering, no DOM, no Maps or Sets. Everything here runs
 // headless, is identical on every laptop of a co-op session, and can be snapshotted and hashed.
+import type { Boons } from './boons';
 import type { Vec2 } from '../core/exact';
 import type { Rng } from '../core/rng';
 import type { ContentRegistry, EnemyDef, RoomKind, RoomLook, ZoneId } from './defs';
@@ -196,6 +197,8 @@ export interface Player {
   wardLeft: number;
   /** Tithe: the part of a Chime not yet paid into the purse. */
   purseFrac: number;
+  /** What they bring from the Attunement (boons.ts): fixed for the run. */
+  boons: Boons;
 }
 
 // ---------------------------------------------------------------- enemies

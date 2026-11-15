@@ -4,7 +4,7 @@
 
 Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md), how to run the game is in [README.md](README.md), and how to take one of the tasks below is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Overall: about 81% complete.** 27 of 40 tasks are done, 0 in progress, 10 ready to take, 3 waiting on others. Each task counts for its share of the whole game.
+**Overall: about 82% complete.** 28 of 40 tasks are done, 0 in progress, 9 ready to take, 3 waiting on others. Each task counts for its share of the whole game.
 
 | # | Milestone | Share | Done |
 |---|---|---|---|
@@ -14,7 +14,7 @@ Where the build stands and what is left. The design is in [DESIGN.md](DESIGN.md)
 | 3 | Chambers: generated rooms, shader backdrops, the route, follow camera | 12.2% | 100% |
 | 4 | A run you can win: upgrades, side-chambers, camp, wager, two bosses, screens | 24.9% | 89% |
 | 5 | Full content: every Tuning and Harmony, more Echoes, elites | 20.4% | 53% |
-| 6 | Menus, saving, sound | 4.5% | 20% |
+| 6 | Menus, saving, sound | 4.5% | 60% |
 | 7 | Polish and balance | 3.6% | 0% |
 
 ## In progress
@@ -24,7 +24,6 @@ Nothing at the moment.
 ## To do: ready to take
 
 - [T21](tasks/T21-side-chambers.md) **Solo side-chambers: each player their own way, then together again** (2.7% of the game)
-- [T24](tasks/T24-saving-attunement.md) **Saving and the Attunement (permanent progression)** (1.8% of the game)
 - [T30](tasks/T30-tunings-sword.md) **Tunings: the Sword (ten, and three Harmonies)** (2.3% of the game)
 - [T31](tasks/T31-tunings-bow.md) **Tunings: the Bow (ten, and three Harmonies)** (2.3% of the game)
 - [T32](tasks/T32-tunings-fist.md) **Tunings: the Fist (ten, and three Harmonies)** (2.3% of the game)
@@ -38,7 +37,7 @@ Nothing at the moment.
 
 - [T52](tasks/T52-side-kinds.md) **Side-chamber kinds: Proving, Cache, Echo Duel** (1.4%): needs T21
 - [T70](tasks/T70-balance.md) **Balance, by bots playing whole runs** (1.8%): needs T30, T31, T32
-- [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.9%): needs T24, T70, T71
+- [T72](tasks/T72-final-check.md) **Final check: a run won and a run lost, and the last README** (0.9%): needs T70, T71
 
 ## Done
 
@@ -52,6 +51,7 @@ Nothing at the moment.
 - [T20](tasks/T20-upgrade-engine.md) Upgrade engine: Tunings on players, a draft after every fight
 - [T22](tasks/T22-boss-framework.md) Boss framework and Echo traits
 - [T23](tasks/T23-app-shell.md) App shell: title, class select, pause, results, instant restart
+- [T24](tasks/T24-saving-attunement.md) Saving and the Attunement (permanent progression)
 - [T33](tasks/T33-tunings-common.md) Tunings: the common twelve, and three Harmonies
 - [T34](tasks/T34-tuning-looks.md) Tunings you can tell apart at a glance
 - [T35](tasks/T35-attack-combos.md) A combo of moves for every basic attack

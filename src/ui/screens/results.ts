@@ -33,6 +33,7 @@ class Results extends PanelScreen {
   private readonly builtHead: Label;
   private readonly built = new TuningRow();
   private readonly list = new MenuList(LIST_W, 48);
+  private readonly earned: Label;
   private readonly status: Label;
   private readonly hint: Label;
   private acts: Array<() => void> = [];
@@ -61,9 +62,11 @@ class Results extends PanelScreen {
     this.builtHead.position.set(PAD, 282);
     this.built.root.position.set(PAD + 8, 306);
     this.list.position.set((W - LIST_W) / 2, 376);
+    this.earned = new Label('', { size: 10, color: CHIME, bold: true, tracking: 0.22, align: 'right' });
+    this.earned.position.set(W - PAD, 282);
     this.status = new Label('', { size: 9, color: CHIME, tracking: 0.2, align: 'center' });
     this.hint = new Label('', { size: 9, color: UI.inkSoft, tracking: 0.22, align: 'center' });
-    this.panel.addChild(this.builtHead, this.built.root, this.list, this.status, this.hint);
+    this.panel.addChild(this.builtHead, this.built.root, this.earned, this.list, this.status, this.hint);
   }
 
   enter(): void {
@@ -132,8 +135,10 @@ class Results extends PanelScreen {
     }
     this.list.set(entries);
     this.hint.text = s.pad ? 'Up and down      A  choose' : 'W S  choose      Enter  take';
-    // with nothing built there is nothing to show between the numbers and the list
-    const top = this.builtHead.visible ? 376 : 292;
+    // what the run earned for the Attunement, and what that makes
+    this.earned.text = s.gained > 0 ? `Resonance  +${s.gained}     you hold ${s.save.resonance}` : '';
+    // with nothing built and nothing earned there is nothing to show between the numbers and the list
+    const top = this.builtHead.visible ? 376 : s.gained > 0 ? 326 : 292;
     this.list.y = top;
     const h = top + this.list.tall + 76;
     if (h !== this.h) {

@@ -4,6 +4,8 @@
 // joined again or drifted), it starts from that and runs to catch up.
 //
 // The page wraps this round a WebSocket; tests wrap it round a pretend network.
+import { noBoons } from '../sim/boons';
+import type { Boons } from '../sim/boons';
 import type { ContentRegistry } from '../sim/defs';
 import { createSession, stepSession } from '../sim/session';
 import type { CommandKind, Session, SessionConfig } from '../sim/session';
@@ -25,6 +27,8 @@ export interface Hello {
   token: string;
   name: string;
   classId: ClassId;
+  /** What this player brings from their Attunement as that class. */
+  boons?: Boons;
 }
 
 export interface ClientHooks {
@@ -78,7 +82,7 @@ export class ClientCore {
   /** The connection is open: introduce this laptop. */
   open(): void {
     this.expectSnap = true;
-    this.say({ t: 'hello', v: PROTOCOL_VERSION, build: this.me.build, token: this.me.token, name: this.me.name, classId: this.me.classId });
+    this.say({ t: 'hello', v: PROTOCOL_VERSION, build: this.me.build, token: this.me.token, name: this.me.name, classId: this.me.classId, boons: this.me.boons ?? noBoons() });
   }
 
   /** The connection closed without a word. */
@@ -86,10 +90,11 @@ export class ClientCore {
     if (this.phase !== 'refused') this.phase = 'closed';
   }
 
-  /** In the lobby: choose a class, say ready. */
-  seat(classId: ClassId, ready: boolean): void {
+  /** In the lobby: choose a class, say ready. `boons` is what this player brings as that class; left out, what was last said stands. */
+  seat(classId: ClassId, ready: boolean, boons?: Boons): void {
     this.me.classId = classId;
-    this.say({ t: 'seat', classId, ready });
+    if (boons) this.me.boons = boons;
+    this.say({ t: 'seat', classId, ready, boons: this.me.boons ?? noBoons() });
   }
 
   /** In the lobby: ask the host to begin. It does if everyone is ready. */
