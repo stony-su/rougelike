@@ -3,7 +3,7 @@
 // opened with ?selftest checks them in the browser. A mismatch means two laptops running that
 // engine could not stay in step.
 import { dcos, dexp, dsin, datan2 } from '../core/dmath';
-import { EXPERT, NOVICE, classBot } from './bots';
+import { EXPERT, NOVICE, botCommands, classBot } from './bots';
 import type { ContentRegistry } from './defs';
 import { copyInput } from './input';
 import { createSession, stepSession, worldOf } from './session';
@@ -33,7 +33,8 @@ export function selftestHashes(content: ContentRegistry): number[] {
   const bots = [classBot('sword', EXPERT), classBot('bow', { ...EXPERT, reaction: 0.3 }), classBot('fist', NOVICE)];
   const out: number[] = [];
   for (let tick = 1; tick <= SELFTEST_TICKS; tick++) {
-    const bundle: Bundle = { tick, inputs: [], cmds: [] };
+    // the bots take their cards too, so the pinned game has Tunings in it
+    const bundle: Bundle = { tick, inputs: [], cmds: botCommands(s, content) };
     bots.forEach((b, slot) => {
       const f = emptyInput();
       copyInput(b.think(worldOf(s, slot), slot), f);

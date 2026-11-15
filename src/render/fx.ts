@@ -354,6 +354,40 @@ export class Fx {
         ps.ring(ev.x, ev.y, CHIME, 0.3, 4.5, 0.7, 0.7);
         ps.ring(ev.x, ev.y, RIM, 0.2, 2.2, 0.5, 0.8);
         break;
+      case 'tuning':
+        ps.ring(ev.x, ev.y, colorOf(ev.player), 0.3, 2.4, 0.6, 0.9);
+        ps.sparks(ev.x, ev.y, 0.8, 0, -1, paleOf(ev.player), 12, 1.1);
+        break;
+      case 'burst': {
+        const color = ev.by >= 0 ? colorOf(ev.by) : RIM;
+        const pale = ev.by >= 0 ? paleOf(ev.by) : RIM;
+        ps.flash(ev.x, ev.y, 0.3, pale, 160, 0.16);
+        ps.ring(ev.x, ev.y, color, ev.radius * 0.25, ev.radius, 0.32, 0.95);
+        ps.ring(ev.x, ev.y, pale, ev.radius * 0.1, ev.radius * 0.7, 0.22, 0.7);
+        this.shake(ev.x, ev.y, 0.25);
+        break;
+      }
+      case 'bolt': {
+        // a broken line of sparks from one Echo to the next
+        const pale = ev.by >= 0 ? paleOf(ev.by) : RIM;
+        for (let i = 1; i <= 5; i++) {
+          const k = i / 5;
+          ps.sparks(ev.fromX + (ev.toX - ev.fromX) * k, ev.fromY + (ev.toY - ev.fromY) * k, 0.6, 0, 0, pale, 2, 0.35);
+        }
+        ps.flash(ev.toX, ev.toY, 0.5, pale, 90, 0.12);
+        break;
+      }
+      case 'heal':
+        ps.sparks(ev.x, ev.y, 0.7, 0, -1, CHIME, 6, 0.8);
+        break;
+      case 'ward':
+        ps.flash(ev.x, ev.y, 0.5, paleOf(ev.player), 220, 0.22);
+        ps.ring(ev.x, ev.y, RIM, 0.3, 1.6, 0.4, 1);
+        this.shake(ev.x, ev.y, 0.4);
+        break;
+      case 'afterimage':
+        ps.ring(ev.x, ev.y, paleOf(ev.player), 0.2, 1.3, 0.3, 0.8);
+        break;
       default: {
         // Adding a simulation event without deciding how it looks is a compile error here.
         const unhandled: never = ev;

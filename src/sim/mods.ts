@@ -10,10 +10,11 @@ export interface Mods {
   dashCharges: number;
   /** Dash recharge time is multiplied by this. */
   dashRecharge: number;
-  /** Damage bonus for 4 s after a dash carries you through an attack. */
+  /** Damage bonus for a few seconds after a dash carries you through an attack. */
   afterimage: number;
-  /** Impulse a dash gives to Echoes it passes through. */
+  /** Impulse a dash gives to Echoes it passes through, and the damage it does them. */
   ram: number;
+  ramDamage: number;
   /** Seconds between single points of Rally lost, instead of losing it all at once. 0 = off. */
   sustain: number;
   /** Every this many Rally points, a ring bursts round you and heals. 0 = off. */
@@ -26,6 +27,9 @@ export interface Mods {
   frost: number;
   /** Every this many Rally points, lightning from the Echo just struck to two more. 0 = off. */
   stormEvery: number;
+  /** How many Echoes that lightning jumps between, and what it does to each. */
+  stormChain: number;
+  stormDamage: number;
   chimeMul: number;
   /** Killing blows survived per chamber. */
   ward: number;
@@ -127,6 +131,7 @@ export function baseMods(): Mods {
     dashRecharge: 1,
     afterimage: 0,
     ram: 0,
+    ramDamage: 0,
     sustain: 0,
     overtoneEvery: 0,
     overtoneHeal: 0,
@@ -134,6 +139,8 @@ export function baseMods(): Mods {
     ember: 0,
     frost: 0,
     stormEvery: 0,
+    stormChain: 0,
+    stormDamage: 0,
     chimeMul: 1,
     ward: 0,
     reviveSpeed: 1,
@@ -229,6 +236,12 @@ export interface HarmonyDef {
   effects: readonly Effect[];
 }
 
+/** What one file of src/content/tunings holds: the Tunings of one owner, and the Harmonies between them. */
+export interface TuningSet {
+  tunings: readonly TuningDef[];
+  harmonies: readonly HarmonyDef[];
+}
+
 /** The numbers a set of Tunings adds up to. */
 export function computeMods(tunings: Readonly<Record<string, number>>, defs: Readonly<Record<string, TuningDef>>, harmonies: readonly HarmonyDef[]): Mods {
   const m = baseMods();
@@ -254,4 +267,36 @@ export function computeMods(tunings: Readonly<Record<string, number>>, defs: Rea
 /** The Harmonies a set of Tunings has switched on. */
 export function activeHarmonies(tunings: Readonly<Record<string, number>>, harmonies: readonly HarmonyDef[]): HarmonyDef[] {
   return harmonies.filter((h) => (tunings[h.parents[0]] ?? 0) > 0 && (tunings[h.parents[1]] ?? 0) > 0);
+}
+
+/** Problems in the Tunings and Harmonies, as human-readable strings. Used by the content tests. */
+export function validateTunings(defs: Readonly<Record<string, TuningDef>>, harmonies: readonly HarmonyDef[]): string[] {
+  const out: string[] = [];
+  const base = baseMods();
+  for (const key of Object.keys(defs)) {
+    const t = defs[key];
+    if (key !== t.id) out.push(`${key}: filed under another id (${t.id})`);
+    if (!/^[a-z]+(-[a-z]+)*$/.test(t.id)) out.push(`${t.id}: ids are lower-case words joined by hyphens`);
+    if (!Number.isInteger(t.maxRank) || t.maxRank < 1 || t.maxRank > 3) out.push(`${t.id}: maxRank is 1, 2 or 3`);
+    if (t.text.length !== t.maxRank) out.push(`${t.id}: needs one line of text for each rank`);
+    if (t.rarity !== 0 && t.rarity !== 1 && t.rarity !== 2) out.push(`${t.id}: rarity is 0, 1 or 2`);
+    if (t.effects.length === 0) out.push(`${t.id}: changes nothing`);
+    for (const e of t.effects) {
+      if (!(e.mod in base)) out.push(`${t.id}: there is no number called ${String(e.mod)}`);
+      if (e.v.length !== t.maxRank && e.v.length !== 1) out.push(`${t.id}: ${String(e.mod)} needs one value for each rank`);
+    }
+  }
+  const seen: string[] = [];
+  for (const h of harmonies) {
+    if (seen.includes(h.id)) out.push(`${h.id}: two Harmonies share this id`);
+    seen.push(h.id);
+    const a = defs[h.parents[0]];
+    const b = defs[h.parents[1]];
+    if (!a || !b) out.push(`${h.id}: a parent does not exist`);
+    else if (a === b) out.push(`${h.id}: needs two different parents`);
+    else if (a.owner !== b.owner && a.owner !== 'common' && b.owner !== 'common') out.push(`${h.id}: its parents belong to two classes, so nobody could hold both`);
+    if (h.effects.length === 0) out.push(`${h.id}: changes nothing`);
+    for (const e of h.effects) if (!(e.mod in base)) out.push(`${h.id}: there is no number called ${String(e.mod)}`);
+  }
+  return out;
 }

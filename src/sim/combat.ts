@@ -1,8 +1,9 @@
 // Damage, stun and hit-stop: the rules every attack goes through. Blows that move a body are in
 // bodies.ts; this file only takes health away and says what happened.
 import { dhypot } from '../core/dmath';
+import { applyBurn, applyChill, clearElements } from './conditions';
 import { removeTelegraph } from './telegraphs';
-import { FREEZE, KNOCK_DECAY, PLAYER, RIPOSTE, STUN_IMMUNITY } from './tuning';
+import { FREEZE, KNOCK_DECAY, PLAYER, RALLY, RIPOSTE, STUN_IMMUNITY, TUNE } from './tuning';
 import type { Enemy, HitKind, Player, World } from './types';
 
 /**
@@ -37,9 +38,65 @@ export interface HitSource {
   freeze?: number;
 }
 
+/** A Return is a hit delivered by something sent back: a returned shot, a slam, a carom, a ring-out. */
+export const isReturn = (kind: HitKind): boolean => kind === 'return' || kind === 'slam' || kind === 'carom' || kind === 'ringout';
+
+function bySlot(w: World, slot: number): Player | null {
+  for (const p of w.players) if (p.slot === slot) return p;
+  return null;
+}
+
+/** A ring of force from a Tuning: everything within `radius` of the point is hurt once. Returns how many were struck. */
+export function burstAt(w: World, x: number, y: number, radius: number, damage: number, by: number, what: string): number {
+  w.events.push({ type: 'burst', by, x, y, radius, what });
+  let struck = 0;
+  for (const e of w.enemies) {
+    if (!hittable(e)) continue;
+    const dx = e.x - x;
+    const dy = e.y - y;
+    const reach = radius + e.radius;
+    if (dx * dx + dy * dy > reach * reach) continue;
+    const d = dhypot(dx, dy) || 1;
+    damageEnemy(w, e, damage, { kind: 'burst', by, dx: dx / d, dy: dy / d });
+    struck++;
+  }
+  return struck;
+}
+
+/** What a player's Tunings leave on an Echo that one of their Returns has just struck. */
+function riders(w: World, e: Enemy, p: Player): void {
+  const m = p.mods;
+  if (m.ember > 0) applyBurn(e, m.ember, TUNE.elementTime);
+  if (m.frost > 0) applyChill(e, m.frost, TUNE.elementTime);
+  // Steam: fire and frost on one body burst, and both are spent
+  if (m.steam > 0 && e.status.steamT <= 0 && e.status.burnT > 0 && e.status.chillT > 0) {
+    clearElements(e);
+    e.status.steamT = TUNE.steamRest;
+    burstAt(w, e.x, e.y, TUNE.steamRadius, TUNE.steamDamage, p.slot, 'steam');
+    if (!e.dead) stunEnemy(w, e, TUNE.steamStun, true);
+  }
+}
+
 /** Deal damage to an enemy. Returns true if it died. */
 export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource): boolean {
   if (!hittable(e)) return false;
+  let crit = !!src.crit;
+  const p = src.by >= 0 ? bySlot(w, src.by) : null;
+  const returned = isReturn(src.kind);
+  if (p) {
+    // Afterimage: for a while after a dash through an attack, everything this player does hits harder
+    if (p.afterT > 0) amount *= 1 + p.mods.afterimage;
+    if (returned) {
+      if (p.opening && p.mods.openingRally > 0) {
+        // Opening Note: the first Return of a chamber
+        amount *= TUNE.openingCrit;
+        crit = true;
+      } else if (p.mods.perfectPitch > 0 && p.rally >= RALLY.cap) {
+        amount *= TUNE.perfectPitch;
+        crit = true;
+      }
+    }
+  }
   if (e.status.markT > 0) amount *= 1 + e.status.markBonus;
   if (e.armor < 1) {
     // Armour holds until the body is bounced off something; the breaking blow lands in full.
@@ -67,12 +124,13 @@ export function damageEnemy(w: World, e: Enemy, amount: number, src: HitSource):
     amount: Math.round(amount),
     kind: src.kind,
     heavy: !!src.heavy,
-    crit: !!src.crit,
+    crit,
     dx: src.dx,
     dy: src.dy,
     killed,
   });
   if (killed) killEnemy(w, e);
+  else if (p && returned) riders(w, e, p);
   return killed;
 }
 
@@ -139,7 +197,15 @@ export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy
     w.events.push({ type: 'riposte', player: p.slot, x: p.x, y: p.y });
     return HURT_GUARDED;
   }
-  if (p.iframes > 0) return HURT_NONE;
+  if (p.iframes > 0) {
+    // Afterimage: a dash that carries the player through an attack
+    if (p.state === 'dash' && p.mods.afterimage > 0 && !p.dodged) {
+      p.dodged = true;
+      p.afterT = TUNE.afterimageTime;
+      w.events.push({ type: 'afterimage', player: p.slot, x: p.x, y: p.y });
+    }
+    return HURT_NONE;
+  }
   let dx = p.x - sx;
   let dy = p.y - sy;
   const d = dhypot(dx, dy);
@@ -158,6 +224,14 @@ export function damagePlayer(w: World, p: Player, amount: number, sx: number, sy
   w.stats.damageTaken += amount;
   freezeBody(p, FREEZE.hurt);
   w.events.push({ type: 'playerHurt', player: p.slot, amount: Math.round(amount), x: p.x, y: p.y, dx, dy });
+  if (p.hp <= 0 && p.wardLeft > 0) {
+    // Echo Ward: the blow that would have downed them leaves them standing, and answers
+    p.wardLeft--;
+    p.hp = 1;
+    p.iframes = TUNE.wardIframes;
+    w.events.push({ type: 'ward', player: p.slot, x: p.x, y: p.y });
+    burstAt(w, p.x, p.y, TUNE.wardRadius, TUNE.wardDamage, p.slot, 'ward');
+  }
   if (p.hp <= 0) {
     p.state = 'down';
     p.stateTime = 0;

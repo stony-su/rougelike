@@ -1,8 +1,8 @@
 ---
 id: T22
 title: Boss framework and Echo traits
-status: open
-owner:
+status: claimed
+owner: stony-su
 milestone: 4
 weight: 2
 needs: [T10]

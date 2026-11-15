@@ -20,7 +20,9 @@ The full design is in [DESIGN.md](DESIGN.md). The game is being built in milesto
 
 - **A run of twelve chambers.** The road is planned from the seed: the Outer Ring, then the Inner Ring, each ending in a camp and its hardest fight. Every chamber is generated (courts, crossings, twin halls, rings round a pit, hollows; two looks; posts, bumpers and pits), and the camera follows you through the big ones. Health and Chimes come along from chamber to chamber, a camp gives some health back, clearing the twelfth wins the run, and the whole party going down loses it. Enter (or A on a controller) starts the next.
 
-What is not here yet: upgrades, the solo side-chambers (a side-chamber is a short shared fight for now), the camp's shop, the Wager, the two bosses (their chambers are the hardest fights of their zones for now), menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
+- **Tunings.** After every fight each player is dealt three cards on their own screen and takes one (1, 2 or 3, the arrow keys and Enter, the mouse, or a controller). The twelve Tunings anyone can take are in: more dashes, a dash that rams, Rally that steps down instead of breaking, rings that burst and heal as Rally climbs, Returns that burn, chill or call lightning, more health, a ward against a downing blow. Three pairs of them switch on a Harmony when held together.
+
+What is not here yet: the Tunings of the three classes, the solo side-chambers (a side-chamber is a short shared fight for now), the camp's shop, the Wager, the two bosses (their chambers are the hardest fights of their zones for now), menus and saving. [PROGRESS.md](PROGRESS.md) lists all of it.
 
 ## Install and run
 

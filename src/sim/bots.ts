@@ -4,7 +4,10 @@
 // sees, and may be given a human-like reaction delay.
 import { dcos, dhypot, dsin } from '../core/dmath';
 import { hittable, standing } from './combat';
+import type { ContentRegistry } from './defs';
+import { DRAFT_TICKS, completes } from './draft';
 import { hold, press, setAim, setMove } from './input';
+import type { Command, Session } from './session';
 import { telegraphCovers } from './telegraphs';
 import { BREAK, FIST, HAYMAKER, SWORD } from './tuning';
 import { BTN, PRESS, emptyInput } from './types';
@@ -377,6 +380,40 @@ export function fistBot(o: BotOptions = EXPERT): Bot {
 }
 
 /** The standard bot for a class. */
+/** Which of the cards on offer a bot takes: the missing half of a Harmony first, then a rank of something held, then the rarest. */
+export function botPick(offers: readonly string[], held: Readonly<Record<string, number>>, content: ContentRegistry): number {
+  let best = 0;
+  let bestScore = -1;
+  offers.forEach((id, i) => {
+    const t = content.tunings[id];
+    if (!t) return;
+    const score = (completes(id, held, content) ? 100 : 0) + ((held[id] ?? 0) > 0 ? 10 : 0) + t.rarity;
+    if (score > bestScore) {
+      bestScore = score;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/** How long a bot looks at its cards before taking one, in ticks. */
+export const BOT_THINKS = 40;
+
+/**
+ * The commands bots in the given seats send this tick (every seat, if none are named). Bots only
+ * ever decide one thing outside their hands: which card to take.
+ */
+export function botCommands(s: Session, content: ContentRegistry, seats?: readonly number[]): Command[] {
+  const out: Command[] = [];
+  s.drafts.forEach((d, slot) => {
+    if (seats && !seats.includes(slot)) return;
+    if (d.offers.length === 0 || d.timer > DRAFT_TICKS - BOT_THINKS) return;
+    const me = s.worlds[s.where[slot] ?? 0]?.players.find((p) => p.slot === slot);
+    if (me) out.push({ slot, seq: s.lastSeq[slot] + 1, kind: 'pick', a: botPick(d.offers, me.tunings, content) });
+  });
+  return out;
+}
+
 export function classBot(classId: ClassId, o: BotOptions = EXPERT): Bot {
   return classId === 'bow' ? bowBot(o) : classId === 'fist' ? fistBot(o) : swordBot(o);
 }

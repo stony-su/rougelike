@@ -189,7 +189,13 @@ function stepPickups(w: World, dt: number): void {
       }
       if (c.homing >= 0 && d < COLLECT_RADIUS) {
         // Chimes picked up by anyone are paid to every player's own purse.
-        for (const q of w.players) q.chimes += c.value;
+        for (const q of w.players) {
+          // Tithe makes a player's share bigger; the part of a Chime left over waits for the next
+          q.purseFrac += c.value * q.mods.chimeMul;
+          const whole = Math.floor(q.purseFrac);
+          q.chimes += whole;
+          q.purseFrac -= whole;
+        }
         w.events.push({ type: 'chime', amount: c.value, x: p.x, y: p.y });
         c.value = 0;
         any = true;

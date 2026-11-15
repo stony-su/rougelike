@@ -6,6 +6,7 @@ import type { Rng } from '../core/rng';
 import type { ContentRegistry, EnemyDef, RoomKind, RoomLook, ZoneId } from './defs';
 import type { RoomFlow } from './flow';
 import type { Geo } from './geo';
+import type { Mods } from './mods';
 import type { NavField } from './nav';
 
 // ---------------------------------------------------------------- input
@@ -164,6 +165,25 @@ export interface Player {
   guardHit: boolean;
   /** While down: seconds an ally has stood close enough to help this player up. */
   reviveT: number;
+  /** The Tunings this player holds, id to rank, and the numbers they add up to (mods.ts). */
+  tunings: Record<string, number>;
+  mods: Mods;
+  /** Afterimage: seconds of the damage bonus left, and whether this dash has already earned it. */
+  afterT: number;
+  dodged: boolean;
+  /** Ram: the Echoes this dash has already knocked aside. */
+  dashHit: number[];
+  /** Opening Note: true until this player's first Return of the chamber. */
+  opening: boolean;
+  /** Rally gained since the last Overtone ring, and since the last Storm lightning. */
+  overtoneAcc: number;
+  stormAcc: number;
+  /** Sustain: seconds toward the next point of Rally lost. */
+  sustainT: number;
+  /** Echo Ward: downing blows it will still turn aside in this chamber. */
+  wardLeft: number;
+  /** Tithe: the part of a Chime not yet paid into the purse. */
+  purseFrac: number;
 }
 
 // ---------------------------------------------------------------- enemies
@@ -276,6 +296,8 @@ export interface EnemyStatus {
   markT: number;
   /** Seconds before another root may be applied. */
   rootImmune: number;
+  /** Seconds before fire and frost on this body may burst into Steam again. */
+  steamT: number;
 }
 
 // ---------------------------------------------------------------- things in flight
@@ -472,7 +494,17 @@ export type SimEvent =
   | { type: 'shockwave'; x: number; y: number; radius: number }
   | { type: 'chime'; amount: number; x: number; y: number }
   | { type: 'armorBreak'; id: number; x: number; y: number }
-  | { type: 'roomClear'; x: number; y: number };
+  | { type: 'roomClear'; x: number; y: number }
+  /** A player took a Tuning, which is now at `rank`. */
+  | { type: 'tuning'; player: number; id: string; rank: number; x: number; y: number }
+  /** A ring of force from a Tuning (`what` names it): everything inside was hurt once. */
+  | { type: 'burst'; by: number; x: number; y: number; radius: number; what: string }
+  | { type: 'bolt'; by: number; fromX: number; fromY: number; toX: number; toY: number }
+  | { type: 'heal'; player: number; amount: number; x: number; y: number }
+  /** An Echo Ward turned a downing blow aside. */
+  | { type: 'ward'; player: number; x: number; y: number }
+  /** A dash carried a player through an attack (Afterimage). */
+  | { type: 'afterimage'; player: number; x: number; y: number };
 
 export type SimEventType = SimEvent['type'];
 

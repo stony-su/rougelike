@@ -392,6 +392,27 @@ export function cuesFor(ev: SimEvent, at: Listener): Cue[] {
       here(out, at, 'stonePlant', ev.x, ev.y, 0.7);
       break;
 
+    // ---- Tunings
+    case 'tuning':
+      if (ev.player === at.slot) flat(out, at, 'uiTake', 1);
+      else here(out, at, 'uiTake', ev.x, ev.y, 0.5);
+      break;
+    case 'burst':
+      here(out, at, 'shockwave', ev.x, ev.y, clamp(ev.radius / 2.5, 0.5, 1) * whose(ev.by));
+      break;
+    case 'bolt':
+      here(out, at, 'stoneRing', ev.toX, ev.toY, 0.6 * whose(ev.by));
+      break;
+    case 'heal':
+      if (ev.player === at.slot) flat(out, at, 'pickupBig', 0.6);
+      break;
+    case 'ward':
+      here(out, at, 'riposte', ev.x, ev.y, whose(ev.player));
+      break;
+    case 'afterimage':
+      here(out, at, 'dashReady', ev.x, ev.y, whose(ev.player));
+      break;
+
     default: {
       // Adding a simulation event without deciding how it sounds is a compile error here.
       const unhandled: never = ev;
@@ -458,6 +479,12 @@ export const SAMPLE_EVENTS: { readonly [K in SimEvent['type']]: Extract<SimEvent
   chime: { type: 'chime', amount: 1, x: 0, y: 0 },
   armorBreak: { type: 'armorBreak', id: 1, x: 0, y: 0 },
   roomClear: { type: 'roomClear', x: 0, y: 0 },
+  tuning: { type: 'tuning', player: 0, id: 'stout-heart', rank: 1, x: 0, y: 0 },
+  burst: { type: 'burst', by: 0, x: 0, y: 0, radius: 2.5, what: 'overtone' },
+  bolt: { type: 'bolt', by: 0, fromX: 0, fromY: 0, toX: 1, toY: 0 },
+  heal: { type: 'heal', player: 0, amount: 3, x: 0, y: 0 },
+  ward: { type: 'ward', player: 0, x: 0, y: 0 },
+  afterimage: { type: 'afterimage', player: 0, x: 0, y: 0 },
 };
 
 /** A copy of an event moved to another place in the chamber. An event that happens nowhere comes back unchanged. */

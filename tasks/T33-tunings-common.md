@@ -1,8 +1,8 @@
 ---
 id: T33
 title: Tunings: the common twelve, and three Harmonies
-status: open
-owner:
+status: done
+owner: stony-su
 milestone: 5
 weight: 2.5
 needs: [T20]

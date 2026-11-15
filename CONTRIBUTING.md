@@ -77,6 +77,7 @@ Most new things are a file of their own that the game picks up by itself. Nothin
 | its rig | `src/render/rig/rigs/<id>.ts` (default export: the rig entry) | `src/render/rig/registry.ts` |
 | its colours | `src/render/palette/<id>.ts` | whoever imports it |
 | a hand-built chamber | `src/content/rooms/<id>.ts` | `src/content/index.ts` |
+| Tunings and Harmonies | `src/content/tunings/<owner>.ts` (see the README there) | `src/content/index.ts` |
 | something drawn over the chamber (markers, auras, rings) | `src/render/extras/<name>.ts` | `src/render/extras/index.ts` |
 | tests | `tests/<what>.test.ts`, a new file for each task | vitest |
 

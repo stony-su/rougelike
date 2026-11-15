@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
 import { validateEnemyDef } from '../src/sim/defs';
+import { validateTunings } from '../src/sim/mods';
 import { validateRoomTemplate } from '../src/sim/room';
 import { RIGS } from '../src/render/rig/registry';
 
@@ -40,6 +41,12 @@ describe('one thing per file, picked up by itself', () => {
   it('every room file is one valid room, named after its file', () => {
     expect(CONTENT.rooms.map((r) => r.id).sort()).toEqual(names('src/content/rooms'));
     for (const r of CONTENT.rooms) expect(validateRoomTemplate(r), r.id).toEqual([]);
+  });
+
+  it('every file of Tunings holds the Tunings of the owner it is named after', () => {
+    const owners = names('src/content/tunings');
+    for (const t of Object.values(CONTENT.tunings)) expect(owners, `${t.id} belongs to ${t.owner}`).toContain(t.owner);
+    expect(validateTunings(CONTENT.tunings, CONTENT.harmonies)).toEqual([]);
   });
 
   it('every rig file is one rig, named after its file, and every enemy has its rig', () => {

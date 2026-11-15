@@ -194,6 +194,23 @@ export class Input {
     return f;
   }
 
+  /**
+   * The frame to send while a menu has the keys: standing still, nothing held, and no press
+   * counted. Presses made meanwhile are for the menu to take, and are forgotten otherwise.
+   */
+  quiet(): InputFrame {
+    const f = this.frameOut;
+    setMove(f, 0, 0, 0);
+    f.held = 0;
+    return f;
+  }
+
+  /** Read the controllers for a menu: one step left (-1) or right (1) for each push of the stick or the d-pad. */
+  menuStep(): number {
+    this.pollPad();
+    return this.pads.stepX;
+  }
+
   private trackMouse(e: PointerEvent): void {
     const r = this.canvas.getBoundingClientRect();
     this.mouseX = e.clientX - r.left;

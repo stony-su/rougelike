@@ -278,6 +278,33 @@ export const FREEZE = {
   hurt: 3,
 };
 
+/**
+ * Numbers of the Tunings that are the same at every rank. The numbers that change with rank are
+ * data, in src/content/tunings.
+ */
+export const TUNE = {
+  afterimageTime: 3,
+  /** How close a dash must pass to knock an Echo aside (Ram), beyond the two bodies touching. */
+  ramReach: 0.25,
+  /** How long a Return's burn and chill last. */
+  elementTime: 3,
+  overtoneRadius: 2.5,
+  overtoneDamage: 15,
+  /** How far lightning jumps from one Echo to the next. */
+  stormReach: 5,
+  wardRadius: 2.5,
+  wardDamage: 15,
+  wardIframes: 1,
+  steamRadius: 1.5,
+  steamDamage: 25,
+  steamStun: 0.8,
+  /** Seconds before the same Echo can burst into Steam again. */
+  steamRest: 3,
+  /** What the first Return of a chamber is multiplied by (Opening Note), and every Return at full Rally (Perfect Pitch). */
+  openingCrit: 2,
+  perfectPitch: 1.5,
+};
+
 export const SCALING = {
   hpPerChamber: 0.08,
   damagePerChamber: 0.04,

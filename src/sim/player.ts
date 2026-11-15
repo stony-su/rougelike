@@ -2,14 +2,18 @@
 // buttons do belongs to the class kits in ./classes.
 import { PI, dcos, dexp, dhypot, dsin } from '../core/dmath';
 import type { Vec2 } from '../core/exact';
+import { pushBody } from './bodies';
 import { BOW_KIT } from './classes/bow';
 import { FIST_KIT } from './classes/fist';
 import type { Kit } from './classes/kit';
 import { SWORD_KIT } from './classes/sword';
+import { damageEnemy, hittable } from './combat';
+import type { ContentRegistry } from './defs';
 import { aimAngleOf, aimDistOf, moveInto } from './input';
+import { baseMods, computeMods } from './mods';
 import { rest, shift, walk } from './move';
 import { stepRally } from './rally';
-import { DASH, KNOCK_DECAY, PLAYER, REVIVE } from './tuning';
+import { DASH, KNOCK_DECAY, PLAYER, REVIVE, TUNE } from './tuning';
 import { PRESS, PRESS_COUNT } from './types';
 import type { ClassId, InputFrame, Player, World } from './types';
 
@@ -66,7 +70,43 @@ export function createPlayer(slot: number, classId: ClassId, x: number, y: numbe
     guardT: 0,
     guardHit: false,
     reviveT: 0,
+    tunings: {},
+    mods: baseMods(),
+    afterT: 0,
+    dodged: false,
+    dashHit: [],
+    opening: true,
+    overtoneAcc: 0,
+    stormAcc: 0,
+    sustainT: 0,
+    wardLeft: 0,
+    purseFrac: 0,
   };
+}
+
+/** Work out what a player's Tunings add up to, and the limits that follow from them. Health is left alone. */
+export function equip(p: Player, content: ContentRegistry): void {
+  p.mods = computeMods(p.tunings, content.tunings, content.harmonies);
+  p.dashMaxCharges = DASH.charges + p.mods.dashCharges;
+}
+
+/** Give a player one more rank of a Tuning, now. Health gained is healed at once. */
+export function grantTuning(w: World, p: Player, id: string): void {
+  const def = w.content.tunings[id];
+  if (!def) return;
+  const rank = Math.min(def.maxRank, (p.tunings[id] ?? 0) + 1);
+  p.tunings[id] = rank;
+  const health = p.mods.maxHp;
+  const ward = p.mods.ward;
+  equip(p, w.content);
+  const gained = p.mods.maxHp - health;
+  if (gained !== 0) {
+    p.maxHp += gained;
+    p.hp = Math.max(1, Math.min(p.maxHp, p.hp + gained));
+  }
+  // a ward taken in the middle of a chamber is ready at once
+  if (p.mods.ward > ward) p.wardLeft += p.mods.ward - ward;
+  w.events.push({ type: 'tuning', player: p.slot, id, rank, x: p.x, y: p.y });
 }
 
 /**
@@ -100,6 +140,8 @@ function startDash(w: World, p: Player, move: Vec2): void {
   p.dashDirX = dx / l;
   p.dashDirY = dy / l;
   p.dashTimeLeft = DASH.time;
+  p.dodged = false;
+  p.dashHit.length = 0;
   p.dashCharges -= 1;
   p.iframes = Math.max(p.iframes, DASH.iframes);
   p.bufDash = 0;
@@ -108,6 +150,24 @@ function startDash(w: World, p: Player, move: Vec2): void {
   p.state = 'dash';
   p.stateTime = 0;
   w.events.push({ type: 'dash', player: p.slot, x: p.x, y: p.y, dx: p.dashDirX, dy: p.dashDirY });
+}
+
+/** Ram: a dash knocks aside every Echo it passes, once each. */
+function ram(w: World, p: Player): void {
+  for (const e of w.enemies) {
+    if (!hittable(e) || e.airborne || p.dashHit.includes(e.id)) continue;
+    const dx = e.x - p.x;
+    const dy = e.y - p.y;
+    const reach = p.radius + e.radius + TUNE.ramReach;
+    if (dx * dx + dy * dy > reach * reach) continue;
+    p.dashHit.push(e.id);
+    const d = dhypot(dx, dy);
+    // aside: away from the line of the dash; an Echo dead ahead goes the way the dash is going
+    const ax = d > 1e-6 ? dx / d : p.dashDirX;
+    const ay = d > 1e-6 ? dy / d : p.dashDirY;
+    damageEnemy(w, e, p.mods.ramDamage, { kind: 'direct', by: p.slot, dx: ax, dy: ay });
+    if (!e.dead) pushBody(w, e, ax, ay, p.mods.ram, p.slot);
+  }
 }
 
 export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): void {
@@ -146,6 +206,7 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
   if (p.bufInteract > 0) p.bufInteract -= dt;
   if (p.comboTimer > 0) p.comboTimer -= dt;
   if (p.fireT > 0) p.fireT -= dt;
+  if (p.afterT > 0) p.afterT = Math.max(0, p.afterT - dt);
   if (p.specialCd > 0) {
     p.specialCd -= dt;
     if (p.specialCd <= 0) {
@@ -155,7 +216,7 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
   }
   if (p.dashCharges < p.dashMaxCharges) {
     p.dashRecharge += dt;
-    if (p.dashRecharge >= DASH.recharge) {
+    if (p.dashRecharge >= DASH.recharge * p.mods.dashRecharge) {
       p.dashRecharge = 0;
       p.dashCharges += 1;
       w.events.push({ type: 'dashCharge', player: p.slot, charges: p.dashCharges });
@@ -188,6 +249,7 @@ export function stepPlayer(w: World, p: Player, inp: InputFrame, dt: number): vo
     const speed = DASH.distance / DASH.time;
     const step = Math.min(dt, p.dashTimeLeft);
     shift(w, p, p.dashDirX * speed * step, p.dashDirY * speed * step);
+    if (p.mods.ram > 0) ram(w, p);
     p.dashTimeLeft -= dt;
     p.vx = p.dashDirX * speed;
     p.vy = p.dashDirY * speed;

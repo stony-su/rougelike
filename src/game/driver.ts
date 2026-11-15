@@ -4,8 +4,9 @@
 // cares which it has.
 import { CONTENT } from '../content';
 import { Loopback } from '../net/transport';
-import { EXPERT, classBot } from '../sim/bots';
+import { BOT_THINKS, EXPERT, botPick, classBot } from '../sim/bots';
 import type { Bot } from '../sim/bots';
+import { DRAFT_TICKS } from '../sim/draft';
 import { createSession, stepSession, worldOf } from '../sim/session';
 import type { CommandKind, Session, SessionConfig } from '../sim/session';
 import type { InputFrame } from '../sim/types';
@@ -51,6 +52,8 @@ export class SoloDriver implements Driver {
   private readonly loop: Loopback;
   /** One entry per seat: a bot for every seat but this laptop's own. */
   private readonly bots: Array<Bot | null>;
+  /** For each bot seat, the draft it has already answered. */
+  private readonly answered: string[] = [];
 
   constructor(config: SessionConfig) {
     this.session = createSession(config, CONTENT);
@@ -69,7 +72,17 @@ export class SoloDriver implements Driver {
   step(nowMs: number, onTick: OnTick): void {
     const s = this.session;
     this.bots.forEach((bot, slot) => {
-      if (bot) this.loop.input(slot, bot.think(worldOf(s, slot), slot), nowMs);
+      if (!bot) return;
+      const w = worldOf(s, slot);
+      this.loop.input(slot, bot.think(w, slot), nowMs);
+      // a bot companion takes its card after a moment, so nobody waits on it
+      const d = s.drafts[slot];
+      const me = w.players.find((p) => p.slot === slot);
+      if (!d || !me || d.offers.length === 0 || d.timer > DRAFT_TICKS - BOT_THINKS) return;
+      const key = `${s.attempt}/${s.stop}/${d.rolled}`;
+      if (this.answered[slot] === key) return;
+      this.answered[slot] = key;
+      this.loop.command(slot, 'pick', botPick(d.offers, me.tunings, CONTENT));
     });
     for (const bundle of this.loop.poll(nowMs)) {
       stepSession(s, bundle, CONTENT);

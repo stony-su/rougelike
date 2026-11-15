@@ -2,6 +2,8 @@
 // simulation never imports content directly. It is handed a ContentRegistry when a session is
 // created, so tests can run the same engine on fixture content.
 
+import type { HarmonyDef, TuningDef } from './mods';
+
 /** The two halves of a run: the Outer Ring and the Inner Ring. */
 export type ZoneId = 'outer' | 'inner';
 export type RoomKind = 'combat' | 'arena';
@@ -95,6 +97,9 @@ export interface EnemyDef {
 export interface ContentRegistry {
   rooms: readonly RoomTemplate[];
   enemies: Readonly<Record<string, EnemyDef>>;
+  /** Every Tuning by id, and the Harmonies between them (mods.ts has the shapes). */
+  tunings: Readonly<Record<string, TuningDef>>;
+  harmonies: readonly HarmonyDef[];
 }
 
 /** Problems in an enemy definition, as human-readable strings. Used by content tests. */

@@ -58,7 +58,7 @@ export type HostMsg =
   | { t: 'bye'; why: string };
 
 const CLASSES: readonly string[] = ['sword', 'bow', 'fist'];
-const KINDS: readonly string[] = ['pause', 'restart'];
+const KINDS: readonly string[] = ['pause', 'restart', 'pick', 'reroll'];
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
 const clampInt = (v: unknown, lo: number, hi: number): number => (isInt(v) ? (v < lo ? lo : v > hi ? hi : v) : lo);

@@ -10,6 +10,9 @@
 import { spawnEnemy } from './ai';
 import { standing } from './combat';
 import type { ContentRegistry } from './defs';
+import { DRAFT_TICKS, newDraft, rollOffers } from './draft';
+import type { Draft } from './draft';
+import { grantTuning } from './player';
 import { buildRoom, randomFloorPoint } from './room';
 import { generateRoom } from './roomgen';
 import { CAMP_HEAL, flowFor, planRoute, roomSpec } from './run';
@@ -44,7 +47,11 @@ export interface SessionConfig {
   practice?: boolean;
 }
 
-export type CommandKind = 'pause' | 'restart';
+/**
+ * 'pick' takes card `a` (0, 1 or 2) of the player's draft; 'reroll' deals their cards again, if
+ * they have a reroll left.
+ */
+export type CommandKind = 'pause' | 'restart' | 'pick' | 'reroll';
 
 /** Something a player decided, outside moment-to-moment input. Applied in the order the bundle lists them. */
 export interface Command {
@@ -104,6 +111,8 @@ export interface Session {
   downFor: number;
   /** Ticks since the current chamber was cleared, or -1. */
   clearFor: number;
+  /** For each slot, the Tunings that player is being offered (draft.ts). */
+  drafts: Draft[];
 }
 
 /** Ticks the world plays on after the whole party is down, before the run is called lost. */
@@ -141,6 +150,7 @@ function begin(s: Session, content: ContentRegistry): void {
   s.downFor = -1;
   s.clearFor = -1;
   s.pausedBy = -1;
+  s.drafts = s.config.players.map(() => newDraft());
   s.worlds = [s.config.practice ? openPractice(s, content, 1, fresh(s)) : openStop(s, content, fresh(s))];
   s.where = s.config.players.map(() => 0);
 }
@@ -162,6 +172,7 @@ export function createSession(config: SessionConfig, content: ContentRegistry): 
     lastSeq: config.players.map(() => 0),
     downFor: -1,
     clearFor: -1,
+    drafts: [],
   };
   begin(s, content);
   return s;
@@ -199,7 +210,52 @@ function applyCommand(s: Session, c: Command, content: ContentRegistry): void {
     s.pausedBy = s.pausedBy >= 0 ? -1 : c.slot;
   } else if (c.kind === 'restart') {
     restart(s, content);
+  } else if (c.kind === 'pick') {
+    pick(s, c.slot, c.a);
+  } else if (c.kind === 'reroll') {
+    const d = s.drafts[c.slot];
+    if (d && d.offers.length > 0 && d.rerolls > 0) {
+      d.rerolls--;
+      d.rolled++;
+      deal(s, content, c.slot);
+    }
   }
+}
+
+/** Deal a player's cards from the seed, the chamber, their seat and how often they have asked again. */
+function deal(s: Session, content: ContentRegistry, slot: number): void {
+  const d = s.drafts[slot];
+  const p = worldOf(s, slot).players.find((q) => q.slot === slot);
+  if (!d || !p) return;
+  const seed = `${s.config.seed}/${s.attempt}/draft/${s.stop}/${slot}/${d.rolled}`;
+  d.offers = rollOffers(seed, p.classId, p.tunings, content, d.made, d.rare);
+  d.timer = d.offers.length > 0 ? DRAFT_TICKS : 0;
+}
+
+/** A cleared fight pays every player a choice of Tunings. A camp does not, and after the last chamber there is nothing left to build for. */
+function openDrafts(s: Session, content: ContentRegistry, w: World): void {
+  const kind = w.flow.kind;
+  if (kind === 'camp' || kind === 'boss') return;
+  for (const p of w.players) {
+    const d = s.drafts[p.slot];
+    d.rare = kind === 'elite' || kind === 'miniboss';
+    d.rolled = 0;
+    deal(s, content, p.slot);
+  }
+}
+
+/** Take a card. Ignored unless that card is on that player's table, so a pick sent twice does nothing the second time. */
+function pick(s: Session, slot: number, index: number): void {
+  const d = s.drafts[slot];
+  const id = d ? d.offers[index] : undefined;
+  if (!d || id === undefined) return;
+  const w = worldOf(s, slot);
+  const p = w.players.find((q) => q.slot === slot);
+  if (!p) return;
+  grantTuning(w, p, id);
+  d.offers = [];
+  d.timer = 0;
+  d.made++;
 }
 
 /** Start over: a new route, the first chamber, fresh characters. */
@@ -216,7 +272,7 @@ function carry(w: World, heal: number): Entrant[] {
   const lying = w.flow.pickups.reduce((sum, c) => sum + c.value, 0);
   return w.players.map((p) => {
     const hp = standing(p) ? p.hp : Math.max(1, Math.round(p.maxHp * REVIVE.hp));
-    return { slot: p.slot, classId: p.classId, maxHp: p.maxHp, hp: Math.min(p.maxHp, hp + Math.round(p.maxHp * heal)), chimes: p.chimes + lying };
+    return { slot: p.slot, classId: p.classId, maxHp: p.maxHp, hp: Math.min(p.maxHp, hp + Math.round(p.maxHp * heal)), chimes: p.chimes + lying, tunings: p.tunings };
   });
 }
 
@@ -262,8 +318,20 @@ export function stepSession(s: Session, bundle: Bundle, content: ContentRegistry
 
   const w = s.worlds[0];
   if (s.config.stress === 0 && w.flow.phase === 'cleared') {
-    s.clearFor = s.clearFor < 0 ? 0 : s.clearFor + 1;
-    if (s.clearFor >= CLEAR_BEAT) {
+    if (s.clearFor < 0) {
+      s.clearFor = 0;
+      if (!s.config.practice) openDrafts(s, content, w);
+    } else {
+      s.clearFor++;
+    }
+    // whoever is still looking at their cards when the time is up is given the first
+    for (const d of s.drafts) {
+      if (d.offers.length === 0) continue;
+      d.timer--;
+      if (d.timer <= 0) pick(s, s.drafts.indexOf(d), 0);
+    }
+    // the party walks on once the quiet is over and everyone has chosen
+    if (s.clearFor >= CLEAR_BEAT && s.drafts.every((d) => d.offers.length === 0)) {
       s.clearFor = -1;
       // Everyone walks on with what they have, and the fallen stand up again.
       if (s.config.practice) s.worlds[0] = openPractice(s, content, w.chamber + 1, carry(w, 0));

@@ -2,7 +2,7 @@
 // time, won at the end of the last and lost when the whole party is down.
 import { describe, expect, it } from 'vitest';
 import { CONTENT } from '../src/content';
-import { classBot, idleBot } from '../src/sim/bots';
+import { botCommands, classBot, idleBot } from '../src/sim/bots';
 import type { Bot } from '../src/sim/bots';
 import { standing } from '../src/sim/combat';
 import { RUN_LENGTH, flowFor, planRoute } from '../src/sim/run';
@@ -25,7 +25,8 @@ const config = (players: number, seed: string): SessionConfig => ({
 /** One tick with a bot in every seat. `unhurt` keeps the party on its feet, to walk the whole road. */
 function tick(s: Session, bots: Bot[], unhurt = false): void {
   const inputs = bots.map((b, slot) => ({ ...b.think(worldOf(s, slot), slot) }));
-  stepSession(s, { tick: s.tick + 1, inputs, cmds: [] }, CONTENT);
+  // the bots take their cards, as a person would
+  stepSession(s, { tick: s.tick + 1, inputs, cmds: botCommands(s, CONTENT) }, CONTENT);
   for (const w of s.worlds) {
     w.events.length = 0;
     if (unhurt) for (const p of w.players) if (standing(p)) p.hp = p.maxHp;

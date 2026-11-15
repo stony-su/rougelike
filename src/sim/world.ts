@@ -5,7 +5,7 @@ import type { ContentRegistry } from './defs';
 import { stepBombs } from './bombs';
 import { createFlow, stepFlow } from './flow';
 import type { RoomFlow } from './flow';
-import { createPlayer, readPresses, stepPlayer } from './player';
+import { createPlayer, equip, readPresses, stepPlayer } from './player';
 import { stepProjectiles } from './projectiles';
 import { clampToFloor } from './room';
 import { stepStones } from './stones';
@@ -21,6 +21,8 @@ export interface Entrant {
   hp?: number;
   maxHp?: number;
   chimes?: number;
+  /** The Tunings they hold, id to rank. */
+  tunings?: Readonly<Record<string, number>>;
 }
 
 export interface WorldOptions {
@@ -47,6 +49,11 @@ export function createWorld(room: Room, seed: number | string, content: ContentR
     const off = START_OFFSETS[i % START_OFFSETS.length];
     const at = clampToFloor(room, room.start.x + off[0], room.start.y + off[1], PLAYER.radius, { x: 0, y: 0 });
     const p = createPlayer(en.slot, en.classId, at.x, at.y);
+    // what they have built so far comes in with them; charges and wards are full again in a new chamber
+    p.tunings = { ...(en.tunings ?? {}) };
+    equip(p, content);
+    p.dashCharges = p.dashMaxCharges;
+    p.wardLeft = p.mods.ward;
     if (en.maxHp !== undefined) p.maxHp = en.maxHp;
     p.hp = Math.min(p.maxHp, en.hp ?? p.maxHp);
     p.chimes = en.chimes ?? 0;
@@ -110,10 +117,13 @@ function stepRevives(w: World, dt: number): void {
   for (const p of w.players) {
     if (p.state !== 'down') continue;
     let helper = -1;
+    let speed = 1;
     for (const q of w.players) {
       if (q === p || !standing(q)) continue;
       if ((q.x - p.x) * (q.x - p.x) + (q.y - p.y) * (q.y - p.y) <= REVIVE.radius * REVIVE.radius) {
         helper = q.slot;
+        // an Echo Ward at its higher ranks helps allies up faster
+        speed = q.mods.reviveSpeed;
         break;
       }
     }
@@ -121,7 +131,7 @@ function stepRevives(w: World, dt: number): void {
       p.reviveT = Math.max(0, p.reviveT - REVIVE.decay * dt);
       continue;
     }
-    p.reviveT += dt;
+    p.reviveT += dt * speed;
     if (p.reviveT < REVIVE.time) continue;
     p.reviveT = 0;
     p.state = 'idle';
