@@ -63,6 +63,7 @@ if (params.has('selftest')) {
         .map((c) => c.trim())
         .filter((c): c is 'sword' | 'bow' | 'fist' => c === 'sword' || c === 'bow' || c === 'fist'),
       stress: Number(params.get('stress') ?? 0) || 0,
+      backdrop: !params.has('nobackdrop'),
     };
     if (opts.classes.length === 0) opts.classes.push('sword');
     // A page served by the host program joins its lobby. Anything else (the dev server, a plain

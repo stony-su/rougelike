@@ -7,6 +7,7 @@ import type { Application, Ticker } from 'pixi.js';
 import { GameAudio } from '../audio';
 import { AimPreview } from '../render/aimPreview';
 import { Ambient } from '../render/ambient';
+import { Backdrop } from '../render/backdrop';
 import { Camera } from '../render/camera';
 import { DamageNumbers } from '../render/damageNumbers';
 import { EnemyViews } from '../render/enemyView';
@@ -44,6 +45,8 @@ export interface GameOptions {
   classes: ClassId[];
   /** Stress scene: keep this many enemies alive and nobody can be hurt. 0 = off. */
   stress: number;
+  /** Draw the shader backdrop. Off (?nobackdrop) to measure what it costs. */
+  backdrop: boolean;
 }
 
 /** In the practice court the number keys change class: the page starts again with the new one. */
@@ -90,6 +93,7 @@ export class Game {
   private readonly fx: Fx;
   private readonly hud: Hud;
   private readonly ambient: Ambient;
+  private readonly backdrop: Backdrop;
   private readonly audio = new GameAudio();
   private readonly pausedLabel: Label;
   private time = 0;
@@ -130,6 +134,8 @@ export class Game {
     this.theme = ZONES[room.zone];
     app.renderer.background.color = this.theme.voidColor;
 
+    this.backdrop = new Backdrop(app.renderer, this.stage);
+    this.backdrop.setTheme(this.theme);
     this.roomView = new RoomView(room, this.theme, this.stage);
     this.particles = new Particles(this.stage, this.textures);
     this.numbers = new DamageNumbers(this.stage);
@@ -184,6 +190,7 @@ export class Game {
     this.pickupView.destroy();
     this.roomView.destroy();
     this.ambient.destroy();
+    this.backdrop.destroy();
     this.audio.destroy();
     this.particles.destroy();
     this.numbers.destroy();
@@ -259,6 +266,7 @@ export class Game {
     this.camera.setViewport(this.viewW, this.viewH);
     this.camera.frameRoom(this.viewed.room, false);
     this.ambient.resize(this.viewW, this.viewH);
+    this.backdrop.resize(this.viewW, this.viewH);
     this.hud.layout(this.viewW, this.viewH);
     this.pausedLabel.position.set(this.viewW / 2, this.viewH * 0.4);
     this.debugText?.position.set(14, this.viewH - 190);
@@ -305,6 +313,8 @@ export class Game {
     this.enemyViews.setTheme(this.theme);
     this.fx.setTheme(this.theme);
     this.ambient.setRoom(room, this.theme);
+    this.backdrop.setTheme(this.theme);
+    this.backdrop.pulse(1);
     this.audio.setZone(room.zone);
     this.camera.frameRoom(room, true);
   }
@@ -316,18 +326,30 @@ export class Game {
     this.fx.handle(ev);
     this.audio.handle(ev, this.localSlot, this.focusX, this.focusY);
     switch (ev.type) {
-      // the exact point of a bounce goes into the trail of whatever bounced
+      // the exact point of a bounce goes into the trail of whatever bounced, and a ring crosses the backdrop
       case 'ricochet':
         this.trails.corner(ev.id, ev.x, ev.y, FLY_Z);
+        this.backdrop.ripple(ev.x, ev.y, 0.3 + 0.12 * ev.n);
         break;
       case 'reflect':
         this.trails.corner(ev.id, ev.x, ev.y, FLY_Z);
+        this.backdrop.ripple(ev.x, ev.y, ev.perfect ? 1 : 0.5);
+        if (ev.perfect) this.backdrop.pulse(0.6);
         break;
       case 'wallSlam':
         this.trails.corner(ev.id, ev.x, ev.y, 0.45);
+        if (ev.speed > 5) this.backdrop.ripple(ev.x, ev.y, ev.speed / 22);
+        break;
+      case 'carom':
+        this.backdrop.ripple(ev.x, ev.y, ev.speed / 20);
+        break;
+      case 'bombBurst':
+      case 'breakSlam':
+        this.backdrop.ripple(ev.x, ev.y, 1);
         break;
       case 'roomClear':
         this.hud.banner('Chamber cleared', CHIME);
+        this.backdrop.pulse(1);
         break;
       case 'waveStart':
         if (ev.wave > 1) this.hud.banner(`Wave ${ev.wave}`, PAPER, 1.2);
@@ -433,6 +455,7 @@ export class Game {
     const aimY = me ? fy + Math.sin(me.aim) * 3 : fy;
     this.camera.update(dt, fx, fy, aimX, aimY);
     this.stage.applyCamera(this.camera);
+    if (this.opts.backdrop) this.backdrop.update(dt, this.camera, this.viewW, this.viewH);
     this.ambient.update(dt);
     this.hud.update(w, me, dt);
     this.hud.setNet(this.driver.net());

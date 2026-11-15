@@ -100,8 +100,10 @@ export class TelegraphViews {
       if (!v) {
         const s = shapesFor(t);
         const c = new Container();
-        const outline = new Graphics(s.outline);
-        const fill = new Graphics(s.fill);
+        // a fan is redrawn every frame, so it needs drawings of its own; the fixed shapes are shared
+        const isFan = t.shape === 'lane' && t.count > 1;
+        const outline = isFan ? new Graphics() : new Graphics(s.outline);
+        const fill = isFan ? new Graphics() : new Graphics(s.fill);
         outline.tint = DANGER;
         fill.tint = DANGER;
         c.addChild(outline, fill);

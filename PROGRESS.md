@@ -3,14 +3,14 @@
 Where the build stands, what is next, and what is kept for later. Updated at every commit.
 The design is in [DESIGN.md](DESIGN.md); how to run the game is in [README.md](README.md).
 
-**Overall: about 42% complete.** (Each milestone's share of the whole is given below; the figure is the sum of what is done.)
+**Overall: about 46% complete.** (Each milestone's share of the whole is given below; the figure is the sum of what is done.)
 
 | # | Milestone | Share | Done | State |
 |---|---|---|---|---|
 | 0 | Foundation: deterministic simulation, sessions, snapshots | 8% | 100% | Done |
 | 1 | The Rebound: three classes, bouncing bodies and shots, Rally, controller | 18% | 100% | Done |
 | 2 | Together: host program, lobby, staying in step, repair, revive, Duets | 12% | 100% | Done |
-| 3 | Chambers: generated rooms, two looks, shader backdrops, follow camera | 14% | 15% | Next. The two looks exist on hand-built rooms |
+| 3 | Chambers: generated rooms, two looks, shader backdrops, follow camera | 14% | 50% | In progress. Generator and shader backdrop are built and tested; the run does not use the generator yet, and there is no follow camera |
 | 4 | A run you can win: route, upgrades, shop, rest, wager, two bosses, screens | 26% | 0% | |
 | 5 | Full content: remaining upgrades and Harmonies, more Echoes, elites | 10% | 0% | |
 | 6 | Menus, saving, sound | 8% | 30% | Sound engine written; menus and saving not started |
@@ -19,9 +19,11 @@ The design is in [DESIGN.md](DESIGN.md); how to run the game is in [README.md](R
 ## To do, in order
 
 ### Now: chambers (milestone 3)
-- [ ] Room generator: several shapes, 22 to 36 tiles across, walls, posts, bumpers, pits
+- [x] Room generator: five shapes (court, cross, lobes, ring, cavern), walls, cut corners, posts, bumpers, pits (`src/sim/roomgen.ts`, tested over 800 rooms)
+- [ ] Use the generator for the chambers of the run (the session still takes the two hand-built rooms in turn)
 - [ ] Camera that follows your own player
-- [ ] GLSL backdrop under the floating chamber, one per biome (Reedwater, Stormshelf, the Crater)
+- [x] GLSL backdrop under the floating chamber, with a ring across it at every bounce (Reedwater water and Stormshelf cloud sea are wired in; the Crater rings are in the shader but have no zone yet)
+- [ ] Upgrade engine: the numbers every Tuning changes are written (`src/sim/mods.ts`); the rules do not read them yet, and no Tunings are defined
 - [ ] GLSL floor ripples where things bounce
 
 ### Then: a run you can win (milestone 4)

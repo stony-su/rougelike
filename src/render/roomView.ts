@@ -269,7 +269,8 @@ export class RoomView {
       for (let x = 0; x < room.w; x++) {
         const t = this.tile(x, y);
         if (t === TILE.pit) {
-          g.poly(lift([x, y, x + 1, y, x + 1, y + 1, x, y + 1], 0)).fill(theme.pitDeep);
+          // a hole: what lies below shows through, in shadow
+          g.poly(lift([x, y, x + 1, y, x + 1, y + 1, x, y + 1], 0)).fill({ color: theme.pitDeep, alpha: 0.45 });
           continue;
         }
         const shape = floorShape(t, x, y);
