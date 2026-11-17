@@ -17,7 +17,11 @@ export class BossBar {
   private shown = 0;
   /** The share the pale bar shows; it follows the real one down. */
   private ghost = 1;
-  private bossId = 0;
+  /**
+   * Which boss the bar is showing: the room as well as its id, because ids start again in every
+   * room. Keyed on the id alone, the Toll took over the Carillon's bar, name and all.
+   */
+  private bossKey = '';
   private marks = '';
 
   constructor() {
@@ -45,8 +49,9 @@ export class BossBar {
     this.root.visible = this.shown > 0.02;
     this.root.alpha = this.shown;
     if (!boss) return;
-    if (boss.id !== this.bossId) {
-      this.bossId = boss.id;
+    const who = `${w.chamber}/${w.room.id}/${boss.id}`;
+    if (who !== this.bossKey) {
+      this.bossKey = who;
       this.ghost = 1;
       this.marks = '';
       this.name.text = boss.def.name;
@@ -57,7 +62,7 @@ export class BossBar {
     // the frame and its notches are drawn once for each boss and width
     const pips = boss.def.pips ?? 0;
     const broken = pips > 0 ? Math.min(pips, boss.mem[0] ?? 0) : 0;
-    const key = `${boss.id}/${this.width}/${broken}`;
+    const key = `${who}/${this.width}/${broken}`;
     if (key !== this.marks) {
       this.marks = key;
       this.frame.clear();
